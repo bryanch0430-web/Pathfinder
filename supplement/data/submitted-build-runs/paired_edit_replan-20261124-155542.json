@@ -1,0 +1,314 @@
+{
+  "commit": "8f1e0d5",
+  "writer": "claude-sonnet-5.5",
+  "max_repairs": 2,
+  "rows": [
+    {
+      "id": "ed01",
+      "input": "Swap the hotel for the other option, keep everything else.",
+      "target": "",
+      "seed": {
+        "calls": 4,
+        "tokens": 37676,
+        "models": [
+          "claude-sonnet-5.5"
+        ],
+        "latency_ms": 89487.8,
+        "stops": [
+          "Nishiki Market",
+          "Fushimi Inari Taisha",
+          "Yasaka Shrine",
+          "Gion",
+          "Arashiyama Bamboo Grove",
+          "Kinkaku-ji"
+        ],
+        "hotels": [
+          "Kyoto Tower Hotel"
+        ]
+      },
+      "edit": {
+        "calls": 2,
+        "tokens": 14578,
+        "models": [
+          "claude-sonnet-5.5"
+        ],
+        "latency_ms": 14962.1,
+        "stops_after": 6,
+        "unnamed_kept": 6,
+        "unnamed_total": 6,
+        "kept_share": 1.0,
+        "change_applied": false,
+        "hotels_after": [
+          "Kyoto Tower Hotel"
+        ]
+      },
+      "replan": {
+        "calls": 7,
+        "tokens": 54920,
+        "models": [
+          "claude-sonnet-5.5",
+          "deepseek-flash"
+        ],
+        "latency_ms": 134774.9,
+        "stops_after": 6,
+        "unnamed_kept": 5,
+        "unnamed_total": 6,
+        "kept_share": 0.833,
+        "change_applied": false,
+        "hotels_after": [
+          "Kyoto Tower Hotel"
+        ]
+      },
+      "valid": true
+    },
+    {
+      "id": "ed02",
+      "input": "Remove Shibuya Sky from the plan.",
+      "target": "Shibuya Sky",
+      "seed": {
+        "calls": 4,
+        "tokens": 42622,
+        "models": [
+          "claude-sonnet-5.5"
+        ],
+        "latency_ms": 119178.4,
+        "stops": [
+          "Meiji Jingu",
+          "Shibuya Crossing",
+          "Tsukiji Outer Market",
+          "Senso-ji",
+          "Ichiran Shibuya",
+          "Imperial Palace East Gardens",
+          "Shinjuku Gyoen"
+        ],
+        "hotels": [
+          "Shinjuku Granbell Hotel"
+        ]
+      },
+      "edit": {
+        "calls": 1,
+        "tokens": 6420,
+        "models": [
+          "claude-sonnet-5.5"
+        ],
+        "latency_ms": 12963.4,
+        "stops_after": 7,
+        "unnamed_kept": 7,
+        "unnamed_total": 7,
+        "kept_share": 1.0,
+        "change_applied": true,
+        "hotels_after": [
+          "Shinjuku Granbell Hotel"
+        ]
+      },
+      "replan": {
+        "calls": 7,
+        "tokens": 59205,
+        "models": [
+          "claude-sonnet-5.5",
+          "deepseek-flash"
+        ],
+        "latency_ms": 156914.3,
+        "stops_after": 5,
+        "unnamed_kept": 5,
+        "unnamed_total": 7,
+        "kept_share": 0.714,
+        "change_applied": true,
+        "hotels_after": [
+          "Shinjuku Granbell Hotel"
+        ]
+      },
+      "valid": true
+    },
+    {
+      "id": "ed03",
+      "input": "Swap the hotel for a different one.",
+      "target": "",
+      "seed": {
+        "calls": 2,
+        "tokens": 16645,
+        "models": [
+          "claude-sonnet-5.5"
+        ],
+        "latency_ms": 40374.7,
+        "stops": [
+          "Mak's Noodle",
+          "Tai Kwun",
+          "Man Mo Temple",
+          "Ho Lee Fook",
+          "Tsim Sha Tsui Promenade",
+          "Australia Dairy Company",
+          "Hong Kong Palace Museum",
+          "Tim Ho Wan (Sham Shui Po)",
+          "M+ Museum",
+          "Victoria Peak",
+          "Yung Kee",
+          "Wong Tai Sin Temple",
+          "Star Ferry"
+        ],
+        "hotels": [
+          "Ovolo Central"
+        ]
+      },
+      "edit": {
+        "calls": 2,
+        "tokens": 15396,
+        "models": [
+          "claude-sonnet-5.5"
+        ],
+        "latency_ms": 11885.6,
+        "stops_after": 13,
+        "unnamed_kept": 13,
+        "unnamed_total": 13,
+        "kept_share": 1.0,
+        "change_applied": false,
+        "hotels_after": [
+          "Ovolo Central"
+        ]
+      },
+      "replan": {
+        "calls": 3,
+        "tokens": 19644,
+        "models": [
+          "claude-sonnet-5.5",
+          "deepseek-flash"
+        ],
+        "latency_ms": 45892.2,
+        "stops_after": 13,
+        "unnamed_kept": 12,
+        "unnamed_total": 13,
+        "kept_share": 0.923,
+        "change_applied": true,
+        "hotels_after": [
+          "Cordis, Hong Kong"
+        ]
+      },
+      "valid": true
+    },
+    {
+      "id": "ed04",
+      "input": "Drop The High Line from the itinerary.",
+      "target": "The High Line",
+      "seed": {
+        "calls": 3,
+        "tokens": 26751,
+        "models": [
+          "claude-sonnet-5.5"
+        ],
+        "latency_ms": 70828.0,
+        "stops": [
+          "Top of the Rock",
+          "Times Square",
+          "Joe's Pizza",
+          "Statue of Liberty",
+          "Vanessa's Dumpling House",
+          "9/11 Memorial & Museum",
+          "Brooklyn Bridge",
+          "Katz's Delicatessen",
+          "Russ & Daughters",
+          "The Metropolitan Museum of Art",
+          "Central Park"
+        ],
+        "hotels": [
+          "citizenM Times Square"
+        ]
+      },
+      "edit": {
+        "calls": 2,
+        "tokens": 23192,
+        "models": [
+          "claude-sonnet-5.5"
+        ],
+        "latency_ms": 15146.2,
+        "stops_after": 11,
+        "unnamed_kept": 11,
+        "unnamed_total": 11,
+        "kept_share": 1.0,
+        "change_applied": true,
+        "hotels_after": [
+          "citizenM Times Square"
+        ]
+      },
+      "replan": {
+        "calls": 4,
+        "tokens": 29141,
+        "models": [
+          "claude-sonnet-5.5",
+          "deepseek-flash"
+        ],
+        "latency_ms": 72496.1,
+        "stops_after": 10,
+        "unnamed_kept": 6,
+        "unnamed_total": 11,
+        "kept_share": 0.545,
+        "change_applied": true,
+        "hotels_after": [
+          "citizenM Times Square"
+        ]
+      },
+      "valid": true
+    },
+    {
+      "id": "ed05",
+      "input": "Remove Alcatraz Island, keep the rest.",
+      "target": "Alcatraz Island",
+      "seed": {
+        "calls": 2,
+        "tokens": 14790,
+        "models": [
+          "claude-sonnet-5.5"
+        ],
+        "latency_ms": 36169.7,
+        "stops": [
+          "Fisherman's Wharf",
+          "Coit Tower",
+          "House of Prime Rib",
+          "Alcatraz Island",
+          "Ferry Building Marketplace",
+          "Golden Gate Bridge",
+          "Greens Restaurant",
+          "Tartine Bakery",
+          "Painted Ladies",
+          "de Young Museum"
+        ],
+        "hotels": [
+          "Hotel Zephyr"
+        ]
+      },
+      "edit": {
+        "calls": 2,
+        "tokens": 13405,
+        "models": [
+          "claude-sonnet-5.5"
+        ],
+        "latency_ms": 6407.9,
+        "stops_after": 10,
+        "unnamed_kept": 9,
+        "unnamed_total": 9,
+        "kept_share": 1.0,
+        "change_applied": false,
+        "hotels_after": [
+          "Hotel Zephyr"
+        ]
+      },
+      "replan": {
+        "calls": 3,
+        "tokens": 16951,
+        "models": [
+          "claude-sonnet-5.5",
+          "deepseek-flash"
+        ],
+        "latency_ms": 34491.9,
+        "stops_after": 11,
+        "unnamed_kept": 8,
+        "unnamed_total": 9,
+        "kept_share": 0.889,
+        "change_applied": true,
+        "hotels_after": [
+          "The Marker"
+        ]
+      },
+      "valid": true
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+arm,case_id,input,check,passed,latency_ms,tokens,summary
+sonnet,ed01,"Remove the Ghibli Museum, keep everything else.",removed,True,6962.8,3712,Remove the Ghibli Museum from Day 1 and keep all other stops unchanged.
+sonnet,ed02,"Move Senso-ji to day 2 in the morning, keep everything else.",day_time,True,24788.5,64343,"Move Senso-ji from day 1 to the start of day 2 (06:30–07:45), before Meiji Jingu."
+sonnet,ed03,"Change Kiyomizu-dera to 15:00, keep the rest.",start,True,7694.8,4365,"Start Kiyomizu-dera at 15:00 instead of 15:15, and end it at 16:45."
+sonnet,ed04,"Remove the M+ Museum, keep everything else.",removed,True,4115.7,3548,Remove M+ Museum from day 1.
+sonnet,ed05,"Remove Nishiki Market, keep everything else.",removed,True,4295.3,3937,Remove Nishiki Market from day 2.
+sonnet,ed06,"Change Kiyomizu-dera to 15:00, keep the rest.",start,True,5506.3,4380,"Move Kiyomizu-dera on Day 1 to start at 15:00 (15:00–16:45, same length as before)."
+sonnet,ed07,"Remove Ippudo Kyoto, keep everything else.",removed,True,3992.4,3905,"Remove Ippudo Kyoto (Day 1 lunch, 12:00–13:00)."
+sonnet,ed08,"Change Fushimi Inari Taisha to 15:00, keep the rest.",start,True,5755.8,4211,"Move Fushimi Inari Taisha on day 3 from 08:00 to 15:00, with the same 2.5-hour visit (15:00–17:30)."

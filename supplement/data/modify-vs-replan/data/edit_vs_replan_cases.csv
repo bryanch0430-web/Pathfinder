@@ -1,0 +1,6 @@
+case_id,passed,preservation_pct,llm_calls,tokens,latency_ms_including_seed,output_summary,trace_id,quality_valid,why
+ed01,True,100.0,2,13122,62533.4,"5 stops before, 5 after, 100% kept",a578b41a62b1496fb9603f798542f28b,false,runner uses review=True (proposal not applied); preservation counts all stops including the requested removal
+ed02,True,100.0,2,13503,134483.0,"4 stops before, 4 after, 100% kept",4d02749799894007bf50d01d6e80e4d4,false,runner uses review=True (proposal not applied); preservation counts all stops including the requested removal
+ed03,True,100.0,2,15303,80196.3,"13 stops before, 13 after, 100% kept",d1978f08b64e49ffbbf9298752fbd7dc,false,runner uses review=True (proposal not applied); preservation counts all stops including the requested removal
+ed04,True,100.0,2,13595,77636.9,"11 stops before, 11 after, 100% kept",d3b2104f72b448bc849eb339cebc5a65,false,runner uses review=True (proposal not applied); preservation counts all stops including the requested removal
+ed05,True,100.0,2,13108,91958.3,"12 stops before, 12 after, 100% kept",dc607432c3af4ff4bb99d1786762f4c8,false,runner uses review=True (proposal not applied); preservation counts all stops including the requested removal

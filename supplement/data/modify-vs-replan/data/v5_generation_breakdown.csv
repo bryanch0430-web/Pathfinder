@@ -1,0 +1,9 @@
+trial,phase,purpose,model,prompt_tokens,completion_tokens,latency_ms
+proposal,initial_plan,analyst,claude-sonnet-5.5,4186,721,5238.2
+proposal,initial_plan,planner,claude-sonnet-5.5,11277,3457,25702.1
+proposal,local_edit,analyst,claude-sonnet-5.5,5469,642,4620.9
+proposal,local_edit,editor,deepseek-flash,8410,322,2292.8
+applied,initial_plan,analyst,claude-sonnet-5.5,4186,771,
+applied,initial_plan,planner,claude-sonnet-5.5,11237,4058,
+applied,local_edit,analyst,claude-sonnet-5.5,5475,1042,
+applied,local_edit,editor,deepseek-flash,8454,550,

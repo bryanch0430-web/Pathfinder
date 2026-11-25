@@ -1,0 +1,2631 @@
+{
+  "schema_version": "5.0",
+  "trip_id": "trip-3ec7bcd13a93",
+  "session_id": "5ff928ca50b04ee0990c5b3ba0056b7f",
+  "version": 4,
+  "status": "draft",
+  "destination": {
+    "name": "Chiba",
+    "country_code": "",
+    "geo": null,
+    "timezone": "UTC"
+  },
+  "origin": "Hong Kong",
+  "dates": {
+    "start": "2027-03-06",
+    "end": "2027-03-08"
+  },
+  "party_size": 2,
+  "budget": {
+    "amount": 12000,
+    "currency": "HKD"
+  },
+  "summary": "A three-day Chiba trip from Makuhari to the Boso Peninsula. It has an unadon lunch at Kawatoyo in Narita, a full day at Mother Farm, and a Mount Nokogiri and Nihon-ji day before the evening flight from Narita. Several places and bookings you named are not yet in the plan: Naritasan, Omotesando, both rental-car stops and a Kisarazu hotel.",
+  "days": [
+    {
+      "date": "2027-03-06",
+      "title": "Narita unadon and Chiba Port at dusk",
+      "weather": {
+        "date": "2027-03-06",
+        "status": "unavailable",
+        "summary": "No forecast yet: the trip is beyond the 16-day forecast window.",
+        "high_c": null,
+        "low_c": null,
+        "precipitation_probability": null,
+        "source": "Open-Meteo",
+        "fetched_at": "2026-11-24T07:03:56.269609+00:00",
+        "note": "A forecast will be fetched closer to the trip."
+      },
+      "items": [
+        {
+          "id": "usr-f27e9ff2c0",
+          "type": "attraction",
+          "name": "Naritasan Shinshoji Temple",
+          "start": "12:30",
+          "end": "14:00",
+          "geo": null,
+          "address": "",
+          "notes": "Added at your request. The address, opening hours and ticket price are not confirmed by a source. Visit the temple after arriving at Narita and dropping your luggage. Unconfirmed stop with no address, hours or ticket details.",
+          "source_refs": [],
+          "data_status": "stale",
+          "fetched_at": null,
+          "price": null,
+          "price_kind": "none",
+          "booking_url": "",
+          "locked": false,
+          "confirmed": false,
+          "tags": [
+            "user-provided"
+          ],
+          "opening_hours": [],
+          "hours_status": "unknown",
+          "transfer": null,
+          "names": {},
+          "meal_slot": null,
+          "rating": null,
+          "review_count": null,
+          "price_level": null,
+          "cuisine": null,
+          "reservable": null,
+          "source_types": [],
+          "source_summary": "",
+          "alternatives": [],
+          "links": [],
+          "image": null,
+          "step_free": null
+        },
+        {
+          "id": "usr-0f0d4cdc5d",
+          "type": "attraction",
+          "name": "Omotesando historic street",
+          "start": "14:05",
+          "end": "15:05",
+          "geo": null,
+          "address": "",
+          "notes": "Added at your request. The address, opening hours and ticket price are not confirmed by a source. Stroll the historic approach street, which leads on to Kawatoyo. Unconfirmed stop.",
+          "source_refs": [],
+          "data_status": "stale",
+          "fetched_at": null,
+          "price": null,
+          "price_kind": "none",
+          "booking_url": "",
+          "locked": false,
+          "confirmed": false,
+          "tags": [
+            "user-provided"
+          ],
+          "opening_hours": [],
+          "hours_status": "unknown",
+          "transfer": null,
+          "names": {},
+          "meal_slot": null,
+          "rating": null,
+          "review_count": null,
+          "price_level": null,
+          "cuisine": null,
+          "reservable": null,
+          "source_types": [],
+          "source_summary": "",
+          "alternatives": [],
+          "links": [],
+          "image": null,
+          "step_free": null
+        },
+        {
+          "id": "it-6bbd71d97e",
+          "type": "meal",
+          "name": "Kawatoyo Narita",
+          "start": "15:10",
+          "end": "16:25",
+          "geo": {
+            "lat": 35.783387999999995,
+            "lng": 140.316726
+          },
+          "address": "386 Nakamachi, Narita, Chiba 286-0027, Japan",
+          "notes": "Order the grilled eel unadon you wanted. It is the main meal of the day, so arrive hungry.",
+          "source_refs": [
+            {
+              "title": "Kawatoyo Narita",
+              "url": "https://maps.google.com/?cid=15247355407421277862&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+              "source": "Google Places",
+              "fetched_at": "2026-11-24T07:03:58.271141+00:00"
+            }
+          ],
+          "data_status": "ok",
+          "fetched_at": "2026-11-24T07:03:58.271168+00:00",
+          "price": null,
+          "price_kind": "none",
+          "booking_url": "http://www.unagi-kawatoyo.com/",
+          "locked": false,
+          "confirmed": false,
+          "tags": [
+            "seafood_restaurant",
+            "japanese_restaurant",
+            "restaurant",
+            "food",
+            "point_of_interest",
+            "establishment"
+          ],
+          "opening_hours": [
+            "Monday: 10:00 AM – 5:00 PM",
+            "Tuesday: 10:00 AM – 5:00 PM",
+            "Wednesday: 10:00 AM – 5:00 PM",
+            "Thursday: 10:00 AM – 5:00 PM",
+            "Friday: 10:00 AM – 5:00 PM",
+            "Saturday: 10:00 AM – 5:00 PM",
+            "Sunday: 10:00 AM – 5:00 PM"
+          ],
+          "hours_status": "stated",
+          "transfer": null,
+          "names": {},
+          "meal_slot": "lunch",
+          "rating": 4.4,
+          "review_count": 9716,
+          "price_level": "$$",
+          "cuisine": "Japanese restaurant",
+          "reservable": false,
+          "source_types": [
+            "seafood_restaurant",
+            "japanese_restaurant",
+            "restaurant",
+            "food",
+            "point_of_interest",
+            "establishment"
+          ],
+          "source_summary": "Unadon bowls of grilled eel & rice served at a simple restaurant with Japanese & Western seating.",
+          "alternatives": [
+            {
+              "id": "alt-5c3b1569c2",
+              "name": "Chulo Chill Restaurant & Bar (チュロ チル レストラン&バー)",
+              "geo": {
+                "lat": 35.612493,
+                "lng": 140.1215474
+              },
+              "address": "CSK25 ビル, 1F, 25-8 Sakaechō, Chuo Ward, Chiba, 260-0016, Japan",
+              "rating": 4.8,
+              "review_count": 92,
+              "price_level": "$",
+              "cuisine": "Asian restaurant",
+              "reservable": true,
+              "opening_hours": [
+                "Monday: 11:00 AM – 11:00 PM",
+                "Tuesday: 11:00 AM – 11:00 PM",
+                "Wednesday: 11:00 AM – 11:00 PM",
+                "Thursday: 11:00 AM – 11:00 PM",
+                "Friday: 11:00 AM – 11:00 PM",
+                "Saturday: 11:00 AM – 11:00 PM",
+                "Sunday: 11:00 AM – 11:00 PM"
+              ],
+              "source_refs": [
+                {
+                  "title": "Chulo Chill Restaurant & Bar (チュロ チル レストラン&バー)",
+                  "url": "https://maps.google.com/?cid=2274211011283588082&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T07:03:56.768328+00:00"
+                }
+              ],
+              "booking_url": "",
+              "distance_m": 25918,
+              "source_types": [
+                "asian_restaurant",
+                "restaurant",
+                "food",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Found for 'best local restaurants in Chiba'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJH4-jZQCFImAR8hPXj92ejx8/photos/AV-0GLes1kotihswAazstYcKpLSdFzhnN4Tec8DZ2TBIoFiogapS2AyKa_2hzzYISa5SzbMeuM__UV7cqOP6YoOX8_jG-BB3JRN_7b-eK3ANyyx2gJQASjYwgtTGhPqCg1aHscSIwqZlV2bK9fjGgCOBhAVzwtFihBzbQbWh_IiFyBq_jjxXd4peYeyCDVwg_1CyiX-4CuMWfrUymCkZOGkTCMfGuQ0oN9XRSIIqVNMYTAoQtZ_YER3oJEPs9YfUOTlPy8QBSdc71WqkBPHk1-LZ9kXlTx32opdTBI19xR1bCvR9jeyLKm6qejJqsoqIrozO7zOfj9pWufMJnSdl4jwH6qkWjlHCrT27JebE4WSAHIrRZ34v4cD4DHaIXnFYwrROHVEDNzE8UHTj32zuzd6PnNadUyEA/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            },
+            {
+              "id": "alt-771c4e5903",
+              "name": "ANAYUKI",
+              "geo": {
+                "lat": 35.6090276,
+                "lng": 140.12183579999999
+              },
+              "address": "Japan, 〒260-0013 Chiba, Chuo Ward, Chūō, 3-chōme−4−１３ 第１６ CIビル ２階",
+              "rating": 4.2,
+              "review_count": 2178,
+              "price_level": "$",
+              "cuisine": "Izakaya restaurant",
+              "reservable": true,
+              "opening_hours": [
+                "Monday: 11:30 AM – 11:00 PM",
+                "Tuesday: 11:30 AM – 11:00 PM",
+                "Wednesday: 11:30 AM – 11:00 PM",
+                "Thursday: 11:30 AM – 11:00 PM",
+                "Friday: 11:30 AM – 11:00 PM",
+                "Saturday: 11:00 AM – 11:00 PM",
+                "Sunday: 11:00 AM – 11:00 PM"
+              ],
+              "source_refs": [
+                {
+                  "title": "ANAYUKI",
+                  "url": "https://maps.google.com/?cid=13384936866502881595&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T07:03:56.768350+00:00"
+                }
+              ],
+              "booking_url": "https://anayuki-chiba.com/?utm_source=google&utm_medium=meo",
+              "distance_m": 26185,
+              "source_types": [
+                "japanese_izakaya_restaurant",
+                "japanese_restaurant",
+                "restaurant",
+                "food",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Found for 'best local restaurants in Chiba'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJQace6JaFImAROzHv5CnZwLk/photos/AV-0GLciAMiobjfF9F9BNF7dtHUbkGFzU2nV2dDohvhmYdurl7BNfrF8QTqR6OQNKujj9p0CC3niTN1MHlivBGGNGI_20id_vtMH4VXAfNvZaBEFiMwowEKHKFAbEjClhozfW5ntCBdxt84exIZFtApyfAjOWlgKztlleLzVj2aFJSL1Yx-Mk-ePaX7rkqVZQpNypqM3sw0tkRO_2xtQAm-uUxBjhENuHpVyo3n9uLve0toBTJnPjF3BmOMiIoHrjMSxRCLGNofJPmOtJABrIoYgmd05wfr01KVf1pZQNK_W85cASDJYVIgPcEL1WnmVGq8-qvT55dvfkbHuG8ZBlCKWE7M9GJUrS-pZJMTcZTXIZHZ3OmgPJ8Us3voPzhV0t-9ncB3rcSmhgRmjWFCZjUTel7Y5A5w/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            },
+            {
+              "id": "alt-0507291968",
+              "name": "パニーニ&バル JOY's KITCHEN千葉中央店",
+              "geo": {
+                "lat": 35.6049771,
+                "lng": 140.1247213
+              },
+              "address": "4-11-1 Ichibachō, Chuo Ward, Chiba, 260-0855, Japan",
+              "rating": 4.8,
+              "review_count": 68,
+              "price_level": "$",
+              "cuisine": "Italian restaurant",
+              "reservable": true,
+              "opening_hours": [
+                "Monday: 11:30 AM – 9:00 PM",
+                "Tuesday: 11:30 AM – 9:00 PM",
+                "Wednesday: 11:30 AM – 9:00 PM",
+                "Thursday: 11:30 AM – 9:00 PM",
+                "Friday: 11:30 AM – 9:00 PM",
+                "Saturday: 11:30 AM – 9:00 PM",
+                "Sunday: 11:30 AM – 9:00 PM"
+              ],
+              "source_refs": [
+                {
+                  "title": "パニーニ&バル JOY's KITCHEN千葉中央店",
+                  "url": "https://maps.google.com/?cid=4284104681764662216&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T07:03:56.768389+00:00"
+                }
+              ],
+              "booking_url": "https://joyskitchen.owst.jp/",
+              "distance_m": 26348,
+              "source_types": [
+                "italian_restaurant",
+                "european_restaurant",
+                "restaurant",
+                "food",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Found for 'best local restaurants in Chiba'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJiRuZW2aFImARyKsriYIydDs/photos/AV-0GLdSaAYSY7z3Vr6ZjEF3r-u_laXXnwOKkGAdmqIhetHTHgglWKhybHdovA2MINCNXZw0ZHglGa_HKbLvr0eqlpWOfAHsb7KZwwTvl-m3Z9I1pN24brLX30J4A-MATxllderfTCRo7zgIVzDE1s3OuIGiHpWeQdNW9iy4KLLOVQCpOPxU9mBCpUQjH99mnZ22aKqwSBGy6nD0-ovXdddxAiPCu7SCfHepxk5Z0o5mHihrjePp9kwYFPBZlWyyChFNFQnO2rptH73dpQ8HDV-fNsoNuDZWxuYJaFIJyZOSfgafpKzbyCfBd_0dRvASEl0lU9L91IgWngH8OAxrmwQpDfzHej3G9YH72ALKeAU17C9qNie0o2ZT0WrKPnHWl5KEGwKUBwouu69j3iJfXlNaqGywucknS_M1yfCZ-pmjuOs9Og/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            }
+          ],
+          "links": [],
+          "image": {
+            "url": "https://places.googleapis.com/v1/places/ChIJF92A2g-LImARpgZ6h_V8mdM/photos/AV-0GLedXQxv5w7a-QAcoejraraMaptiwkVS318wOPSnpgYCbkOrcv3yFf0FTKepca503lx7LsW5LWTNWksArTUeh_m0491uAdIB--rsoTGlQF0wqdjuSqDLm0IgXD3feep5ItJck7yFYuUiVBLPREtrxMjg76ese29Z77TtCNNRLx4GyIT-QC__ZghiSpwT8ee28VkS1CbGVVsuQZEZ03UEIER2PXeokkq5aabOf_AXvIdriRugldQ4094_--GpGgBV013fSQB8CF_SkmigYmBGh1WOQCTD7gyCpLSeAa8NVAX4NqLgxpDvsgAC-AJbndWeEunjCO7dnAz6l0DjP8FvG0Y8JieEhhLOarF7_yLfKpVx0gYdSxpTMgIHGx8o3vXrAbpVZlhkAN--mJyFKmfOjcUWmAOiSEHBaOcwFfOHksqo/media?maxWidthPx=900&key=REDACTED",
+            "attribution": "Google",
+            "source": "google"
+          },
+          "step_free": true
+        },
+        {
+          "id": "it-499f4a817f",
+          "type": "attraction",
+          "name": "Chiba Port Tower",
+          "start": "18:33",
+          "end": "19:33",
+          "geo": {
+            "lat": 35.6005614,
+            "lng": 140.0978407
+          },
+          "address": "Japan, 〒260-0024 Chiba, Chuo Ward, Chūōkō, 1-chōme−10−１ 千葉ポートパーク 内",
+          "notes": "Go up the 125 m tower for the observation platform while the light fades over the port.",
+          "source_refs": [
+            {
+              "title": "Chiba Port Tower",
+              "url": "https://maps.google.com/?cid=8411696627511110871&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+              "source": "Google Places",
+              "fetched_at": "2026-11-24T07:03:56.764216+00:00"
+            }
+          ],
+          "data_status": "ok",
+          "fetched_at": "2026-11-24T07:03:56.764223+00:00",
+          "price": null,
+          "price_kind": "none",
+          "booking_url": "https://chiba-porttower.com/",
+          "locked": false,
+          "confirmed": false,
+          "tags": [
+            "observation_deck",
+            "tourist_attraction",
+            "point_of_interest",
+            "establishment"
+          ],
+          "opening_hours": [
+            "Monday: 9:00 AM – 7:00 PM",
+            "Tuesday: 9:00 AM – 7:00 PM",
+            "Wednesday: 9:00 AM – 7:00 PM",
+            "Thursday: 9:00 AM – 7:00 PM",
+            "Friday: 9:00 AM – 7:00 PM",
+            "Saturday: 9:00 AM – 8:00 PM",
+            "Sunday: 9:00 AM – 8:00 PM"
+          ],
+          "hours_status": "stated",
+          "transfer": {
+            "from_item_id": "it-6bbd71d97e",
+            "minutes": 122.9,
+            "mode": "transit",
+            "distance_km": 28.36,
+            "source": "straight-line estimate",
+            "tool": "haversine",
+            "result_id": "it-6bbd71d97e->it-499f4a817f"
+          },
+          "names": {},
+          "meal_slot": null,
+          "rating": 4,
+          "review_count": 4868,
+          "price_level": null,
+          "cuisine": null,
+          "reservable": null,
+          "source_types": [
+            "observation_deck",
+            "tourist_attraction",
+            "point_of_interest",
+            "establishment"
+          ],
+          "source_summary": "Built in 1986, this 125-m. tower offers an observation platform, restaurants & a souvenir shop.",
+          "alternatives": [
+            {
+              "id": "alt-03d536c76a",
+              "name": "Chiba Port Park Observatory Hill",
+              "geo": {
+                "lat": 35.5982524,
+                "lng": 140.0994357
+              },
+              "address": "Chiba Port Park, 1-chōme-10 Chūōkō, Chuo Ward, Chiba, 260-0024, Japan",
+              "rating": 4.2,
+              "review_count": 24,
+              "price_level": null,
+              "cuisine": null,
+              "reservable": null,
+              "opening_hours": [
+                "Monday: Open 24 hours",
+                "Tuesday: Open 24 hours",
+                "Wednesday: Open 24 hours",
+                "Thursday: Open 24 hours",
+                "Friday: Open 24 hours",
+                "Saturday: Open 24 hours",
+                "Sunday: Open 24 hours"
+              ],
+              "source_refs": [
+                {
+                  "title": "Chiba Port Park Observatory Hill",
+                  "url": "https://maps.google.com/?cid=15771243162236634190&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T07:03:56.945050+00:00"
+                }
+              ],
+              "booking_url": "https://www.chibaport-park.com/",
+              "distance_m": 294,
+              "source_types": [
+                "tourist_attraction",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Found for 'must see sights in Chiba'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJxcZq3-2dImARTkRsrxi23to/photos/AV-0GLeGripZUOaGVZnQLnQon50v1DTqZoZ3sPGjLac47b8fO4gBtB2U3oz-O5wTJNa2gOPqO_fMPVEuZBsqd4yxjS3m-Zn9oRP9n5te84nIPhDzAdytjkfYghiE-pR4xKCA7OuvuFMXNE1G28KGpWv3sgBCGqrNd5f-HloCliGduUwFXW0cXjMM7JT3NLzT3sXnnknHfE6T8yQG4pcLGqg-g1L8ipHLtbGWl7b0vgl5OcykV9Fzubd7hPtwCJOpuiVmZPaWn0covUU297wktMv-eHTVJcRD1FQ1QdMgeT-9MrTylRBaUIxqaItjcKp2PKtrruWu-jlCPd18zQ5OMCpufMKIYVPrUwYm7_gLjIyE-5SrhCmEZ8TAbNR2nXLpql-kQR3HRjbe3oxSH_Nc_vpXt5e2Wg/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            },
+            {
+              "id": "alt-c562b0ce43",
+              "name": "K.S HARBOR",
+              "geo": {
+                "lat": 35.6036301,
+                "lng": 140.0994024
+              },
+              "address": "1-chōme-20-1 Chūōkō, Chuo Ward, Chiba, 260-0024, Japan",
+              "rating": 4,
+              "review_count": 781,
+              "price_level": null,
+              "cuisine": null,
+              "reservable": null,
+              "opening_hours": [
+                "Monday: 11:00 AM – 10:00 PM",
+                "Tuesday: 11:00 AM – 10:00 PM",
+                "Wednesday: 11:00 AM – 10:00 PM",
+                "Thursday: 11:00 AM – 10:00 PM",
+                "Friday: 11:00 AM – 10:00 PM",
+                "Saturday: 11:00 AM – 10:00 PM",
+                "Sunday: 11:00 AM – 10:00 PM"
+              ],
+              "source_refs": [
+                {
+                  "title": "K.S HARBOR",
+                  "url": "https://maps.google.com/?cid=2118729248416539077&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T07:03:56.764250+00:00"
+                }
+              ],
+              "booking_url": "https://www.chibacity-ta.or.jp/spots/ks-harbor",
+              "distance_m": 369,
+              "source_types": [
+                "tourist_attraction",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Found for 'top attractions in Chiba'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJDXT-eVaDImARxSEZowY9Zx0/photos/AV-0GLdnXy_f87VG4GY99WfhGwNP48xTZ6ok472LehO9ooUaFFKSYW4iueO1iTONb6vphCkR14MptFLYoWyYcXZ9Og1k2o6AQdANsBwYfoAdU1ChmoIQahV7YTkwA-uEZk4iLvwBpRnlmC7-r3IrHwsifzgYIGE2YPxbdT_SunbMphdon0AHFAy4r4dYemlRYnne0pG7CUuZxKdTs9-UwmeLd6h6qxXbTqRFeOotZGBvk-a8VOIQgN0X4rtm2S1TwcClY9j9KTKaKGrB9Bfnyg8z5n8LRC9DmDg6o8mlv7TZRmq9PTuHWn0N1APNVR6Uk7HmN5Fewgbcvkoy2EQSt9zGCSM-3EI_ZrLm60pNfIDJ2HUOUtWJytxR-gYe1cUFHt3Z-ctH9WEjLK8ALXgQXhaLhVkGm8k/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            },
+            {
+              "id": "alt-dc7a0bf63b",
+              "name": "Chiba City Chuo Park",
+              "geo": {
+                "lat": 35.6101837,
+                "lng": 140.1208191
+              },
+              "address": "1-chōme-12-12 Chūō, Chuo Ward, Chiba, 260-0013, Japan",
+              "rating": 3.6,
+              "review_count": 1328,
+              "price_level": null,
+              "cuisine": null,
+              "reservable": null,
+              "opening_hours": [
+                "Monday: Open 24 hours",
+                "Tuesday: Open 24 hours",
+                "Wednesday: Open 24 hours",
+                "Thursday: Open 24 hours",
+                "Friday: Open 24 hours",
+                "Saturday: Open 24 hours",
+                "Sunday: Open 24 hours"
+              ],
+              "source_refs": [
+                {
+                  "title": "Chiba City Chuo Park",
+                  "url": "https://maps.google.com/?cid=2331158044019450645&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T07:03:56.945003+00:00"
+                }
+              ],
+              "booking_url": "http://www.city.chiba.jp/shisetsu/koen/0212.html",
+              "distance_m": 2337,
+              "source_types": [
+                "city_park",
+                "tourist_attraction",
+                "park",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "This popular city park features a fountain & trees & hosts various festivals & events.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJ175N77WEImARFeMS2ePvWSA/photos/AV-0GLe8UDA0mYdWQ-Ud3JG5u7a5eOS9sP_JCV4lnv3iaPqgmVZJFBWjZjPSxptDKhQma73xXuPOvEXYQJ8hbQLT1FmsCzCu1hcOQNvUUmBC5SZR5UPVll4r8W-tSn8v3b5d5EWlLoxpWu3aIUadg_cO3-sEfmxqu6pPqbI0HazcrlBzPxlTfoZdhS2gDl7kbFwTiRernEBPGOBckzyerSP1JEiJ1qFZ_7UDYUe_fok70A6B7GUFgglVCYmwofd4FOrNhLypKlCb1cwozehL4queoTq86mWXOEO3DHVnZqhMmLPY46cMBV0M5IMq1TJuLMTj3KPg92pMEOok044ZF6BymoKxQKKOFAO58bdVX6PpxQfnlQQw0s_NheQ9WSqzMVB2J06F5XEeFarov9T_A6EJREcPbvgqM40/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            }
+          ],
+          "links": [],
+          "image": {
+            "url": "https://places.googleapis.com/v1/places/ChIJe3k5T1SDImAR16wmAYRZvHQ/photos/AV-0GLc1hZ8N4rjL00uCS8j_orIkDYRs-6HDNtwPaCfeYp60WV3Ap_Ek9d3nMPNc7GudpsmcEicwHjVc3xwJ3fHX6huN25vwE5Agw78vnfvbT1jFxjBBy4SX4q_DwU6YkanTUlX7oVN6aEVAISapuL_U8tk10L_kZaEtm5SlCIQweHoY-VZy_GBtPDbAhHdjR0BICip69upKzyUpzmYEMLQhyoPUIEldZQYRdl3s5dL7NRavJFmHxmLdyH4_L9sjqC4f0cs1mf8MMrcDxIQLwafLhUwawfcwt13KK3M3d7cwbQkzSh8vf2R9up54Medv5lIOBEf-_u7fsJ0v3ySn6vX4EOw09SgR13XI4U6_ZrMDpEZXGcUZDMWVfYew1XJqx7Tkd5wmueV_uXWfq-3nzbVf7R8Vh8GaWzi0H-8jy8SVAr5i-g/media?maxWidthPx=900&key=REDACTED",
+            "attribution": "Google",
+            "source": "google"
+          },
+          "step_free": true
+        },
+        {
+          "id": "it-84c9b7d0f5",
+          "type": "attraction",
+          "name": "Chiba Port Park Observatory Hill",
+          "start": "19:43",
+          "end": "20:28",
+          "geo": {
+            "lat": 35.5982524,
+            "lng": 140.0994357
+          },
+          "address": "Chiba Port Park, 1-chōme-10 Chūōkō, Chuo Ward, Chiba, 260-0024, Japan",
+          "notes": "A short walk in the same park for an evening view over the harbour. It is open 24 hours.",
+          "source_refs": [
+            {
+              "title": "Chiba Port Park Observatory Hill",
+              "url": "https://maps.google.com/?cid=15771243162236634190&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+              "source": "Google Places",
+              "fetched_at": "2026-11-24T07:03:56.945050+00:00"
+            }
+          ],
+          "data_status": "ok",
+          "fetched_at": "2026-11-24T07:03:56.945058+00:00",
+          "price": null,
+          "price_kind": "none",
+          "booking_url": "https://www.chibaport-park.com/",
+          "locked": false,
+          "confirmed": false,
+          "tags": [
+            "tourist_attraction",
+            "point_of_interest",
+            "establishment"
+          ],
+          "opening_hours": [
+            "Monday: Open 24 hours",
+            "Tuesday: Open 24 hours",
+            "Wednesday: Open 24 hours",
+            "Thursday: Open 24 hours",
+            "Friday: Open 24 hours",
+            "Saturday: Open 24 hours",
+            "Sunday: Open 24 hours"
+          ],
+          "hours_status": "stated",
+          "transfer": {
+            "from_item_id": "it-499f4a817f",
+            "minutes": 5.1,
+            "mode": "walk",
+            "distance_km": 0.29,
+            "source": "straight-line estimate",
+            "tool": "haversine",
+            "result_id": "it-499f4a817f->it-84c9b7d0f5"
+          },
+          "names": {},
+          "meal_slot": null,
+          "rating": 4.2,
+          "review_count": 24,
+          "price_level": null,
+          "cuisine": null,
+          "reservable": null,
+          "source_types": [
+            "tourist_attraction",
+            "point_of_interest",
+            "establishment"
+          ],
+          "source_summary": "Found for 'must see sights in Chiba'.",
+          "alternatives": [
+            {
+              "id": "alt-6e097c002e",
+              "name": "Chiba Port Tower",
+              "geo": {
+                "lat": 35.6005614,
+                "lng": 140.0978407
+              },
+              "address": "Japan, 〒260-0024 Chiba, Chuo Ward, Chūōkō, 1-chōme−10−１ 千葉ポートパーク 内",
+              "rating": 4,
+              "review_count": 4868,
+              "price_level": null,
+              "cuisine": null,
+              "reservable": null,
+              "opening_hours": [
+                "Monday: 9:00 AM – 7:00 PM",
+                "Tuesday: 9:00 AM – 7:00 PM",
+                "Wednesday: 9:00 AM – 7:00 PM",
+                "Thursday: 9:00 AM – 7:00 PM",
+                "Friday: 9:00 AM – 7:00 PM",
+                "Saturday: 9:00 AM – 8:00 PM",
+                "Sunday: 9:00 AM – 8:00 PM"
+              ],
+              "source_refs": [
+                {
+                  "title": "Chiba Port Tower",
+                  "url": "https://maps.google.com/?cid=8411696627511110871&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T07:03:56.764216+00:00"
+                }
+              ],
+              "booking_url": "https://chiba-porttower.com/",
+              "distance_m": 294,
+              "source_types": [
+                "observation_deck",
+                "tourist_attraction",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Built in 1986, this 125-m. tower offers an observation platform, restaurants & a souvenir shop.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJe3k5T1SDImAR16wmAYRZvHQ/photos/AV-0GLc1hZ8N4rjL00uCS8j_orIkDYRs-6HDNtwPaCfeYp60WV3Ap_Ek9d3nMPNc7GudpsmcEicwHjVc3xwJ3fHX6huN25vwE5Agw78vnfvbT1jFxjBBy4SX4q_DwU6YkanTUlX7oVN6aEVAISapuL_U8tk10L_kZaEtm5SlCIQweHoY-VZy_GBtPDbAhHdjR0BICip69upKzyUpzmYEMLQhyoPUIEldZQYRdl3s5dL7NRavJFmHxmLdyH4_L9sjqC4f0cs1mf8MMrcDxIQLwafLhUwawfcwt13KK3M3d7cwbQkzSh8vf2R9up54Medv5lIOBEf-_u7fsJ0v3ySn6vX4EOw09SgR13XI4U6_ZrMDpEZXGcUZDMWVfYew1XJqx7Tkd5wmueV_uXWfq-3nzbVf7R8Vh8GaWzi0H-8jy8SVAr5i-g/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            },
+            {
+              "id": "alt-c562b0ce43",
+              "name": "K.S HARBOR",
+              "geo": {
+                "lat": 35.6036301,
+                "lng": 140.0994024
+              },
+              "address": "1-chōme-20-1 Chūōkō, Chuo Ward, Chiba, 260-0024, Japan",
+              "rating": 4,
+              "review_count": 781,
+              "price_level": null,
+              "cuisine": null,
+              "reservable": null,
+              "opening_hours": [
+                "Monday: 11:00 AM – 10:00 PM",
+                "Tuesday: 11:00 AM – 10:00 PM",
+                "Wednesday: 11:00 AM – 10:00 PM",
+                "Thursday: 11:00 AM – 10:00 PM",
+                "Friday: 11:00 AM – 10:00 PM",
+                "Saturday: 11:00 AM – 10:00 PM",
+                "Sunday: 11:00 AM – 10:00 PM"
+              ],
+              "source_refs": [
+                {
+                  "title": "K.S HARBOR",
+                  "url": "https://maps.google.com/?cid=2118729248416539077&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T07:03:56.764250+00:00"
+                }
+              ],
+              "booking_url": "https://www.chibacity-ta.or.jp/spots/ks-harbor",
+              "distance_m": 598,
+              "source_types": [
+                "tourist_attraction",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Found for 'top attractions in Chiba'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJDXT-eVaDImARxSEZowY9Zx0/photos/AV-0GLdnXy_f87VG4GY99WfhGwNP48xTZ6ok472LehO9ooUaFFKSYW4iueO1iTONb6vphCkR14MptFLYoWyYcXZ9Og1k2o6AQdANsBwYfoAdU1ChmoIQahV7YTkwA-uEZk4iLvwBpRnlmC7-r3IrHwsifzgYIGE2YPxbdT_SunbMphdon0AHFAy4r4dYemlRYnne0pG7CUuZxKdTs9-UwmeLd6h6qxXbTqRFeOotZGBvk-a8VOIQgN0X4rtm2S1TwcClY9j9KTKaKGrB9Bfnyg8z5n8LRC9DmDg6o8mlv7TZRmq9PTuHWn0N1APNVR6Uk7HmN5Fewgbcvkoy2EQSt9zGCSM-3EI_ZrLm60pNfIDJ2HUOUtWJytxR-gYe1cUFHt3Z-ctH9WEjLK8ALXgQXhaLhVkGm8k/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            },
+            {
+              "id": "alt-dc7a0bf63b",
+              "name": "Chiba City Chuo Park",
+              "geo": {
+                "lat": 35.6101837,
+                "lng": 140.1208191
+              },
+              "address": "1-chōme-12-12 Chūō, Chuo Ward, Chiba, 260-0013, Japan",
+              "rating": 3.6,
+              "review_count": 1328,
+              "price_level": null,
+              "cuisine": null,
+              "reservable": null,
+              "opening_hours": [
+                "Monday: Open 24 hours",
+                "Tuesday: Open 24 hours",
+                "Wednesday: Open 24 hours",
+                "Thursday: Open 24 hours",
+                "Friday: Open 24 hours",
+                "Saturday: Open 24 hours",
+                "Sunday: Open 24 hours"
+              ],
+              "source_refs": [
+                {
+                  "title": "Chiba City Chuo Park",
+                  "url": "https://maps.google.com/?cid=2331158044019450645&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T07:03:56.945003+00:00"
+                }
+              ],
+              "booking_url": "http://www.city.chiba.jp/shisetsu/koen/0212.html",
+              "distance_m": 2345,
+              "source_types": [
+                "city_park",
+                "tourist_attraction",
+                "park",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "This popular city park features a fountain & trees & hosts various festivals & events.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJ175N77WEImARFeMS2ePvWSA/photos/AV-0GLe8UDA0mYdWQ-Ud3JG5u7a5eOS9sP_JCV4lnv3iaPqgmVZJFBWjZjPSxptDKhQma73xXuPOvEXYQJ8hbQLT1FmsCzCu1hcOQNvUUmBC5SZR5UPVll4r8W-tSn8v3b5d5EWlLoxpWu3aIUadg_cO3-sEfmxqu6pPqbI0HazcrlBzPxlTfoZdhS2gDl7kbFwTiRernEBPGOBckzyerSP1JEiJ1qFZ_7UDYUe_fok70A6B7GUFgglVCYmwofd4FOrNhLypKlCb1cwozehL4queoTq86mWXOEO3DHVnZqhMmLPY46cMBV0M5IMq1TJuLMTj3KPg92pMEOok044ZF6BymoKxQKKOFAO58bdVX6PpxQfnlQQw0s_NheQ9WSqzMVB2J06F5XEeFarov9T_A6EJREcPbvgqM40/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            }
+          ],
+          "links": [],
+          "image": {
+            "url": "https://places.googleapis.com/v1/places/ChIJxcZq3-2dImARTkRsrxi23to/photos/AV-0GLeGripZUOaGVZnQLnQon50v1DTqZoZ3sPGjLac47b8fO4gBtB2U3oz-O5wTJNa2gOPqO_fMPVEuZBsqd4yxjS3m-Zn9oRP9n5te84nIPhDzAdytjkfYghiE-pR4xKCA7OuvuFMXNE1G28KGpWv3sgBCGqrNd5f-HloCliGduUwFXW0cXjMM7JT3NLzT3sXnnknHfE6T8yQG4pcLGqg-g1L8ipHLtbGWl7b0vgl5OcykV9Fzubd7hPtwCJOpuiVmZPaWn0covUU297wktMv-eHTVJcRD1FQ1QdMgeT-9MrTylRBaUIxqaItjcKp2PKtrruWu-jlCPd18zQ5OMCpufMKIYVPrUwYm7_gLjIyE-5SrhCmEZ8TAbNR2nXLpql-kQR3HRjbe3oxSH_Nc_vpXt5e2Wg/media?maxWidthPx=900&key=REDACTED",
+            "attribution": "Google",
+            "source": "google"
+          },
+          "step_free": null
+        },
+        {
+          "id": "it-80911703c8",
+          "type": "meal",
+          "name": "Kokkara Chiba",
+          "start": "20:41",
+          "end": "21:51",
+          "geo": {
+            "lat": 35.6119874,
+            "lng": 140.1119167
+          },
+          "address": "Japan, 〒260-0031 Chiba, Chuo Ward, Shinchiba, 1-chōme−7−３ ＣＳＢ新千葉ビル 102",
+          "notes": "An izakaya near Chiba Station for a relaxed dinner before you head back to Makuhari.",
+          "source_refs": [
+            {
+              "title": "Kokkara Chiba",
+              "url": "https://maps.google.com/?cid=11922980862547513108&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+              "source": "Google Places",
+              "fetched_at": "2026-11-24T07:03:56.768297+00:00"
+            }
+          ],
+          "data_status": "ok",
+          "fetched_at": "2026-11-24T07:03:56.768305+00:00",
+          "price": null,
+          "price_kind": "none",
+          "booking_url": "http://delicious-hearts.com/kokkara.html",
+          "locked": false,
+          "confirmed": false,
+          "tags": [
+            "japanese_izakaya_restaurant",
+            "japanese_restaurant",
+            "restaurant",
+            "food",
+            "point_of_interest",
+            "establishment"
+          ],
+          "opening_hours": [
+            "Monday: 11:30 AM – 2:00 PM, 4:30 – 11:00 PM",
+            "Tuesday: 11:30 AM – 2:00 PM, 4:30 – 11:00 PM",
+            "Wednesday: 11:30 AM – 2:00 PM, 4:30 – 11:00 PM",
+            "Thursday: 11:30 AM – 2:00 PM, 4:30 – 11:00 PM",
+            "Friday: 11:30 AM – 2:00 PM, 4:30 – 11:00 PM",
+            "Saturday: 11:30 AM – 2:00 PM, 4:30 – 11:00 PM",
+            "Sunday: Closed"
+          ],
+          "hours_status": "stated",
+          "transfer": {
+            "from_item_id": "it-84c9b7d0f5",
+            "minutes": 8.2,
+            "mode": "transit",
+            "distance_km": 1.9,
+            "source": "straight-line estimate",
+            "tool": "haversine",
+            "result_id": "it-84c9b7d0f5->it-80911703c8"
+          },
+          "names": {},
+          "meal_slot": "dinner",
+          "rating": 4.5,
+          "review_count": 571,
+          "price_level": "$$",
+          "cuisine": "Izakaya restaurant",
+          "reservable": true,
+          "source_types": [
+            "japanese_izakaya_restaurant",
+            "japanese_restaurant",
+            "restaurant",
+            "food",
+            "point_of_interest",
+            "establishment"
+          ],
+          "source_summary": "Found for 'best local restaurants in Chiba'.",
+          "alternatives": [
+            {
+              "id": "alt-bc074cd5bf",
+              "name": "にくがとう 千葉駅前店",
+              "geo": {
+                "lat": 35.6111005,
+                "lng": 140.11627479999999
+              },
+              "address": "金子ビル 3F, 2-chōme-4-16 Fujimi, Chuo Ward, Chiba, 260-0015, Japan",
+              "rating": 4.5,
+              "review_count": 889,
+              "price_level": "$$$",
+              "cuisine": "Yakiniku restaurant",
+              "reservable": true,
+              "opening_hours": [
+                "Monday: 4:00 – 11:00 PM",
+                "Tuesday: 4:00 – 11:00 PM",
+                "Wednesday: 4:00 – 11:00 PM",
+                "Thursday: 4:00 – 11:00 PM",
+                "Friday: 4:00 – 11:00 PM",
+                "Saturday: 4:00 – 11:00 PM",
+                "Sunday: 4:00 – 11:00 PM"
+              ],
+              "source_refs": [
+                {
+                  "title": "にくがとう 千葉駅前店",
+                  "url": "https://maps.google.com/?cid=3925396686062895577&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T07:03:56.741110+00:00"
+                }
+              ],
+              "booking_url": "https://tabelog.com/chiba/A1201/A120101/12046569/",
+              "distance_m": 406,
+              "source_types": [
+                "yakiniku_restaurant",
+                "japanese_restaurant",
+                "restaurant",
+                "food",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Found for 'famous food in Chiba'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJ2WjU43GFImAR2UFGA33PeTY/photos/AV-0GLdhU96Wz2S7oIwLLBjBgf2QXR0t3K9L9Tqm2s2OO_8B7D5U13Nqy11-XztJsXD6YCSUHxr27lIGFWWH6k8PhGwFIGprZEhXOrNFPf4GZBxSitUDAEGmn_ejI-DoTxJYS4pO6OOYw9qkQ-Hh8GcRnk2_K2vJ56JJ_X5poWaFI2IM7u9Jm7zPpaZN15iXXJsEqWIe2ZUIv3Q_65czhs0UQYjsWZ06vFaIJ36AbVbUPPSQueBD7PnCHi5H2ylG9YsxirIk1dTj1heWyZfmrS-dosNtYYeQ414m4qoAuVcm0BCo4IzNxWsoONJkytt-KcQCV14SQyORM3sS6aQeEq4QsLZZliszWvtTiVnSYhWYDUFiyQYgwJXLbZR7pz1eOw8BkZZCoVeohhE4he-9oKVVqOPWDQVgH59h1npsEH6OBKoo/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            },
+            {
+              "id": "alt-6165fbaaab",
+              "name": "格安ビールと鉄鍋餃子 ３・６・５酒場 千葉駅前店",
+              "geo": {
+                "lat": 35.610703,
+                "lng": 140.11662049999998
+              },
+              "address": "Japan, 〒260-0015 Chiba, Chuo Ward, Fujimi, 2-chōme−5−１ 江澤ビル 6F",
+              "rating": 4.5,
+              "review_count": 1798,
+              "price_level": "$",
+              "cuisine": "Izakaya restaurant",
+              "reservable": true,
+              "opening_hours": [
+                "Monday: 12:00 – 11:00 PM",
+                "Tuesday: 12:00 – 11:00 PM",
+                "Wednesday: 12:00 – 11:00 PM",
+                "Thursday: 12:00 – 11:00 PM",
+                "Friday: 12:00 – 11:00 PM",
+                "Saturday: 11:30 AM – 11:00 PM",
+                "Sunday: 11:30 AM – 11:00 PM"
+              ],
+              "source_refs": [
+                {
+                  "title": "格安ビールと鉄鍋餃子 ３・６・５酒場 千葉駅前店",
+                  "url": "https://maps.google.com/?cid=7621529085155598140&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T07:03:56.768370+00:00"
+                }
+              ],
+              "booking_url": "https://map.cw-dining.co.jp/365sakaba/detail/21605/",
+              "distance_m": 449,
+              "source_types": [
+                "japanese_izakaya_restaurant",
+                "japanese_restaurant",
+                "meal_delivery",
+                "food_delivery",
+                "restaurant",
+                "food",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Found for 'best local restaurants in Chiba'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJwWeBHAuFImARPN8BhlIcxWk/photos/AV-0GLcZ6an24Ddvl7DpRwHXmAoc6qsc42tE3QUn61OQjsGCtpCD3ebYJhuAhznOc2pGPF5ea8r1rcSAY8e38BVLuJmSth3UZSpu1TB9qJnspZ3L-vNOQ2eX00drC4d8iF5-7-dx-kS64i49gBjW-xYTArbnGiMbrmskv7LNcceV7emJGxdeRK9y8ENODNsSi6BbOP5eYZgdGoGKvKBzQBhnbn8sNV3YJxOaoCukc3uTlw8yExZLnLTRLP20jP6Cc5i7kkmVbvxECMu_y4KGaBAeekhqgQA64aXvtCgSp8DV3ROefUaMD_Xi-Q6coC5xURtGj80hWsmSiiJvNLp_rMjJZIO-lLnckX3aZVa8wfUhbwZtHHczsGSfRRnqRzU2CIrfDoWt0CobKlUyg01zMqSWw9aVRAMh/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            },
+            {
+              "id": "alt-7ee45a1a71",
+              "name": "Hakata Komachi Chiba Main Store",
+              "geo": {
+                "lat": 35.6098561,
+                "lng": 140.11793169999999
+              },
+              "address": "Japan, 〒260-0015 Chiba, Chuo Ward, Fujimi, 2-chōme−14−６ LHビル千葉中央 3F-A",
+              "rating": 4.7,
+              "review_count": 585,
+              "price_level": "$$",
+              "cuisine": "Izakaya restaurant",
+              "reservable": true,
+              "opening_hours": [
+                "Monday: 4:00 PM – 12:00 AM",
+                "Tuesday: 4:00 PM – 12:00 AM",
+                "Wednesday: 4:00 PM – 12:00 AM",
+                "Thursday: 4:00 PM – 12:00 AM",
+                "Friday: 4:00 PM – 12:00 AM",
+                "Saturday: 4:00 PM – 12:00 AM",
+                "Sunday: 4:00 PM – 12:00 AM"
+              ],
+              "source_refs": [
+                {
+                  "title": "Hakata Komachi Chiba Main Store",
+                  "url": "https://maps.google.com/?cid=1901714308559360012&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T07:03:56.741061+00:00"
+                }
+              ],
+              "booking_url": "https://www.hotpepper.jp/strJ003807152/",
+              "distance_m": 593,
+              "source_types": [
+                "japanese_izakaya_restaurant",
+                "japanese_restaurant",
+                "restaurant",
+                "food",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Found for 'famous food in Chiba'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJ6RSTsOCFImARDFD1gRY_ZBo/photos/AV-0GLe1PnljEQ0dIHY0QicvrtD6QuyznY3uG08NnqOBmuG1raQp6OrRS5QUDgYuujVyWeM5sMF4sc-MIsPp-canL7VMqKixRFN9WeduipwR_aa94r7feV8W1CDAOrc3CHGL2imlFchDYpkSqLAI_UWcQxUAX4lniVRqLQ6vcyxAPhRyrdhMsIjsIjpudS_KX2vvFovjFcWCqup2c2l8bHX7rpS1Y7W4R8_GoKKVo3Dk_34HHoRQND8TAwI2AulYZ4dBg5f6qy5TF7XrD6Yf6oGzAsYHhwYfBp_LR6Gb6L4ka_bWAnQ0Nbz7picK9pwtL0iHSp1gnsFik3BwMKEnh44ngqv-1RLcT7zJNA1sg8QK_Ia4dij9ayeDwJ02bNoplgL9okZmafAdvUfVoqDII_eOYEcv-fJQL8t6iQo5hqsDV15CQg/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            }
+          ],
+          "links": [],
+          "image": {
+            "url": "https://places.googleapis.com/v1/places/ChIJGc1b85iFImARFM_sf-zvdqU/photos/AV-0GLfM0ttV_SoyEgQNc4_Z_n2hZ1WWpqEIckdSsk9rbm6oD7x-29yVy6N9dJmCDKP9ItYp-8H6Cn9yYH0Xiy4m1seBlEjiXbcUVl8PJH-JkN_F48vAGZ3OZi0nGebOCwa2IKy7wnxCygVTBvLIJUnncHtgMuksccVFiXUO0CGCADa4orUhOqLxe4fm9bUBiC1k9QxT5osntNbA2jJNCa65--iAgWo_dRf3q3cGBYHD1GUruHqccw3Pzx6_KkGXHPwEL6d7GGHaft5jX_pZX3TdC7QChBTu859z-0-u_DEuNm5eY0qIiL64jEtN7SwDYwv-5epgEbBPhSOwe9sIDbs6Br57vcdk4PxJhowjlMNv_o_z5bahHX-8lQ3lwEojVK6Zkxq701Jpy-8kPW4bdeyMg3kt8QcuJvM/media?maxWidthPx=900&key=REDACTED",
+            "attribution": "Google",
+            "source": "google"
+          },
+          "step_free": false
+        }
+      ],
+      "note": "Arrival time isn't confirmed, so the timings are loose. Kawatoyo closes at 17:00, so reach it by mid-afternoon.",
+      "elevation_gain_m": null,
+      "segment_id": "seg-1",
+      "city": ""
+    },
+    {
+      "date": "2027-03-07",
+      "title": "Mother Farm all day",
+      "weather": {
+        "date": "2027-03-07",
+        "status": "unavailable",
+        "summary": "No forecast yet: the trip is beyond the 16-day forecast window.",
+        "high_c": null,
+        "low_c": null,
+        "precipitation_probability": null,
+        "source": "Open-Meteo",
+        "fetched_at": "2026-11-24T07:03:56.269643+00:00",
+        "note": "A forecast will be fetched closer to the trip."
+      },
+      "items": [
+        {
+          "id": "usr-d3c2fcf50e",
+          "type": "attraction",
+          "name": "Rental car pickup in Chiba",
+          "start": "08:00",
+          "end": "08:30",
+          "geo": null,
+          "address": "",
+          "notes": "Added at your request. The address, opening hours and ticket price are not confirmed by a source. Unconfirmed stop: pick up the rental car in Chiba in the morning. The drive to Mother Farm in Futtsu takes about 1 to 1.25 hours, so you arrive for the 10:00 start.",
+          "source_refs": [],
+          "data_status": "stale",
+          "fetched_at": null,
+          "price": null,
+          "price_kind": "none",
+          "booking_url": "",
+          "locked": false,
+          "confirmed": false,
+          "tags": [
+            "user-provided"
+          ],
+          "opening_hours": [],
+          "hours_status": "unknown",
+          "transfer": null,
+          "names": {},
+          "meal_slot": null,
+          "rating": null,
+          "review_count": null,
+          "price_level": null,
+          "cuisine": null,
+          "reservable": null,
+          "source_types": [],
+          "source_summary": "",
+          "alternatives": [],
+          "links": [],
+          "image": null,
+          "step_free": null
+        },
+        {
+          "id": "it-bf25d2d4bc",
+          "type": "attraction",
+          "name": "Mother Farm",
+          "start": "10:00",
+          "end": "16:30",
+          "geo": {
+            "lat": 35.2453596,
+            "lng": 139.9340832
+          },
+          "address": "940-3 Tagura, Futtsu, Chiba 299-1601, Japan",
+          "notes": "Spend the whole day here. Look for the alpacas and capybaras and the March nanohana fields. Eat at the farm as you go.",
+          "source_refs": [
+            {
+              "title": "Mother Farm",
+              "url": "https://maps.google.com/?cid=1920843215379244538&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+              "source": "Google Places",
+              "fetched_at": "2026-11-24T07:03:58.510762+00:00"
+            }
+          ],
+          "data_status": "ok",
+          "fetched_at": "2026-11-24T07:03:58.510805+00:00",
+          "price": null,
+          "price_kind": "none",
+          "booking_url": "https://www.motherfarm.co.jp/",
+          "locked": false,
+          "confirmed": false,
+          "tags": [
+            "ranch",
+            "tourist_attraction",
+            "amusement_park",
+            "amusement_center",
+            "farm",
+            "point_of_interest",
+            "service",
+            "establishment"
+          ],
+          "opening_hours": [
+            "Monday: 9:30 AM – 4:30 PM",
+            "Tuesday: 9:30 AM – 4:30 PM",
+            "Wednesday: 9:30 AM – 4:30 PM",
+            "Thursday: 9:30 AM – 4:30 PM",
+            "Friday: 9:30 AM – 4:30 PM",
+            "Saturday: 9:00 AM – 7:30 PM",
+            "Sunday: 9:00 AM – 7:30 PM"
+          ],
+          "hours_status": "stated",
+          "transfer": null,
+          "names": {},
+          "meal_slot": null,
+          "rating": 4.2,
+          "review_count": 9118,
+          "price_level": null,
+          "cuisine": null,
+          "reservable": null,
+          "source_types": [
+            "ranch",
+            "tourist_attraction",
+            "amusement_park",
+            "amusement_center",
+            "farm",
+            "point_of_interest",
+            "service",
+            "establishment"
+          ],
+          "source_summary": "Found for 'Mother Farm Chiba Chiba'.",
+          "alternatives": [
+            {
+              "id": "alt-9533531ff9",
+              "name": "Yamanoue Gate",
+              "geo": {
+                "lat": 35.2454543,
+                "lng": 139.9339771
+              },
+              "address": "940-3 Tagura, Futtsu, Chiba 299-1601, Japan",
+              "rating": 4.3,
+              "review_count": 76,
+              "price_level": null,
+              "cuisine": null,
+              "reservable": null,
+              "opening_hours": [
+                "Monday: 9:30 AM – 4:30 PM",
+                "Tuesday: 9:30 AM – 4:30 PM",
+                "Wednesday: 9:30 AM – 4:30 PM",
+                "Thursday: 9:30 AM – 4:30 PM",
+                "Friday: 9:30 AM – 4:30 PM",
+                "Saturday: 9:00 AM – 5:00 PM",
+                "Sunday: 9:00 AM – 5:00 PM"
+              ],
+              "source_refs": [
+                {
+                  "title": "Yamanoue Gate",
+                  "url": "https://maps.google.com/?cid=12784240362438928142&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T07:03:56.695917+00:00"
+                }
+              ],
+              "booking_url": "http://motherfarm.co.jp/",
+              "distance_m": 14,
+              "source_types": [
+                "ranch",
+                "point_of_interest",
+                "farm",
+                "service",
+                "establishment"
+              ],
+              "source_summary": "Found for 'capybaras and alpacas at Mother Farm March rapeseed (nanohana) flower fields grilled eel (unadon) in Chiba'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJ4TaCROUPGGARDidiNuC-arE/photos/AV-0GLdzfVUiTgqQTrWPI8Ubw49OgZ44d7dDR4r32Y0fb1XsxXB9zqIoivgVhKmVhs4_dUYJNYluJ3maIS5bklo4gBbu5HX8-lK6_ojbDKkENJv6sxA21UQXob6IBWLEXFJQ5LHH7lhuBTQ5wn6NPuLkj6pSHKx0pyt1zIgXzVtugSlJq4zUwR0_HfyCSg_gPtwCwPQJnP2HmT6Ke8GFv5BR2WMNRxNGmq5NpeJqUx83kiUa3f-Lrb8JKx7RxnkHM2_w6kMyHo7UdmiczVM_dzitkRFm3mm5bf5kaH3KAyCFWMkzRIaGr0yTgCFMvnYJnXYGaSh6QVi-zWOplu-Zt5ScuoWhwYFzCleL1n_Aa548rzlBkRyuXglItnZuUtfC9ZaP-dz7JptS5INaN5Ph0v1QEfhYwX1iBXbigTMLyqDynZFkag/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            },
+            {
+              "id": "alt-e317719321",
+              "name": "Futtsu Aqua Farm",
+              "geo": {
+                "lat": 35.2422234,
+                "lng": 139.88538459999998
+              },
+              "address": "449 Tsuruoka, Futtsu, Chiba 293-0054, Japan",
+              "rating": 4.2,
+              "review_count": 288,
+              "price_level": null,
+              "cuisine": null,
+              "reservable": null,
+              "opening_hours": [
+                "Monday: 10:00 AM – 4:00 PM",
+                "Tuesday: 10:00 AM – 4:00 PM",
+                "Wednesday: 10:00 AM – 4:00 PM",
+                "Thursday: 10:00 AM – 4:00 PM",
+                "Friday: 10:00 AM – 4:00 PM",
+                "Saturday: 10:00 AM – 4:00 PM",
+                "Sunday: 10:00 AM – 4:00 PM"
+              ],
+              "source_refs": [
+                {
+                  "title": "Futtsu Aqua Farm",
+                  "url": "https://maps.google.com/?cid=7970213079828811055&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T07:03:56.695992+00:00"
+                }
+              ],
+              "booking_url": "https://www.futtsu-aquafarm.com/",
+              "distance_m": 4436,
+              "source_types": [
+                "farm",
+                "point_of_interest",
+                "service",
+                "establishment"
+              ],
+              "source_summary": "Found for 'capybaras and alpacas at Mother Farm March rapeseed (nanohana) flower fields grilled eel (unadon) in Chiba'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJNa0i37oPGGARL01eb5Him24/photos/AV-0GLfZgdKzxFSWQi_W0EHG9t0RFlcdHFgJN73Ca6oDPBOa-_L3D44Y9eaexpVx_t_k1od9mJTdByMX0rVdCUTOJcbZWQbzAa3_P2cyh3J3X6wVmoh9yMKqx3m-DGExWuaZ3g7Kt8JDEQNF3prA4mOiMSdMgiVlSfMDs_g4xojhcq6LMJ-r3KLnxPt-NwhhGZGuaVMa3xsAC9Gm9w7ORLWFU9wvPsE2NpmqDVNNu43N7VITCuLDNh6zyAlbdkdflcFpKHOWpR63E-T_m4RqvY0xQ2W2i_YXd2iuvrkTEgbKhCxf4gRlNRSEUjPdXZlMG0Cuyjpy5rO8cOpLATa7yd2mPm8xg3FAfNnVpTL3o02slpctp632BEVJsaRKCdYlXq5uE8nXdlvFzC9qA6qHs-zTX-tOTX8/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            },
+            {
+              "id": "alt-6832f7bd0c",
+              "name": "Nihon-ji Daibutsu (The Great Buddha of Nihonji)",
+              "geo": {
+                "lat": 35.1576699,
+                "lng": 139.8346891
+              },
+              "address": "Motona, Kyonan, Awa District, Chiba 299-1901, Japan",
+              "rating": 4.3,
+              "review_count": 1035,
+              "price_level": null,
+              "cuisine": null,
+              "reservable": null,
+              "opening_hours": [
+                "Monday: 9:00 AM – 3:00 PM",
+                "Tuesday: 9:00 AM – 3:00 PM",
+                "Wednesday: 9:00 AM – 3:00 PM",
+                "Thursday: 9:00 AM – 3:00 PM",
+                "Friday: 9:00 AM – 3:00 PM",
+                "Saturday: 9:00 AM – 3:00 PM",
+                "Sunday: 9:00 AM – 3:00 PM"
+              ],
+              "source_refs": [
+                {
+                  "title": "Nihon-ji Daibutsu (The Great Buddha of Nihonji)",
+                  "url": "https://maps.google.com/?cid=12713029678169864468&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T07:03:59.052567+00:00"
+                }
+              ],
+              "booking_url": "",
+              "distance_m": 13290,
+              "source_types": [
+                "buddhist_temple",
+                "tourist_attraction",
+                "place_of_worship",
+                "association_or_organization",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Found for 'Nihon-ji Great Buddha Nokogiriyama Chiba'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJ85Vo2iEbGGARFDlQwiLBbbA/photos/AV-0GLeLTIKyE90MsWahIdi4ITGFVVephwgyJn0XCsNq4gOVpoQfywS9iZJm-tZoI4zFc2iLbq8qDkUg9w7hP1bYDEFmq7hSnQCQgePYK6J-iFwgVrX6150n6F9u1_8JbH7h_RoHnf9NEiOGd_7dXodV0fYLnjRBzj2KJ621_HxQ7gw3MXesRD31ase8vrmmlbn_HdLf002b39t1YgMjxLI7yEbGQbkig2pjxrojuTQnVKPnHL8c7AJxdGIl4JnSNFx_xUQL-Wj8Vs6PKtI6x1VfD0WwKulqxlj51djBn_tTDdJb8KvMw22EpzqD0j_SRd6crUW_OoetXSs1FXX-XqKz81rP7tbcNBfCp6BD7Brouq-G4T10fHqzHe3gB8qsUj3u1YfmNXKOMd1NUtZsLYMh6ROAtw50idxc8yLHfnoDff4K/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            }
+          ],
+          "links": [],
+          "image": {
+            "url": "https://places.googleapis.com/v1/places/ChIJx6mGpzWbImAR-iXmMbo0qBo/photos/AV-0GLcHARZQ3L6w0PzICc42D2lDwQqFfKQ8z-Ed6DpjDHY29KVwncUL7XJKYZn4f6Lw-QLTShSWLo1jYnGj5NjslUIag2DJfc5FQtGIy3WMmGPIFW4hdaVf99nqGx_yIat9EG5w0laZnv9fGd0GGxGMD4mR3gNqS9Y2lkKs3l1T0ouRMABk7yV_Ri8pp1_RRRCoI6DVjiIwjY-25ClbYXtOsAPwHYGpUZRDHGQRHidotnUPuplt746iyibQ5Sxy-TK6FD1EDYMTN9GWrzVR1TavdHwsIUdgb7K0ui-5l4vOH7qCChJ23JW7V5HU73k6jNrLYSbbdjE1KjNuQa3J6nDMkeC2-m4hbhhXWjm8jsOtFmcqMNELn0tigYOG3HEK6Z-DPdsicSi4jsJalDUSUjaCWdFfgNB_wjLsIB7jI63iP3DX/media?maxWidthPx=900&key=REDACTED",
+            "attribution": "Google",
+            "source": "google"
+          },
+          "step_free": true
+        }
+      ],
+      "note": "Collect the rental car in Chiba early so you reach the farm by about 10:00. It closes at 16:30.",
+      "elevation_gain_m": null,
+      "segment_id": "seg-1",
+      "city": ""
+    },
+    {
+      "date": "2027-03-08",
+      "title": "Mount Nokogiri, Nihon-ji and the flight home",
+      "weather": {
+        "date": "2027-03-08",
+        "status": "unavailable",
+        "summary": "No forecast yet: the trip is beyond the 16-day forecast window.",
+        "high_c": null,
+        "low_c": null,
+        "precipitation_probability": null,
+        "source": "Open-Meteo",
+        "fetched_at": "2026-11-24T07:03:56.269665+00:00",
+        "note": "A forecast will be fetched closer to the trip."
+      },
+      "items": [
+        {
+          "id": "it-1cb4277334",
+          "type": "attraction",
+          "name": "Mt.Nokogiri Ropeway.",
+          "start": "09:00",
+          "end": "10:45",
+          "geo": {
+            "lat": 35.162239899999996,
+            "lng": 139.8231509
+          },
+          "address": "4052-1 Kanaya, Futtsu, Chiba 299-1861, Japan",
+          "notes": "Ride the ropeway up and visit the observatory for views across the bay.",
+          "source_refs": [
+            {
+              "title": "Mt.Nokogiri Ropeway.",
+              "url": "https://maps.google.com/?cid=12188854509187461901&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+              "source": "Google Places",
+              "fetched_at": "2026-11-24T07:03:58.757698+00:00"
+            }
+          ],
+          "data_status": "ok",
+          "fetched_at": "2026-11-24T07:03:58.757747+00:00",
+          "price": null,
+          "price_kind": "none",
+          "booking_url": "http://www.mt-nokogiri.co.jp/pc/p010000.php",
+          "locked": false,
+          "confirmed": false,
+          "tags": [
+            "tourist_attraction",
+            "point_of_interest",
+            "establishment"
+          ],
+          "opening_hours": [
+            "Monday: 9:00 AM – 5:00 PM",
+            "Tuesday: 9:00 AM – 5:00 PM",
+            "Wednesday: 9:00 AM – 5:00 PM",
+            "Thursday: 9:00 AM – 5:00 PM",
+            "Friday: 9:00 AM – 5:00 PM",
+            "Saturday: 9:00 AM – 5:00 PM",
+            "Sunday: 9:00 AM – 5:00 PM"
+          ],
+          "hours_status": "stated",
+          "transfer": null,
+          "names": {},
+          "meal_slot": null,
+          "rating": 4,
+          "review_count": 1239,
+          "price_level": null,
+          "cuisine": null,
+          "reservable": null,
+          "source_types": [
+            "tourist_attraction",
+            "point_of_interest",
+            "establishment"
+          ],
+          "source_summary": "Found for 'Mount Nokogiri ropeway Chiba'.",
+          "alternatives": [
+            {
+              "id": "alt-6832f7bd0c",
+              "name": "Nihon-ji Daibutsu (The Great Buddha of Nihonji)",
+              "geo": {
+                "lat": 35.1576699,
+                "lng": 139.8346891
+              },
+              "address": "Motona, Kyonan, Awa District, Chiba 299-1901, Japan",
+              "rating": 4.3,
+              "review_count": 1035,
+              "price_level": null,
+              "cuisine": null,
+              "reservable": null,
+              "opening_hours": [
+                "Monday: 9:00 AM – 3:00 PM",
+                "Tuesday: 9:00 AM – 3:00 PM",
+                "Wednesday: 9:00 AM – 3:00 PM",
+                "Thursday: 9:00 AM – 3:00 PM",
+                "Friday: 9:00 AM – 3:00 PM",
+                "Saturday: 9:00 AM – 3:00 PM",
+                "Sunday: 9:00 AM – 3:00 PM"
+              ],
+              "source_refs": [
+                {
+                  "title": "Nihon-ji Daibutsu (The Great Buddha of Nihonji)",
+                  "url": "https://maps.google.com/?cid=12713029678169864468&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T07:03:59.052567+00:00"
+                }
+              ],
+              "booking_url": "",
+              "distance_m": 1166,
+              "source_types": [
+                "buddhist_temple",
+                "tourist_attraction",
+                "place_of_worship",
+                "association_or_organization",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Found for 'Nihon-ji Great Buddha Nokogiriyama Chiba'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJ85Vo2iEbGGARFDlQwiLBbbA/photos/AV-0GLeLTIKyE90MsWahIdi4ITGFVVephwgyJn0XCsNq4gOVpoQfywS9iZJm-tZoI4zFc2iLbq8qDkUg9w7hP1bYDEFmq7hSnQCQgePYK6J-iFwgVrX6150n6F9u1_8JbH7h_RoHnf9NEiOGd_7dXodV0fYLnjRBzj2KJ621_HxQ7gw3MXesRD31ase8vrmmlbn_HdLf002b39t1YgMjxLI7yEbGQbkig2pjxrojuTQnVKPnHL8c7AJxdGIl4JnSNFx_xUQL-Wj8Vs6PKtI6x1VfD0WwKulqxlj51djBn_tTDdJb8KvMw22EpzqD0j_SRd6crUW_OoetXSs1FXX-XqKz81rP7tbcNBfCp6BD7Brouq-G4T10fHqzHe3gB8qsUj3u1YfmNXKOMd1NUtZsLYMh6ROAtw50idxc8yLHfnoDff4K/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            },
+            {
+              "id": "alt-e317719321",
+              "name": "Futtsu Aqua Farm",
+              "geo": {
+                "lat": 35.2422234,
+                "lng": 139.88538459999998
+              },
+              "address": "449 Tsuruoka, Futtsu, Chiba 293-0054, Japan",
+              "rating": 4.2,
+              "review_count": 288,
+              "price_level": null,
+              "cuisine": null,
+              "reservable": null,
+              "opening_hours": [
+                "Monday: 10:00 AM – 4:00 PM",
+                "Tuesday: 10:00 AM – 4:00 PM",
+                "Wednesday: 10:00 AM – 4:00 PM",
+                "Thursday: 10:00 AM – 4:00 PM",
+                "Friday: 10:00 AM – 4:00 PM",
+                "Saturday: 10:00 AM – 4:00 PM",
+                "Sunday: 10:00 AM – 4:00 PM"
+              ],
+              "source_refs": [
+                {
+                  "title": "Futtsu Aqua Farm",
+                  "url": "https://maps.google.com/?cid=7970213079828811055&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T07:03:56.695992+00:00"
+                }
+              ],
+              "booking_url": "https://www.futtsu-aquafarm.com/",
+              "distance_m": 10539,
+              "source_types": [
+                "farm",
+                "point_of_interest",
+                "service",
+                "establishment"
+              ],
+              "source_summary": "Found for 'capybaras and alpacas at Mother Farm March rapeseed (nanohana) flower fields grilled eel (unadon) in Chiba'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJNa0i37oPGGARL01eb5Him24/photos/AV-0GLfZgdKzxFSWQi_W0EHG9t0RFlcdHFgJN73Ca6oDPBOa-_L3D44Y9eaexpVx_t_k1od9mJTdByMX0rVdCUTOJcbZWQbzAa3_P2cyh3J3X6wVmoh9yMKqx3m-DGExWuaZ3g7Kt8JDEQNF3prA4mOiMSdMgiVlSfMDs_g4xojhcq6LMJ-r3KLnxPt-NwhhGZGuaVMa3xsAC9Gm9w7ORLWFU9wvPsE2NpmqDVNNu43N7VITCuLDNh6zyAlbdkdflcFpKHOWpR63E-T_m4RqvY0xQ2W2i_YXd2iuvrkTEgbKhCxf4gRlNRSEUjPdXZlMG0Cuyjpy5rO8cOpLATa7yd2mPm8xg3FAfNnVpTL3o02slpctp632BEVJsaRKCdYlXq5uE8nXdlvFzC9qA6qHs-zTX-tOTX8/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            },
+            {
+              "id": "alt-9533531ff9",
+              "name": "Yamanoue Gate",
+              "geo": {
+                "lat": 35.2454543,
+                "lng": 139.9339771
+              },
+              "address": "940-3 Tagura, Futtsu, Chiba 299-1601, Japan",
+              "rating": 4.3,
+              "review_count": 76,
+              "price_level": null,
+              "cuisine": null,
+              "reservable": null,
+              "opening_hours": [
+                "Monday: 9:30 AM – 4:30 PM",
+                "Tuesday: 9:30 AM – 4:30 PM",
+                "Wednesday: 9:30 AM – 4:30 PM",
+                "Thursday: 9:30 AM – 4:30 PM",
+                "Friday: 9:30 AM – 4:30 PM",
+                "Saturday: 9:00 AM – 5:00 PM",
+                "Sunday: 9:00 AM – 5:00 PM"
+              ],
+              "source_refs": [
+                {
+                  "title": "Yamanoue Gate",
+                  "url": "https://maps.google.com/?cid=12784240362438928142&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T07:03:56.695917+00:00"
+                }
+              ],
+              "booking_url": "http://motherfarm.co.jp/",
+              "distance_m": 13675,
+              "source_types": [
+                "ranch",
+                "point_of_interest",
+                "farm",
+                "service",
+                "establishment"
+              ],
+              "source_summary": "Found for 'capybaras and alpacas at Mother Farm March rapeseed (nanohana) flower fields grilled eel (unadon) in Chiba'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJ4TaCROUPGGARDidiNuC-arE/photos/AV-0GLdzfVUiTgqQTrWPI8Ubw49OgZ44d7dDR4r32Y0fb1XsxXB9zqIoivgVhKmVhs4_dUYJNYluJ3maIS5bklo4gBbu5HX8-lK6_ojbDKkENJv6sxA21UQXob6IBWLEXFJQ5LHH7lhuBTQ5wn6NPuLkj6pSHKx0pyt1zIgXzVtugSlJq4zUwR0_HfyCSg_gPtwCwPQJnP2HmT6Ke8GFv5BR2WMNRxNGmq5NpeJqUx83kiUa3f-Lrb8JKx7RxnkHM2_w6kMyHo7UdmiczVM_dzitkRFm3mm5bf5kaH3KAyCFWMkzRIaGr0yTgCFMvnYJnXYGaSh6QVi-zWOplu-Zt5ScuoWhwYFzCleL1n_Aa548rzlBkRyuXglItnZuUtfC9ZaP-dz7JptS5INaN5Ph0v1QEfhYwX1iBXbigTMLyqDynZFkag/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            }
+          ],
+          "links": [],
+          "image": {
+            "url": "https://places.googleapis.com/v1/places/ChIJnUOuO_saGGARDXMJx5iCJ6k/photos/AV-0GLfJUkQixdvAW29ZqwZl-lw7y7v2hgKzUjTC7NgCUs1vPpB7aTVqxTDo0MWPMAUv8pMj6wIpETTckYsLMWciGE-Y_IOuSJkaKpeOH_vKLCp3XaaGLwh8M6Rwyger9uZ6nYxPSS-QKfDyzy35UFOoRsjLLq9yKOijYtB0IMU47WbRyiukQ1oTB9-M2o4Dr1aMYTDIUjbIxWCd-bEY-NQnogYPEyVX6wxgnjkBCBcj0Vvq4Hb_kjHfZsZwfRONx6rDHEV2-TiXsgJcHgydehTYfCXQeOZON1laJfRrDHp3CHclGN7wpsY7SMVFTjmSmEpBQwS8Kq__1ixww8KujhBlM0BbqWsJgRPKLXEhbc61cPYUL6bwC9z9h6bfEN4HdxKtMzwYbsDrOGBHSRHtFsJOZZQuaCDwjGZXXbSmLWI1MDycwg/media?maxWidthPx=900&key=REDACTED",
+            "attribution": "Google",
+            "source": "google"
+          },
+          "step_free": false
+        },
+        {
+          "id": "it-60b336ff03",
+          "type": "attraction",
+          "name": "Nihon-ji Daibutsu (The Great Buddha of Nihonji)",
+          "start": "11:02",
+          "end": "13:02",
+          "geo": {
+            "lat": 35.1576699,
+            "lng": 139.8346891
+          },
+          "address": "Motona, Kyonan, Awa District, Chiba 299-1901, Japan",
+          "notes": "See the Great Buddha and the 1,500 Rakan stone statues on the mountainside. Wear shoes that suit stairs and uneven paths.",
+          "source_refs": [
+            {
+              "title": "Nihon-ji Daibutsu (The Great Buddha of Nihonji)",
+              "url": "https://maps.google.com/?cid=12713029678169864468&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+              "source": "Google Places",
+              "fetched_at": "2026-11-24T07:03:59.052567+00:00"
+            }
+          ],
+          "data_status": "ok",
+          "fetched_at": "2026-11-24T07:03:59.052592+00:00",
+          "price": null,
+          "price_kind": "none",
+          "booking_url": "",
+          "locked": false,
+          "confirmed": false,
+          "tags": [
+            "buddhist_temple",
+            "tourist_attraction",
+            "place_of_worship",
+            "association_or_organization",
+            "point_of_interest",
+            "establishment"
+          ],
+          "opening_hours": [
+            "Monday: 9:00 AM – 3:00 PM",
+            "Tuesday: 9:00 AM – 3:00 PM",
+            "Wednesday: 9:00 AM – 3:00 PM",
+            "Thursday: 9:00 AM – 3:00 PM",
+            "Friday: 9:00 AM – 3:00 PM",
+            "Saturday: 9:00 AM – 3:00 PM",
+            "Sunday: 9:00 AM – 3:00 PM"
+          ],
+          "hours_status": "stated",
+          "transfer": {
+            "from_item_id": "it-1cb4277334",
+            "minutes": 12,
+            "mode": "transit",
+            "distance_km": 1.17,
+            "source": "straight-line estimate",
+            "tool": "haversine",
+            "result_id": "it-1cb4277334->it-60b336ff03"
+          },
+          "names": {},
+          "meal_slot": null,
+          "rating": 4.3,
+          "review_count": 1035,
+          "price_level": null,
+          "cuisine": null,
+          "reservable": null,
+          "source_types": [
+            "buddhist_temple",
+            "tourist_attraction",
+            "place_of_worship",
+            "association_or_organization",
+            "point_of_interest",
+            "establishment"
+          ],
+          "source_summary": "Found for 'Nihon-ji Great Buddha Nokogiriyama Chiba'.",
+          "alternatives": [
+            {
+              "id": "alt-cabfa33d0f",
+              "name": "Mt.Nokogiri Ropeway.",
+              "geo": {
+                "lat": 35.162239899999996,
+                "lng": 139.8231509
+              },
+              "address": "4052-1 Kanaya, Futtsu, Chiba 299-1861, Japan",
+              "rating": 4,
+              "review_count": 1239,
+              "price_level": null,
+              "cuisine": null,
+              "reservable": null,
+              "opening_hours": [
+                "Monday: 9:00 AM – 5:00 PM",
+                "Tuesday: 9:00 AM – 5:00 PM",
+                "Wednesday: 9:00 AM – 5:00 PM",
+                "Thursday: 9:00 AM – 5:00 PM",
+                "Friday: 9:00 AM – 5:00 PM",
+                "Saturday: 9:00 AM – 5:00 PM",
+                "Sunday: 9:00 AM – 5:00 PM"
+              ],
+              "source_refs": [
+                {
+                  "title": "Mt.Nokogiri Ropeway.",
+                  "url": "https://maps.google.com/?cid=12188854509187461901&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T07:03:58.757698+00:00"
+                }
+              ],
+              "booking_url": "http://www.mt-nokogiri.co.jp/pc/p010000.php",
+              "distance_m": 1166,
+              "source_types": [
+                "tourist_attraction",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Found for 'Mount Nokogiri ropeway Chiba'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJnUOuO_saGGARDXMJx5iCJ6k/photos/AV-0GLfJUkQixdvAW29ZqwZl-lw7y7v2hgKzUjTC7NgCUs1vPpB7aTVqxTDo0MWPMAUv8pMj6wIpETTckYsLMWciGE-Y_IOuSJkaKpeOH_vKLCp3XaaGLwh8M6Rwyger9uZ6nYxPSS-QKfDyzy35UFOoRsjLLq9yKOijYtB0IMU47WbRyiukQ1oTB9-M2o4Dr1aMYTDIUjbIxWCd-bEY-NQnogYPEyVX6wxgnjkBCBcj0Vvq4Hb_kjHfZsZwfRONx6rDHEV2-TiXsgJcHgydehTYfCXQeOZON1laJfRrDHp3CHclGN7wpsY7SMVFTjmSmEpBQwS8Kq__1ixww8KujhBlM0BbqWsJgRPKLXEhbc61cPYUL6bwC9z9h6bfEN4HdxKtMzwYbsDrOGBHSRHtFsJOZZQuaCDwjGZXXbSmLWI1MDycwg/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            },
+            {
+              "id": "alt-e317719321",
+              "name": "Futtsu Aqua Farm",
+              "geo": {
+                "lat": 35.2422234,
+                "lng": 139.88538459999998
+              },
+              "address": "449 Tsuruoka, Futtsu, Chiba 293-0054, Japan",
+              "rating": 4.2,
+              "review_count": 288,
+              "price_level": null,
+              "cuisine": null,
+              "reservable": null,
+              "opening_hours": [
+                "Monday: 10:00 AM – 4:00 PM",
+                "Tuesday: 10:00 AM – 4:00 PM",
+                "Wednesday: 10:00 AM – 4:00 PM",
+                "Thursday: 10:00 AM – 4:00 PM",
+                "Friday: 10:00 AM – 4:00 PM",
+                "Saturday: 10:00 AM – 4:00 PM",
+                "Sunday: 10:00 AM – 4:00 PM"
+              ],
+              "source_refs": [
+                {
+                  "title": "Futtsu Aqua Farm",
+                  "url": "https://maps.google.com/?cid=7970213079828811055&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T07:03:56.695992+00:00"
+                }
+              ],
+              "booking_url": "https://www.futtsu-aquafarm.com/",
+              "distance_m": 10470,
+              "source_types": [
+                "farm",
+                "point_of_interest",
+                "service",
+                "establishment"
+              ],
+              "source_summary": "Found for 'capybaras and alpacas at Mother Farm March rapeseed (nanohana) flower fields grilled eel (unadon) in Chiba'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJNa0i37oPGGARL01eb5Him24/photos/AV-0GLfZgdKzxFSWQi_W0EHG9t0RFlcdHFgJN73Ca6oDPBOa-_L3D44Y9eaexpVx_t_k1od9mJTdByMX0rVdCUTOJcbZWQbzAa3_P2cyh3J3X6wVmoh9yMKqx3m-DGExWuaZ3g7Kt8JDEQNF3prA4mOiMSdMgiVlSfMDs_g4xojhcq6LMJ-r3KLnxPt-NwhhGZGuaVMa3xsAC9Gm9w7ORLWFU9wvPsE2NpmqDVNNu43N7VITCuLDNh6zyAlbdkdflcFpKHOWpR63E-T_m4RqvY0xQ2W2i_YXd2iuvrkTEgbKhCxf4gRlNRSEUjPdXZlMG0Cuyjpy5rO8cOpLATa7yd2mPm8xg3FAfNnVpTL3o02slpctp632BEVJsaRKCdYlXq5uE8nXdlvFzC9qA6qHs-zTX-tOTX8/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            },
+            {
+              "id": "alt-68226d09db",
+              "name": "Mother Farm",
+              "geo": {
+                "lat": 35.2453596,
+                "lng": 139.9340832
+              },
+              "address": "940-3 Tagura, Futtsu, Chiba 299-1601, Japan",
+              "rating": 4.2,
+              "review_count": 9118,
+              "price_level": null,
+              "cuisine": null,
+              "reservable": null,
+              "opening_hours": [
+                "Monday: 9:30 AM – 4:30 PM",
+                "Tuesday: 9:30 AM – 4:30 PM",
+                "Wednesday: 9:30 AM – 4:30 PM",
+                "Thursday: 9:30 AM – 4:30 PM",
+                "Friday: 9:30 AM – 4:30 PM",
+                "Saturday: 9:00 AM – 7:30 PM",
+                "Sunday: 9:00 AM – 7:30 PM"
+              ],
+              "source_refs": [
+                {
+                  "title": "Mother Farm",
+                  "url": "https://maps.google.com/?cid=1920843215379244538&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T07:03:56.695779+00:00"
+                }
+              ],
+              "booking_url": "https://www.motherfarm.co.jp/",
+              "distance_m": 13290,
+              "source_types": [
+                "ranch",
+                "tourist_attraction",
+                "amusement_park",
+                "amusement_center",
+                "point_of_interest",
+                "farm",
+                "service",
+                "establishment"
+              ],
+              "source_summary": "Found for 'capybaras and alpacas at Mother Farm March rapeseed (nanohana) flower fields grilled eel (unadon) in Chiba'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJx6mGpzWbImAR-iXmMbo0qBo/photos/AV-0GLd1FsIIBQwAiPxfQ4rEGY_uAShrTHlvzufn1lKxjO0LrT90Z18swlKhZqdaxyX7a7qB3-WZff4vA8P8LrVa8-H6gYZyTAkvLdhhccwWGsRc74kfqpTDnS0mLZi9DBeo_B-ktr6-r7f9WgKIwktFy_iPc5xxpOWlMa3Zcw33WuOoHpRWKGWSrpKneL0BYl45ydmMWyv7HxpfAVmBk8FwhO0hoTGNivVr1Z-Z4Esh1zs9J2UYl1Gj-chJNkKENZdbz7g-ySX00LC5JhDROqA2arUSejBjTeCwAZ7gkZUUmPcMn8dJ3P2DmRGoHE5UrcOvaGoY_0u9X2AyPU_FGRNGBkZRROxrbui7LN9KBL_4EuFsMhUC1hM9D8AqclcMQvXu9URKPvJCyXkxuiPHH4lOrnkriqfpo77JmU-p-2n8hjoC/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            }
+          ],
+          "links": [],
+          "image": {
+            "url": "https://places.googleapis.com/v1/places/ChIJ85Vo2iEbGGARFDlQwiLBbbA/photos/AV-0GLeLTIKyE90MsWahIdi4ITGFVVephwgyJn0XCsNq4gOVpoQfywS9iZJm-tZoI4zFc2iLbq8qDkUg9w7hP1bYDEFmq7hSnQCQgePYK6J-iFwgVrX6150n6F9u1_8JbH7h_RoHnf9NEiOGd_7dXodV0fYLnjRBzj2KJ621_HxQ7gw3MXesRD31ase8vrmmlbn_HdLf002b39t1YgMjxLI7yEbGQbkig2pjxrojuTQnVKPnHL8c7AJxdGIl4JnSNFx_xUQL-Wj8Vs6PKtI6x1VfD0WwKulqxlj51djBn_tTDdJb8KvMw22EpzqD0j_SRd6crUW_OoetXSs1FXX-XqKz81rP7tbcNBfCp6BD7Brouq-G4T10fHqzHe3gB8qsUj3u1YfmNXKOMd1NUtZsLYMh6ROAtw50idxc8yLHfnoDff4K/media?maxWidthPx=900&key=REDACTED",
+            "attribution": "Google",
+            "source": "google"
+          },
+          "step_free": false
+        },
+        {
+          "id": "usr-1cc5569fb3",
+          "type": "attraction",
+          "name": "1,500 Rakan stone statues (Nihon-ji, Mount Nokogiri)",
+          "start": "13:07",
+          "end": "14:07",
+          "geo": null,
+          "address": "",
+          "notes": "Added at your request. The address, opening hours and ticket price are not confirmed by a source. The Rakan statues line the Nihon-ji walking paths just after the Great Buddha. The temple grounds close around 16:00, so this fits.",
+          "source_refs": [],
+          "data_status": "stale",
+          "fetched_at": null,
+          "price": null,
+          "price_kind": "none",
+          "booking_url": "",
+          "locked": false,
+          "confirmed": false,
+          "tags": [
+            "user-provided"
+          ],
+          "opening_hours": [],
+          "hours_status": "unknown",
+          "transfer": null,
+          "names": {},
+          "meal_slot": null,
+          "rating": null,
+          "review_count": null,
+          "price_level": null,
+          "cuisine": null,
+          "reservable": null,
+          "source_types": [],
+          "source_summary": "",
+          "alternatives": [],
+          "links": [],
+          "image": null,
+          "step_free": null
+        },
+        {
+          "id": "usr-528fd20350",
+          "type": "attraction",
+          "name": "Rental car return in Chiba City",
+          "start": "15:10",
+          "end": "15:30",
+          "geo": null,
+          "address": "",
+          "notes": "Added at your request. The address, opening hours and ticket price are not confirmed by a source. About 50-60 min drive from Mount Nokogiri. From Chiba Station, JR trains reach Narita Airport in about 40-50 min.",
+          "source_refs": [],
+          "data_status": "stale",
+          "fetched_at": null,
+          "price": null,
+          "price_kind": "none",
+          "booking_url": "",
+          "locked": false,
+          "confirmed": false,
+          "tags": [
+            "user-provided"
+          ],
+          "opening_hours": [],
+          "hours_status": "unknown",
+          "transfer": null,
+          "names": {},
+          "meal_slot": null,
+          "rating": null,
+          "review_count": null,
+          "price_level": null,
+          "cuisine": null,
+          "reservable": null,
+          "source_types": [],
+          "source_summary": "",
+          "alternatives": [],
+          "links": [],
+          "image": null,
+          "step_free": null
+        },
+        {
+          "id": "it-69e9d323bc",
+          "type": "meal",
+          "name": "Chulo Chill Restaurant & Bar (チュロ チル レストラン&バー)",
+          "start": "18:03",
+          "end": "19:03",
+          "geo": {
+            "lat": 35.612493,
+            "lng": 140.1215474
+          },
+          "address": "CSK25 ビル, 1F, 25-8 Sakaechō, Chuo Ward, Chiba, 260-0016, Japan",
+          "notes": "A late lunch in central Chiba once the car is returned. Leave in time to reach Narita Airport for your flight.",
+          "source_refs": [
+            {
+              "title": "Chulo Chill Restaurant & Bar (チュロ チル レストラン&バー)",
+              "url": "https://maps.google.com/?cid=2274211011283588082&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+              "source": "Google Places",
+              "fetched_at": "2026-11-24T07:03:56.768328+00:00"
+            }
+          ],
+          "data_status": "ok",
+          "fetched_at": "2026-11-24T07:03:56.768332+00:00",
+          "price": null,
+          "price_kind": "none",
+          "booking_url": "",
+          "locked": false,
+          "confirmed": false,
+          "tags": [
+            "asian_restaurant",
+            "restaurant",
+            "food",
+            "point_of_interest",
+            "establishment"
+          ],
+          "opening_hours": [
+            "Monday: 11:00 AM – 11:00 PM",
+            "Tuesday: 11:00 AM – 11:00 PM",
+            "Wednesday: 11:00 AM – 11:00 PM",
+            "Thursday: 11:00 AM – 11:00 PM",
+            "Friday: 11:00 AM – 11:00 PM",
+            "Saturday: 11:00 AM – 11:00 PM",
+            "Sunday: 11:00 AM – 11:00 PM"
+          ],
+          "hours_status": "stated",
+          "transfer": {
+            "from_item_id": "it-60b336ff03",
+            "minutes": 147.9,
+            "mode": "drive",
+            "distance_km": 56.87,
+            "source": "straight-line estimate",
+            "tool": "haversine",
+            "result_id": "it-60b336ff03->it-69e9d323bc"
+          },
+          "names": {},
+          "meal_slot": "lunch",
+          "rating": 4.8,
+          "review_count": 92,
+          "price_level": "$",
+          "cuisine": "Asian restaurant",
+          "reservable": true,
+          "source_types": [
+            "asian_restaurant",
+            "restaurant",
+            "food",
+            "point_of_interest",
+            "establishment"
+          ],
+          "source_summary": "Found for 'best local restaurants in Chiba'.",
+          "alternatives": [
+            {
+              "id": "alt-771c4e5903",
+              "name": "ANAYUKI",
+              "geo": {
+                "lat": 35.6090276,
+                "lng": 140.12183579999999
+              },
+              "address": "Japan, 〒260-0013 Chiba, Chuo Ward, Chūō, 3-chōme−4−１３ 第１６ CIビル ２階",
+              "rating": 4.2,
+              "review_count": 2178,
+              "price_level": "$",
+              "cuisine": "Izakaya restaurant",
+              "reservable": true,
+              "opening_hours": [
+                "Monday: 11:30 AM – 11:00 PM",
+                "Tuesday: 11:30 AM – 11:00 PM",
+                "Wednesday: 11:30 AM – 11:00 PM",
+                "Thursday: 11:30 AM – 11:00 PM",
+                "Friday: 11:30 AM – 11:00 PM",
+                "Saturday: 11:00 AM – 11:00 PM",
+                "Sunday: 11:00 AM – 11:00 PM"
+              ],
+              "source_refs": [
+                {
+                  "title": "ANAYUKI",
+                  "url": "https://maps.google.com/?cid=13384936866502881595&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T07:03:56.768350+00:00"
+                }
+              ],
+              "booking_url": "https://anayuki-chiba.com/?utm_source=google&utm_medium=meo",
+              "distance_m": 386,
+              "source_types": [
+                "japanese_izakaya_restaurant",
+                "japanese_restaurant",
+                "restaurant",
+                "food",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Found for 'best local restaurants in Chiba'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJQace6JaFImAROzHv5CnZwLk/photos/AV-0GLciAMiobjfF9F9BNF7dtHUbkGFzU2nV2dDohvhmYdurl7BNfrF8QTqR6OQNKujj9p0CC3niTN1MHlivBGGNGI_20id_vtMH4VXAfNvZaBEFiMwowEKHKFAbEjClhozfW5ntCBdxt84exIZFtApyfAjOWlgKztlleLzVj2aFJSL1Yx-Mk-ePaX7rkqVZQpNypqM3sw0tkRO_2xtQAm-uUxBjhENuHpVyo3n9uLve0toBTJnPjF3BmOMiIoHrjMSxRCLGNofJPmOtJABrIoYgmd05wfr01KVf1pZQNK_W85cASDJYVIgPcEL1WnmVGq8-qvT55dvfkbHuG8ZBlCKWE7M9GJUrS-pZJMTcZTXIZHZ3OmgPJ8Us3voPzhV0t-9ncB3rcSmhgRmjWFCZjUTel7Y5A5w/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            },
+            {
+              "id": "alt-7ee45a1a71",
+              "name": "Hakata Komachi Chiba Main Store",
+              "geo": {
+                "lat": 35.6098561,
+                "lng": 140.11793169999999
+              },
+              "address": "Japan, 〒260-0015 Chiba, Chuo Ward, Fujimi, 2-chōme−14−６ LHビル千葉中央 3F-A",
+              "rating": 4.7,
+              "review_count": 585,
+              "price_level": "$$",
+              "cuisine": "Izakaya restaurant",
+              "reservable": true,
+              "opening_hours": [
+                "Monday: 4:00 PM – 12:00 AM",
+                "Tuesday: 4:00 PM – 12:00 AM",
+                "Wednesday: 4:00 PM – 12:00 AM",
+                "Thursday: 4:00 PM – 12:00 AM",
+                "Friday: 4:00 PM – 12:00 AM",
+                "Saturday: 4:00 PM – 12:00 AM",
+                "Sunday: 4:00 PM – 12:00 AM"
+              ],
+              "source_refs": [
+                {
+                  "title": "Hakata Komachi Chiba Main Store",
+                  "url": "https://maps.google.com/?cid=1901714308559360012&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T07:03:56.741061+00:00"
+                }
+              ],
+              "booking_url": "https://www.hotpepper.jp/strJ003807152/",
+              "distance_m": 439,
+              "source_types": [
+                "japanese_izakaya_restaurant",
+                "japanese_restaurant",
+                "restaurant",
+                "food",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Found for 'famous food in Chiba'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJ6RSTsOCFImARDFD1gRY_ZBo/photos/AV-0GLe1PnljEQ0dIHY0QicvrtD6QuyznY3uG08NnqOBmuG1raQp6OrRS5QUDgYuujVyWeM5sMF4sc-MIsPp-canL7VMqKixRFN9WeduipwR_aa94r7feV8W1CDAOrc3CHGL2imlFchDYpkSqLAI_UWcQxUAX4lniVRqLQ6vcyxAPhRyrdhMsIjsIjpudS_KX2vvFovjFcWCqup2c2l8bHX7rpS1Y7W4R8_GoKKVo3Dk_34HHoRQND8TAwI2AulYZ4dBg5f6qy5TF7XrD6Yf6oGzAsYHhwYfBp_LR6Gb6L4ka_bWAnQ0Nbz7picK9pwtL0iHSp1gnsFik3BwMKEnh44ngqv-1RLcT7zJNA1sg8QK_Ia4dij9ayeDwJ02bNoplgL9okZmafAdvUfVoqDII_eOYEcv-fJQL8t6iQo5hqsDV15CQg/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            },
+            {
+              "id": "alt-6165fbaaab",
+              "name": "格安ビールと鉄鍋餃子 ３・６・５酒場 千葉駅前店",
+              "geo": {
+                "lat": 35.610703,
+                "lng": 140.11662049999998
+              },
+              "address": "Japan, 〒260-0015 Chiba, Chuo Ward, Fujimi, 2-chōme−5−１ 江澤ビル 6F",
+              "rating": 4.5,
+              "review_count": 1798,
+              "price_level": "$",
+              "cuisine": "Izakaya restaurant",
+              "reservable": true,
+              "opening_hours": [
+                "Monday: 12:00 – 11:00 PM",
+                "Tuesday: 12:00 – 11:00 PM",
+                "Wednesday: 12:00 – 11:00 PM",
+                "Thursday: 12:00 – 11:00 PM",
+                "Friday: 12:00 – 11:00 PM",
+                "Saturday: 11:30 AM – 11:00 PM",
+                "Sunday: 11:30 AM – 11:00 PM"
+              ],
+              "source_refs": [
+                {
+                  "title": "格安ビールと鉄鍋餃子 ３・６・５酒場 千葉駅前店",
+                  "url": "https://maps.google.com/?cid=7621529085155598140&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T07:03:56.768370+00:00"
+                }
+              ],
+              "booking_url": "https://map.cw-dining.co.jp/365sakaba/detail/21605/",
+              "distance_m": 488,
+              "source_types": [
+                "japanese_izakaya_restaurant",
+                "japanese_restaurant",
+                "meal_delivery",
+                "food_delivery",
+                "restaurant",
+                "food",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Found for 'best local restaurants in Chiba'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJwWeBHAuFImARPN8BhlIcxWk/photos/AV-0GLcZ6an24Ddvl7DpRwHXmAoc6qsc42tE3QUn61OQjsGCtpCD3ebYJhuAhznOc2pGPF5ea8r1rcSAY8e38BVLuJmSth3UZSpu1TB9qJnspZ3L-vNOQ2eX00drC4d8iF5-7-dx-kS64i49gBjW-xYTArbnGiMbrmskv7LNcceV7emJGxdeRK9y8ENODNsSi6BbOP5eYZgdGoGKvKBzQBhnbn8sNV3YJxOaoCukc3uTlw8yExZLnLTRLP20jP6Cc5i7kkmVbvxECMu_y4KGaBAeekhqgQA64aXvtCgSp8DV3ROefUaMD_Xi-Q6coC5xURtGj80hWsmSiiJvNLp_rMjJZIO-lLnckX3aZVa8wfUhbwZtHHczsGSfRRnqRzU2CIrfDoWt0CobKlUyg01zMqSWw9aVRAMh/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            }
+          ],
+          "links": [],
+          "image": {
+            "url": "https://places.googleapis.com/v1/places/ChIJH4-jZQCFImAR8hPXj92ejx8/photos/AV-0GLes1kotihswAazstYcKpLSdFzhnN4Tec8DZ2TBIoFiogapS2AyKa_2hzzYISa5SzbMeuM__UV7cqOP6YoOX8_jG-BB3JRN_7b-eK3ANyyx2gJQASjYwgtTGhPqCg1aHscSIwqZlV2bK9fjGgCOBhAVzwtFihBzbQbWh_IiFyBq_jjxXd4peYeyCDVwg_1CyiX-4CuMWfrUymCkZOGkTCMfGuQ0oN9XRSIIqVNMYTAoQtZ_YER3oJEPs9YfUOTlPy8QBSdc71WqkBPHk1-LZ9kXlTx32opdTBI19xR1bCvR9jeyLKm6qejJqsoqIrozO7zOfj9pWufMJnSdl4jwH6qkWjlHCrT27JebE4WSAHIrRZ34v4cD4DHaIXnFYwrROHVEDNzE8UHTj32zuzd6PnNadUyEA/media?maxWidthPx=900&key=REDACTED",
+            "attribution": "Google",
+            "source": "google"
+          },
+          "step_free": null
+        }
+      ],
+      "note": "Nihon-ji closes at 15:00, so do the mountain first. Return the car in Chiba City, then go on to Narita for the evening flight.",
+      "elevation_gain_m": null,
+      "segment_id": "seg-1",
+      "city": ""
+    }
+  ],
+  "hotels": [
+    {
+      "id": "ho-d4a2cc6dcf",
+      "name": "APA Hotel & Resort Tokyo Bay Makuhari",
+      "area": "",
+      "geo": {
+        "lat": 35.6441113,
+        "lng": 140.0371528
+      },
+      "check_in": "2027-03-06",
+      "check_out": "2027-03-08",
+      "price_per_night": null,
+      "price_kind": "none",
+      "rating": 4,
+      "review_count": 19241,
+      "distance_to_centre_km": null,
+      "source_refs": [
+        {
+          "title": "APA Hotel & Resort Tokyo Bay Makuhari",
+          "url": "https://maps.google.com/?cid=18053748279231973069&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+          "source": "Google Places",
+          "fetched_at": "2026-11-24T07:03:56.788121+00:00"
+        }
+      ],
+      "data_status": "ok",
+      "booking_url": "https://www.apahotel.com/resort/makuhari/?utm_source=google&utm_medium=maps",
+      "notes": "Relaxed rooms in an upscale hotel offering plush restaurants, a spa & a bar with panoramic views.",
+      "confirmed": false,
+      "locked": false,
+      "booked": false,
+      "names": {},
+      "amenities": [
+        "hotel",
+        "resort_hotel",
+        "lodging",
+        "point_of_interest",
+        "establishment"
+      ],
+      "hotel_class": null,
+      "property_token": "",
+      "nearby": [],
+      "room_types": [],
+      "rooms_checked_for": null,
+      "nearest_stop_km": null,
+      "nearest_stop_name": "",
+      "match": null,
+      "segment_id": null,
+      "links": [],
+      "image": {
+        "url": "https://places.googleapis.com/v1/places/ChIJJ3qBGB-CImARzQbxN2jMi_o/photos/AV-0GLfFg_4p-oHFUk6pDLGia8XCVTVLiLVw4b9ArHp0wqNTXx8UeQKOIHAZzfrq9jXfV5vNH-iWGCUfSRePlE_2T4L_tAdL0RQr6QiV7GgcO1utNj_iMWWmKJJAOvLjCJvgugIGsazVXFNf-VRpqTI9m2gS0ZUfNHZsmmq1ixRuUZQgBXjhZzPj-KGJVsZRt0Cg3hGyIVdIdz5UGYSelsOCieh5otihXDAELN215DoMvmpAkmLullGIpxyPH04fqWwwv3A6ovOBAU2HCFKY-JfOk743x1yPEsT7FE240jkdnCtFUvreXcYrL1Pv4_8YwUrgkOKe7cr1xWdwHIfkiEwc-qAWBhrfYzgdcllKMBcSMaevTwexNbS06CTThgH0q7Af9tqCCZh7vOxMHHaVpOLnX0Mk3A/media?maxWidthPx=900&key=REDACTED",
+        "attribution": "Google",
+        "source": "google"
+      },
+      "rank": 1,
+      "score": 4,
+      "reasons": []
+    }
+  ],
+  "hotel_options": [
+    {
+      "id": "ho-d4a2cc6dcf",
+      "name": "APA Hotel & Resort Tokyo Bay Makuhari",
+      "area": "",
+      "geo": {
+        "lat": 35.6441113,
+        "lng": 140.0371528
+      },
+      "check_in": "",
+      "check_out": "",
+      "price_per_night": null,
+      "price_kind": "none",
+      "rating": 4,
+      "review_count": 19241,
+      "distance_to_centre_km": null,
+      "source_refs": [
+        {
+          "title": "APA Hotel & Resort Tokyo Bay Makuhari",
+          "url": "https://maps.google.com/?cid=18053748279231973069&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+          "source": "Google Places",
+          "fetched_at": "2026-11-24T07:03:56.788121+00:00"
+        }
+      ],
+      "data_status": "ok",
+      "booking_url": "https://www.apahotel.com/resort/makuhari/?utm_source=google&utm_medium=maps",
+      "notes": "Relaxed rooms in an upscale hotel offering plush restaurants, a spa & a bar with panoramic views.",
+      "confirmed": false,
+      "locked": false,
+      "booked": false,
+      "names": {},
+      "amenities": [
+        "hotel",
+        "resort_hotel",
+        "lodging",
+        "point_of_interest",
+        "establishment"
+      ],
+      "hotel_class": null,
+      "property_token": "",
+      "nearby": [],
+      "room_types": [],
+      "rooms_checked_for": null,
+      "nearest_stop_km": null,
+      "nearest_stop_name": "",
+      "match": null,
+      "segment_id": null,
+      "links": [],
+      "image": {
+        "url": "https://places.googleapis.com/v1/places/ChIJJ3qBGB-CImARzQbxN2jMi_o/photos/AV-0GLfFg_4p-oHFUk6pDLGia8XCVTVLiLVw4b9ArHp0wqNTXx8UeQKOIHAZzfrq9jXfV5vNH-iWGCUfSRePlE_2T4L_tAdL0RQr6QiV7GgcO1utNj_iMWWmKJJAOvLjCJvgugIGsazVXFNf-VRpqTI9m2gS0ZUfNHZsmmq1ixRuUZQgBXjhZzPj-KGJVsZRt0Cg3hGyIVdIdz5UGYSelsOCieh5otihXDAELN215DoMvmpAkmLullGIpxyPH04fqWwwv3A6ovOBAU2HCFKY-JfOk743x1yPEsT7FE240jkdnCtFUvreXcYrL1Pv4_8YwUrgkOKe7cr1xWdwHIfkiEwc-qAWBhrfYzgdcllKMBcSMaevTwexNbS06CTThgH0q7Af9tqCCZh7vOxMHHaVpOLnX0Mk3A/media?maxWidthPx=900&key=REDACTED",
+        "attribution": "Google",
+        "source": "google"
+      },
+      "rank": null,
+      "score": null,
+      "reasons": []
+    },
+    {
+      "id": "ho-7f56d5d2fa",
+      "name": "Daiwa Roynet Hotel Chiba Station",
+      "area": "",
+      "geo": {
+        "lat": 35.6124973,
+        "lng": 140.116798
+      },
+      "check_in": "",
+      "check_out": "",
+      "price_per_night": null,
+      "price_kind": "none",
+      "rating": 4.3,
+      "review_count": 1082,
+      "distance_to_centre_km": null,
+      "source_refs": [
+        {
+          "title": "Daiwa Roynet Hotel Chiba Station",
+          "url": "https://maps.google.com/?cid=12505648246801756213&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+          "source": "Google Places",
+          "fetched_at": "2026-11-24T07:03:56.788192+00:00"
+        }
+      ],
+      "data_status": "ok",
+      "booking_url": "https://www.daiwaroynet.jp/chibaekimae/",
+      "notes": "Understated rooms in an informal lodging with an Italian bar/restaurant & complimentary Wi-Fi.",
+      "confirmed": false,
+      "locked": false,
+      "booked": false,
+      "names": {},
+      "amenities": [
+        "hotel",
+        "lodging",
+        "point_of_interest",
+        "establishment"
+      ],
+      "hotel_class": null,
+      "property_token": "",
+      "nearby": [],
+      "room_types": [],
+      "rooms_checked_for": null,
+      "nearest_stop_km": null,
+      "nearest_stop_name": "",
+      "match": null,
+      "segment_id": null,
+      "links": [],
+      "image": {
+        "url": "https://places.googleapis.com/v1/places/ChIJVVUFMbeEImARNfCanNL8jK0/photos/AV-0GLffF20zv8iA1WyEfeguRK9q2f1CoNe5AEQSc6jy9EW0nk-YmP1ZmHAOdFjDcRQC40v7z8067kNGAwXP_zggv39vnxhLic12zc83HFrRwZmElzNbeg-rt8BBV0FqWEIEAx8LEWW2Bxi0k3WSRRiWiGGkii3MZEor49QygUZ6VfV5E3HVsbyog-AoNF_WuJg5WKhxwBXzHF_bBdOqRBwYoEOO2rS7BalfcK-5QP9vJ9RWK7or5YGA0k1mHZgwnrWcuaVNcPh3o9RuvvNkZNVrb-6_EMwctz16u95DtV6YHs-jR70Dn9RXETTxdYnapWQIkqXR2hnWPrMLpV2_9yyStyR_GHdAX8dj_q-ldL0LS1fsD9JbocsRyzhP8l-3mq0Zi6RV8sfjBvQ11jbCU8zOGhfGKefh17abddFiH57GmWVv5A/media?maxWidthPx=900&key=REDACTED",
+        "attribution": "Google",
+        "source": "google"
+      },
+      "rank": null,
+      "score": null,
+      "reasons": []
+    },
+    {
+      "id": "ho-d16ce79214",
+      "name": "KEISEI HOTEL MIRAMARE",
+      "area": "",
+      "geo": {
+        "lat": 35.6074485,
+        "lng": 140.1182861
+      },
+      "check_in": "",
+      "check_out": "",
+      "price_per_night": null,
+      "price_kind": "none",
+      "rating": 4,
+      "review_count": 1897,
+      "distance_to_centre_km": null,
+      "source_refs": [
+        {
+          "title": "KEISEI HOTEL MIRAMARE",
+          "url": "https://maps.google.com/?cid=3531058675750456028&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+          "source": "Google Places",
+          "fetched_at": "2026-11-24T07:03:56.788229+00:00"
+        }
+      ],
+      "data_status": "ok",
+      "booking_url": "https://www.miramare.co.jp/",
+      "notes": "Relaxed property near a train station, offering 3 restaurants & a beauty salon, plus free Wi-Fi.",
+      "confirmed": false,
+      "locked": false,
+      "booked": false,
+      "names": {},
+      "amenities": [
+        "hotel",
+        "banquet_hall",
+        "cafe",
+        "lodging",
+        "chinese_restaurant",
+        "event_venue",
+        "restaurant",
+        "food"
+      ],
+      "hotel_class": null,
+      "property_token": "",
+      "nearby": [],
+      "room_types": [],
+      "rooms_checked_for": null,
+      "nearest_stop_km": null,
+      "nearest_stop_name": "",
+      "match": null,
+      "segment_id": null,
+      "links": [],
+      "image": {
+        "url": "https://places.googleapis.com/v1/places/ChIJi1WHWLSEImAR3MoqQSjXADE/photos/AV-0GLddPrXG2UgAZ_3T3BEU9dumlJ0YuUfqJZQ-qiLi1-qP57yIyJ3FUfZihy2k5gtr6ncMBMKQy_-3NckaAAY2pztTwd-oID807audtk0Le0L8H27tbYEbaI7myQPgTeXj-a62tJk80VV7wOzQSQuXzH-FiiPfooZ252Zf90x8H5LS9RitVDXIg3K-RTM6ot4oTu0HE-vZmGuLxLu_dn3RQZdRZDFYIwe-_GzIYMD50-TLWQTGXrV0SkD2_c8ZRadR3uDRPXy4YK29FrpFDq83dCJvkCEM8SOhmPTfsbGvSwbEs61e7LSlDBocUPZH6irs3MmDdzqVgt8IUqy1YXBAG3mgWzdZwdGNbQoZZDLsWBH9gP8WL1pvDuYOITE3DujDfZNbj1fRFVJtJhMNn8Phj6PxdqWa/media?maxWidthPx=900&key=REDACTED",
+        "attribution": "Google",
+        "source": "google"
+      },
+      "rank": null,
+      "score": null,
+      "reasons": []
+    },
+    {
+      "id": "ho-ea97d684a6",
+      "name": "APA Hotel Chiba Station Square",
+      "area": "",
+      "geo": {
+        "lat": 35.6145716,
+        "lng": 140.1143066
+      },
+      "check_in": "",
+      "check_out": "",
+      "price_per_night": null,
+      "price_kind": "none",
+      "rating": 4.1,
+      "review_count": 1039,
+      "distance_to_centre_km": null,
+      "source_refs": [
+        {
+          "title": "APA Hotel Chiba Station Square",
+          "url": "https://maps.google.com/?cid=216518824191178081&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+          "source": "Google Places",
+          "fetched_at": "2026-11-24T07:03:56.788260+00:00"
+        }
+      ],
+      "data_status": "ok",
+      "booking_url": "https://www.apahotel.com/hotel/syutoken/chiba/chiba-ekimae/?utm_source=google&utm_medium=maps",
+      "notes": "Warm, laid-back rooms in an unpretentious hotel featuring breakfast, parking & Wi-Fi.",
+      "confirmed": false,
+      "locked": false,
+      "booked": false,
+      "names": {},
+      "amenities": [
+        "hotel",
+        "lodging",
+        "point_of_interest",
+        "establishment"
+      ],
+      "hotel_class": null,
+      "property_token": "",
+      "nearby": [],
+      "room_types": [],
+      "rooms_checked_for": null,
+      "nearest_stop_km": null,
+      "nearest_stop_name": "",
+      "match": null,
+      "segment_id": null,
+      "links": [],
+      "image": {
+        "url": "https://places.googleapis.com/v1/places/ChIJExw5JKCFImARYbUZM7k6AQM/photos/AV-0GLeiCYgBoEdvM1wvj-icpdoXiaLSuDHQxiFHSUajTeVEd2458P9pgGEDxLnDJosDOC6NP7vE_MlZEMsCGnWS2vFZmS-Q1G4vwAH9RD0LvMB7h1S3vnBZ7g37sz3P2F1bBKW0PwGK49VLhmXYfgdtRDAZwqDSL4F9cxf-VfNMBe4TJTtxPSuVqfXKeD8_FOXnF7X8ofMIlPRyagc2c0n7SzS7bYD9d4nbBbfBBOcdFSXrS6FMTzhJUpw5TxdtT_fUKgeRkN_if2Fmsrc9G0uQDjhq3UqlOnxuqAx4r-XZqOblkj7mjl7QkmHOcQswszHvtNup5qnijhccC0BAMHT6f6bYJdhZlKXddU2NOaPMVNOwON5QB3WL9KVxY5zmBj_P0kKolP22LROQEst3w2zpuMCnjlc/media?maxWidthPx=900&key=REDACTED",
+        "attribution": "Google",
+        "source": "google"
+      },
+      "rank": null,
+      "score": null,
+      "reasons": []
+    }
+  ],
+  "tickets": [
+    {
+      "id": "tk-3348ca8cbf",
+      "mode": "flight",
+      "leg_id": "leg-out",
+      "estimated": true,
+      "links": [],
+      "rank": null,
+      "score": null,
+      "reasons": [],
+      "name": "Hong Kong to Chiba",
+      "origin": "Hong Kong",
+      "destination": "Chiba",
+      "depart_at": "2027-03-06T08:00",
+      "arrive_at": "2027-03-06T12:00",
+      "duration_minutes": null,
+      "return_origin": "",
+      "return_destination": "",
+      "return_depart_at": null,
+      "return_arrive_at": null,
+      "return_duration_minutes": null,
+      "return_airline": "",
+      "return_flight_number": "",
+      "price": {
+        "amount": 4490,
+        "currency": "HKD"
+      },
+      "price_kind": "estimate",
+      "operator": "",
+      "booking_url": "",
+      "notes": "Estimated return fare for 2; no live fare was available, so this is a planning estimate.",
+      "source_refs": [
+        {
+          "title": "Estimate: Hong Kong to Chiba",
+          "url": "",
+          "source": "Pathfinder estimate",
+          "fetched_at": "2026-11-24T07:03:56.269824+00:00"
+        }
+      ],
+      "data_status": "stale",
+      "confirmed": false,
+      "selected": true
+    }
+  ],
+  "segments": [
+    {
+      "id": "seg-1",
+      "destination": {
+        "name": "Chiba",
+        "country_code": "",
+        "geo": null,
+        "timezone": "UTC"
+      },
+      "dates": {
+        "start": "2027-03-06",
+        "end": "2027-03-08"
+      }
+    }
+  ],
+  "legs": [
+    {
+      "id": "leg-out",
+      "from_place": "Hong Kong",
+      "to_place": "Chiba",
+      "depart_date": "2027-03-06",
+      "kind": "outbound",
+      "locked": false,
+      "booked": false,
+      "segment_id": null,
+      "airport": ""
+    },
+    {
+      "id": "leg-back",
+      "from_place": "Chiba",
+      "to_place": "Hong Kong",
+      "depart_date": "2027-03-08",
+      "kind": "return",
+      "locked": false,
+      "booked": false,
+      "segment_id": null,
+      "airport": ""
+    }
+  ],
+  "cost": {
+    "currency": "HKD",
+    "lines": [
+      {
+        "label": "Travel",
+        "amount": 4490,
+        "kind": "flight",
+        "note": "Return travel for the party."
+      },
+      {
+        "label": "Local transport",
+        "amount": 180,
+        "kind": "local",
+        "note": "Estimate for local travel."
+      }
+    ],
+    "total": 4670,
+    "budget": 12000,
+    "remaining": 7330,
+    "status": "within",
+    "notes": [
+      "Costs use the prices the sources returned; estimates are labelled."
+    ]
+  },
+  "constraints": [
+    {
+      "id": "c1",
+      "text": "Keep every named place",
+      "status": "unknown",
+      "evidence": ""
+    },
+    {
+      "id": "c2",
+      "text": "Day 1: Naritasan Shinshoji Temple, Omotesando street, lunch or dinner at Kawatoyo, stay in Kaihin-Makuhari",
+      "status": "unknown",
+      "evidence": ""
+    },
+    {
+      "id": "c3",
+      "text": "Day 2: pick up a rental car in Chiba in the morning, spend the day at Mother Farm, eat inside the park, stay in Kisarazu",
+      "status": "unknown",
+      "evidence": ""
+    },
+    {
+      "id": "c4",
+      "text": "Day 3: Mount Nokogiri ropeway and observatory, Nihon-ji Great Buddha, 1,500 Rakan stone statues, return the rental car in Chiba City, evening flight from Narita",
+      "status": "pass",
+      "evidence": "Day 1 includes Chiba Port Park Observatory Hill."
+    }
+  ],
+  "disruptions": [],
+  "reservations": [
+    {
+      "id": "res-hotel",
+      "name": "APA Hotel & Resort Tokyo Bay Makuhari",
+      "reason": "Book the stay once the dates are confirmed.",
+      "url": "https://www.apahotel.com/resort/makuhari/?utm_source=google&utm_medium=maps",
+      "needed_by": null,
+      "status": "to_book"
+    }
+  ],
+  "video_notes": [
+    {
+      "title": "Exploring Chiba Japan for first timers | Travel Guide NOV 2025",
+      "url": "https://www.youtube.com/watch?v=z5Yji_CPKYc",
+      "source": "youtube",
+      "snippet": "Exploring Chiba Japan for first timers | Travel Guide NOV 2025 ... FUJI DAY TRIP TRAVEL GUIDE | Chureito Pagoda, Honcho Street, Oshino Hakkai & ...",
+      "video_id": "z5Yji_CPKYc",
+      "thumbnail_url": "https://i.ytimg.com/vi/z5Yji_CPKYc/hqdefault.jpg",
+      "published_at": null
+    },
+    {
+      "title": "Is Chiba Worth Visiting? 🇯🇵 We Spent a Full Day to Find Out",
+      "url": "https://www.youtube.com/watch?v=xnO0zfECCcA",
+      "source": "youtube",
+      "snippet": "Is Chiba worth visiting? We spent a full day exploring this often-overlooked city just outside Tokyo — riding the famous suspended ...",
+      "video_id": "xnO0zfECCcA",
+      "thumbnail_url": "https://i.ytimg.com/vi/xnO0zfECCcA/hqdefault.jpg",
+      "published_at": null
+    },
+    {
+      "title": "CHIBA Hidden Adventure Travel Gateway to Japan",
+      "url": "https://www.youtube.com/watch?v=0gTc3i3wIck",
+      "source": "youtube",
+      "snippet": "Explore Chiba's hidden Japanese adventure through wellness experiences, seaside yoga, forest detox, cycling, hiking, and temple lodging with ...",
+      "video_id": "0gTc3i3wIck",
+      "thumbnail_url": "https://i.ytimg.com/vi/0gTc3i3wIck/hqdefault.jpg",
+      "published_at": null
+    }
+  ],
+  "data_quality": {
+    "sources_used": [
+      "Google Places",
+      "Pathfinder estimate"
+    ],
+    "gaps": [
+      {
+        "section": "weather",
+        "kind": "unavailable",
+        "message": "No forecast covered the trip dates.",
+        "retryable": true
+      },
+      {
+        "section": "plan",
+        "kind": "model_gap",
+        "message": "No confirmed flight times, so Day 1 timings and the Day 3 airport transfer are approximate.",
+        "retryable": false
+      },
+      {
+        "section": "plan",
+        "kind": "model_gap",
+        "message": "No details for Naritasan, Omotesando, the rental-car pickup and return, or a Kisarazu hotel.",
+        "retryable": false
+      },
+      {
+        "section": "plan",
+        "kind": "user_provided",
+        "message": "Naritasan Shinshoji Temple was added at the traveller's request without a confirmed source; check its address, hours and tickets.",
+        "retryable": true
+      },
+      {
+        "section": "plan",
+        "kind": "user_provided",
+        "message": "Omotesando historic street was added at the traveller's request without a confirmed source; check its address, hours and tickets.",
+        "retryable": true
+      },
+      {
+        "section": "plan",
+        "kind": "user_provided",
+        "message": "Rental car pickup in Chiba was added at the traveller's request without a confirmed source; check its address, hours and tickets.",
+        "retryable": true
+      },
+      {
+        "section": "plan",
+        "kind": "user_provided",
+        "message": "1,500 Rakan stone statues (Nihon-ji, Mount Nokogiri) was added at the traveller's request without a confirmed source; check its address, hours and tickets.",
+        "retryable": true
+      },
+      {
+        "section": "plan",
+        "kind": "user_provided",
+        "message": "Rental car return in Chiba City was added at the traveller's request without a confirmed source; check its address, hours and tickets.",
+        "retryable": true
+      }
+    ],
+    "notes": [
+      "weather:3"
+    ],
+    "search_window_months": 24,
+    "generated_at": "2026-11-24T07:05:46.379637+00:00",
+    "freshness": []
+  },
+  "assessment": {
+    "confidence": 0.83,
+    "level": "high",
+    "signals": [
+      {
+        "code": "unsourced_items",
+        "weight": -0.2,
+        "message": "Some stops had no source."
+      },
+      {
+        "code": "data_gaps",
+        "weight": -0.1,
+        "message": "8 data gap(s) remain."
+      }
+    ],
+    "missing": [],
+    "unverified": [
+      "No forecast covered the trip dates.",
+      "No confirmed flight times, so Day 1 timings and the Day 3 airport transfer are approximate.",
+      "No details for Naritasan, Omotesando, the rental-car pickup and return, or a Kisarazu hotel.",
+      "Naritasan Shinshoji Temple was added at the traveller's request without a confirmed source; check its address, hours and tickets."
+    ],
+    "next_action": "research",
+    "question": "",
+    "research_rounds": 0,
+    "improvements": []
+  },
+  "change_summary": "Add the 1,500 Rakan stone statues after the Great Buddha, then a rental car return in Chiba City before the Chiba City meal.",
+  "created_at": "2026-11-24T07:05:46.380102+00:00",
+  "updated_at": "2026-11-24T07:11:41.109158+00:00"
+}

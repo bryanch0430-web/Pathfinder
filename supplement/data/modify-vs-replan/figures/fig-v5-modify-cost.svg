@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="480" viewBox="0 0 900 480" role="img">
+<rect width="900" height="480" fill="#ffffff"/>
+<g font-family="Arial, Helvetica, sans-serif" fill="#1f2933">
+<text x="40" y="36" font-size="22" fill="#1f2933" font-weight="bold">v5.2.11: initial plan vs local edit — observed cost</text>
+<text x="40" y="58" font-size="12" fill="#5b6770" font-weight="normal">One applied session, 25 Nov 2026. Descriptive runtime observation; the two requests differ.</text>
+<text x="60" y="100" font-size="14" fill="#1f2933" font-weight="bold">A. Wall-clock time (s)</text>
+<text x="510" y="100" font-size="14" fill="#1f2933" font-weight="bold">B. Total model tokens</text>
+<line x1="60" y1="350" x2="420" y2="350" stroke="#c8d0d8"/>
+<line x1="60" y1="350" x2="420" y2="350" stroke="#c8d0d8" stroke-dasharray="2 4"/>
+<text x="24" y="354" font-size="11" fill="#5b6770" font-weight="normal">0</text>
+<line x1="60" y1="280" x2="420" y2="280" stroke="#c8d0d8" stroke-dasharray="2 4"/>
+<text x="24" y="284" font-size="11" fill="#5b6770" font-weight="normal">15</text>
+<line x1="60" y1="210" x2="420" y2="210" stroke="#c8d0d8" stroke-dasharray="2 4"/>
+<text x="24" y="214" font-size="11" fill="#5b6770" font-weight="normal">30</text>
+<line x1="60" y1="140" x2="420" y2="140" stroke="#c8d0d8" stroke-dasharray="2 4"/>
+<text x="24" y="144" font-size="11" fill="#5b6770" font-weight="normal">45</text>
+<rect x="140" y="167" width="80" height="183" fill="#4C78A8" rx="2"/>
+<text x="180" y="157" font-size="13" fill="#1f2933" font-weight="bold">39.40 s</text>
+<text x="180" y="370" font-size="12" fill="#5b6770" font-weight="normal">Plan</text>
+<rect x="270" y="294" width="80" height="56" fill="#F58518" rx="2"/>
+<text x="310" y="284" font-size="13" fill="#1f2933" font-weight="bold">12.21 s</text>
+<text x="310" y="370" font-size="12" fill="#5b6770" font-weight="normal">Edit</text>
+<text x="60" y="392" font-size="12" fill="#5b6770" font-weight="normal">3.2× faster; 69.0% lower wall-clock time.</text>
+<line x1="510" y1="350" x2="870" y2="350" stroke="#c8d0d8"/>
+<line x1="510" y1="350" x2="870" y2="350" stroke="#c8d0d8" stroke-dasharray="2 4"/>
+<text x="464" y="354" font-size="11" fill="#5b6770" font-weight="normal">0</text>
+<line x1="510" y1="255" x2="870" y2="255" stroke="#c8d0d8" stroke-dasharray="2 4"/>
+<text x="464" y="259" font-size="11" fill="#5b6770" font-weight="normal">10k</text>
+<line x1="510" y1="160" x2="870" y2="160" stroke="#c8d0d8" stroke-dasharray="2 4"/>
+<text x="464" y="164" font-size="11" fill="#5b6770" font-weight="normal">20k</text>
+<rect x="590" y="157" width="80" height="193" fill="#4C78A8" rx="2"/>
+<text x="630" y="147" font-size="13" fill="#1f2933" font-weight="bold">20,252</text>
+<text x="630" y="370" font-size="12" fill="#5b6770" font-weight="normal">Plan</text>
+<rect x="720" y="202" width="80" height="148" fill="#F58518" rx="2"/>
+<text x="760" y="192" font-size="13" fill="#1f2933" font-weight="bold">15,521</text>
+<text x="760" y="370" font-size="12" fill="#5b6770" font-weight="normal">Edit</text>
+<text x="510" y="392" font-size="12" fill="#5b6770" font-weight="normal">23.4% fewer total tokens; completion tokens 4,829 → 1,592.</text>
+<text x="40" y="432" font-size="11" fill="#5b6770" font-weight="normal">Requests: new 2-day Taipei plan vs “Remove all attractions from Day 2.” Same session.</text>
+<text x="40" y="450" font-size="11" fill="#5b6770" font-weight="normal">Planner: claude-sonnet-5.5. Editor: deepseek-flash. Both turns use 2 model calls; this is not a paired replan arm.</text>
+<text x="40" y="468" font-size="11" fill="#5b6770" font-weight="normal">Source: data/v5-runtime-applied-session-2026-11-25.json (v5.2.11).</text></g>
+</svg>

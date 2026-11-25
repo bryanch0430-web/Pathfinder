@@ -1,0 +1,3709 @@
+{
+  "schema_version": "5.0",
+  "trip_id": "trip-113b5648699a",
+  "session_id": "56a0e1989fdf4979b565370c3ff7344e",
+  "version": 6,
+  "status": "draft",
+  "destination": {
+    "name": "Taipei",
+    "country_code": "TW",
+    "geo": {
+      "lat": 25.033,
+      "lng": 121.5654
+    },
+    "timezone": "Asia/Taipei"
+  },
+  "origin": "Hong Kong",
+  "dates": {
+    "start": "2027-02-11",
+    "end": "2027-02-15"
+  },
+  "party_size": 2,
+  "budget": {
+    "amount": 15000,
+    "currency": "HKD"
+  },
+  "summary": "A five-day Taipei trip based beside Ximen Station. It covers the National Palace Museum, a Beitou hot spring soak, a Jiufen and Yehliu day trip, and the Chiang Kai-shek Memorial Hall, Din Tai Fung and a sunset climb up Elephant Mountain. Some named stops, including Shilin Night Market, Shifen and Tamsui, couldn't be confirmed and aren't scheduled. The 13:55 flight home also leaves only a short final morning.",
+  "days": [
+    {
+      "date": "2027-02-11",
+      "title": "Arrive, Ximen and Yongkang",
+      "weather": {
+        "date": "2027-02-11",
+        "status": "unavailable",
+        "summary": "No forecast yet: the trip is beyond the 16-day forecast window.",
+        "high_c": null,
+        "low_c": null,
+        "precipitation_probability": null,
+        "source": "Open-Meteo",
+        "fetched_at": "2026-11-24T05:44:58.008336+00:00",
+        "note": "A forecast will be fetched closer to the trip."
+      },
+      "items": [
+        {
+          "id": "usr-75371c8555",
+          "type": "attraction",
+          "name": "Ximending",
+          "start": "15:15",
+          "end": "16:00",
+          "geo": null,
+          "address": "",
+          "notes": "Added at your request. The address, opening hours and ticket price are not confirmed by a source. Ximending stroll after check-in near Ximen Station. The Red House is in the same district, so the walk leads straight into it.",
+          "source_refs": [],
+          "data_status": "stale",
+          "fetched_at": null,
+          "price": null,
+          "price_kind": "none",
+          "booking_url": "",
+          "locked": false,
+          "confirmed": false,
+          "tags": [
+            "user-provided"
+          ],
+          "opening_hours": [],
+          "hours_status": "unknown",
+          "transfer": null,
+          "names": {},
+          "meal_slot": null,
+          "rating": null,
+          "review_count": null,
+          "price_level": null,
+          "cuisine": null,
+          "reservable": null,
+          "source_types": [],
+          "source_summary": "",
+          "alternatives": [],
+          "links": [],
+          "image": null,
+          "step_free": null
+        },
+        {
+          "id": "it-7f4d37ea3b",
+          "type": "attraction",
+          "name": "The Red House",
+          "start": "16:05",
+          "end": "17:35",
+          "geo": {
+            "lat": 25.0420139,
+            "lng": 121.5068592
+          },
+          "address": "No. 10號, Chengdu Rd, Ximen Village, Wanhua District, Taipei City, Taiwan 108",
+          "notes": "The Red House is in the Ximen area, a short walk from your hotel. Browse the teahouse and the market stalls around the octagonal building.",
+          "source_refs": [
+            {
+              "title": "The Red House",
+              "url": "https://maps.google.com/?cid=8949821639858373061&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+              "source": "Google Places",
+              "fetched_at": "2026-11-24T05:44:58.571956+00:00"
+            }
+          ],
+          "data_status": "ok",
+          "fetched_at": "2026-11-24T05:44:58.571959+00:00",
+          "price": null,
+          "price_kind": "none",
+          "booking_url": "https://www.redhouse.taipei/",
+          "locked": false,
+          "confirmed": false,
+          "tags": [
+            "historical_landmark",
+            "tourist_attraction",
+            "historical_place",
+            "point_of_interest",
+            "establishment"
+          ],
+          "opening_hours": [
+            "Monday: Closed",
+            "Tuesday: 11:00 AM – 9:00 PM",
+            "Wednesday: 11:00 AM – 9:00 PM",
+            "Thursday: 11:00 AM – 9:00 PM",
+            "Friday: 11:00 AM – 9:00 PM",
+            "Saturday: 11:00 AM – 10:00 PM",
+            "Sunday: 11:00 AM – 9:00 PM"
+          ],
+          "hours_status": "stated",
+          "transfer": null,
+          "names": {},
+          "meal_slot": null,
+          "rating": 4.3,
+          "review_count": 19967,
+          "price_level": null,
+          "cuisine": null,
+          "reservable": null,
+          "source_types": [
+            "historical_landmark",
+            "tourist_attraction",
+            "historical_place",
+            "point_of_interest",
+            "establishment"
+          ],
+          "source_summary": "Built in 1908, this landmark 8-sided structure features exhibits, a teahouse, markets & theaters.",
+          "alternatives": [
+            {
+              "id": "alt-9ff101244d",
+              "name": "National Taiwan Museum",
+              "geo": {
+                "lat": 25.0427872,
+                "lng": 121.5151192
+              },
+              "address": "No. 2號, Xiangyang Rd, Liming Village, Zhongzheng District, Taipei City, Taiwan 100",
+              "rating": 4.6,
+              "review_count": 14204,
+              "price_level": null,
+              "cuisine": null,
+              "reservable": null,
+              "opening_hours": [
+                "Monday: Closed",
+                "Tuesday: 9:30 AM – 5:00 PM",
+                "Wednesday: 9:30 AM – 5:00 PM",
+                "Thursday: 9:30 AM – 5:00 PM",
+                "Friday: 9:30 AM – 5:00 PM",
+                "Saturday: 9:30 AM – 5:00 PM",
+                "Sunday: 9:30 AM – 5:00 PM"
+              ],
+              "source_refs": [
+                {
+                  "title": "National Taiwan Museum",
+                  "url": "https://maps.google.com/?cid=746007216145012758&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:44:58.571927+00:00"
+                }
+              ],
+              "booking_url": "https://www.ntm.gov.tw/",
+              "distance_m": 837,
+              "source_types": [
+                "historical_landmark",
+                "tourist_attraction",
+                "museum",
+                "historical_place",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Venerable national museum with a variety of exhibits, including history & natural history.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJcRV3WHOpQjQRFpgzTpxZWgo/photos/AV-0GLdr1VQjZfqg95snXYpLk7l6wVRLfwbylc5vvsBhS_OlGcBJT9pjVpQWYMpokAo1u0N3H4qr7SMDx3l5rvi0CA4_qH7zEALvGuC1FJHKYNxsV7tEr_ahRklvfA5Nxr6TGV6Zc18tGcx0zJ5UI-GB-SHK7fcmZMa5zB7yvAYdNaYgejDp7MPz6hDBH5y02fPNjazkoTY0XImnsCsvo0FTep0jRErg_dTyAhnLjAgfnaDJwyT65NDBLlvDqH6wiNpggdb_3WZBV_1RV2092Lv3KVPvMcUOMrUzwRHrAd5HyBne33f6RTX9E52VbMuy6oDAvRM93UhxBU0AZKnfR5Zzcd4eKENPCT1rDkDOP7QmJEhWX8SAhwQsI6-k63f7RyQj03CmtgW1_BSfUmHLpJ2P-3KiO-Hixca6kJs_tNdBNGyKOQ/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            },
+            {
+              "id": "alt-a3af0ed852",
+              "name": "Taipei Old Town - Taiwan Introduction Free Walking Tour Meeting Point - TourMeAway",
+              "geo": {
+                "lat": 25.0427003,
+                "lng": 121.51625820000001
+              },
+              "address": "No. 52號, Gongyuan Rd, Liming Village, Zhongzheng District, Taipei City, Taiwan 100",
+              "rating": 5,
+              "review_count": 2276,
+              "price_level": null,
+              "cuisine": null,
+              "reservable": null,
+              "opening_hours": [
+                "Monday: 10:30 AM – 5:00 PM",
+                "Tuesday: 10:30 AM – 1:30 PM",
+                "Wednesday: 10:30 AM – 5:00 PM",
+                "Thursday: 10:30 AM – 1:30 PM",
+                "Friday: 10:30 AM – 5:00 PM",
+                "Saturday: 10:30 AM – 5:00 PM",
+                "Sunday: 10:30 AM – 1:30 PM"
+              ],
+              "source_refs": [
+                {
+                  "title": "Taipei Old Town - Taiwan Introduction Free Walking Tour Meeting Point - TourMeAway",
+                  "url": "https://maps.google.com/?cid=10189627558759242129&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:44:58.555467+00:00"
+                }
+              ],
+              "booking_url": "https://tourmeaway.com/",
+              "distance_m": 950,
+              "source_types": [
+                "tourist_attraction",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Found for 'top attractions in Taipei'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJn82Pg9KpQjQRkRlgGUfUaI0/photos/AV-0GLeZ33r5Cw_86QawNbzdDg2x78ifmWOyitmdkLRcx1NsCfkVAMDRq1cT-f7SdSQkKc-PjOOAcosKqwf3OJ6ebadS52ym32Rf7taIw5Ha1SzL8hdMGMcxNMKvTlQktW0k7nR5H3ROv1OGTNx28TDGUd5V0Bca2HWbiM9fyT_1qsStJqzYo7ecDrQEdefNRDYqpU4fc0aSk70yJyxgWR3ijZzmi0Ii-Ip2Dpl-c8ds6hGhbyo_Nr3zRSYWoZzrI5ZB6s30vTtfIwOj3-kkdJ8KuGiFEKIqpdNQlXPg2EDYCdnaZzZo27pUKfGGS7njmdUBVjP6pRduLSS21Qx7eqh55C_E0EJxApiCoXQl88l3C2s527sb8OGSjWeyOPZzosziKWe4wjp-bhwzSLX7qHQMaddE1Q-VKIs/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            },
+            {
+              "id": "alt-d266a0508e",
+              "name": "Taipei Botanical Garden",
+              "geo": {
+                "lat": 25.031851099999997,
+                "lng": 121.50945929999999
+              },
+              "address": "No. 53號, Nanhai Rd, Nanmen Village, Zhongzheng District, Taipei City, Taiwan 100",
+              "rating": 4.6,
+              "review_count": 12223,
+              "price_level": null,
+              "cuisine": null,
+              "reservable": null,
+              "opening_hours": [
+                "Monday: 5:30 AM – 8:00 PM",
+                "Tuesday: 5:30 AM – 8:00 PM",
+                "Wednesday: 5:30 AM – 8:00 PM",
+                "Thursday: 5:30 AM – 8:00 PM",
+                "Friday: 5:30 AM – 8:00 PM",
+                "Saturday: 5:30 AM – 8:00 PM",
+                "Sunday: 5:30 AM – 8:00 PM"
+              ],
+              "source_refs": [
+                {
+                  "title": "Taipei Botanical Garden",
+                  "url": "https://maps.google.com/?cid=617244547849775137&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:44:58.571968+00:00"
+                }
+              ],
+              "booking_url": "https://tpbg.tfri.gov.tw/",
+              "distance_m": 1160,
+              "source_types": [
+                "botanical_garden",
+                "tourist_attraction",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Bird watching is popular at this relaxed botanical garden with many plant species & multiple ponds.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJe1ASN0-pQjQRIeghXqXkkAg/photos/AV-0GLc9BBQxOgAXw-r_9iffhh4zBVjVvpQLk_OT3g4Nt79tx0ZV2VMjxyCT8hWFfuTSUuXHjEa4uYn9uQ8nxnjt-5KPidvZRgzF5lj_WDZgYvSzgxqO2d6wK_CJOw8ra8TAIcFTC79k7yf_I3GoKlvTfWt0QiWmVDQ1FrZZAhcRgpvq0fPxDIC0T3_SzODld6mOB-Pc48-2r1W_PKNvectT24QaBkmpclKj1R9Fn3jkRX9LpspnWYlTfoQAvOEO9veBjlTGG1ZTDqrw3KX_jZ9heMHh42wN9Rfdc0wbhgQNIb3906iSQxd43oz5uvTM5W4-LF54d61ra84HJ7e9x4qy2FJ6T816aGHC4eKuYozOr4fogv-OLUSWS2o1D2HrszSfpglYXUIGCynzo-sfw7bz7xoEpWDN4fjFCRtcaU2cJw92zw/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            }
+          ],
+          "links": [],
+          "image": {
+            "url": "https://places.googleapis.com/v1/places/ChIJi-yspAmpQjQRxcHc_lwnNHw/photos/AV-0GLd5aTDPM8ZXjccnLQIEBF0fSWW3KgGG4ZHT0XiDSTffVkYrcDDWeQuMxH_X90Q904cURoSi05PH5LHrtet-DT1eTWs36iDbxN-mrfrzlY_pXAnX89EEqSzTcnXx5qFnsLBs6RCyymwkcObm2DdyaaUekJw-1CBnWrqDZsTzw-Sw3VEuiAAsh80QcmrigPpsGQvVb6pCcnRCSGQoTNVb-jCfxmuQfq3Y8fMnlEWyIUGqDjfS_kRd8A60rr3Ea-o6O5WOSGwohb4IIAVF6kpQaJfZ2Y6b-0xlDq0lbqr1unv8ESTyYiC_n4HDE7c7drPJ-Gg6mYT2egQqWHYLtbyqQ30QCR7qzVGQiI43n44Rxwi93iDv-vauOKb3EmGDRHhhobBM9Vqa691N8nkoXFKVdyDqZxY/media?maxWidthPx=900&key=REDACTED",
+            "attribution": "Google",
+            "source": "google"
+          },
+          "step_free": true
+        },
+        {
+          "id": "it-412b3d5d75",
+          "type": "meal",
+          "name": "Yongkang Beef Noodles",
+          "start": "18:15",
+          "end": "19:30",
+          "geo": {
+            "lat": 25.0329382,
+            "lng": 121.52811109999998
+          },
+          "address": "No. 17號, Lane 31, Section 2, Jinshan S Rd, Yongkang Village, Da’an District, Taipei City, Taiwan 106",
+          "notes": "Beef noodles for dinner in the Yongkang area. Allow about 25 minutes to get there from Ximen.",
+          "source_refs": [
+            {
+              "title": "Yongkang Beef Noodles",
+              "url": "https://maps.google.com/?cid=2093328631498160184&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+              "source": "Google Places",
+              "fetched_at": "2026-11-24T05:45:02.760908+00:00"
+            }
+          ],
+          "data_status": "ok",
+          "fetched_at": "2026-11-24T05:45:02.760924+00:00",
+          "price": null,
+          "price_kind": "none",
+          "booking_url": "https://www.facebook.com/profile.php?id=100063524573126&mibextid=LQQJ4d",
+          "locked": false,
+          "confirmed": false,
+          "tags": [
+            "chinese_noodle_restaurant",
+            "taiwanese_restaurant",
+            "restaurant",
+            "food",
+            "point_of_interest",
+            "establishment"
+          ],
+          "opening_hours": [
+            "Monday: 11:00 AM – 8:30 PM",
+            "Tuesday: 11:00 AM – 8:30 PM",
+            "Wednesday: 11:00 AM – 8:30 PM",
+            "Thursday: 11:00 AM – 8:30 PM",
+            "Friday: 11:00 AM – 8:30 PM",
+            "Saturday: 11:00 AM – 8:30 PM",
+            "Sunday: 11:00 AM – 8:30 PM"
+          ],
+          "hours_status": "stated",
+          "transfer": {
+            "from_item_id": "it-7f4d37ea3b",
+            "minutes": 10.3,
+            "mode": "transit",
+            "distance_km": 2.37,
+            "source": "straight-line estimate",
+            "tool": "haversine",
+            "result_id": "it-7f4d37ea3b->it-412b3d5d75"
+          },
+          "names": {},
+          "meal_slot": "dinner",
+          "rating": 3.7,
+          "review_count": 12218,
+          "price_level": "$$",
+          "cuisine": "Chinese noodle restaurant",
+          "reservable": false,
+          "source_types": [
+            "chinese_noodle_restaurant",
+            "taiwanese_restaurant",
+            "restaurant",
+            "food",
+            "point_of_interest",
+            "establishment"
+          ],
+          "source_summary": "Down-to-earth spot offering street food-inspired beef noodles in an unpretentious dining area.",
+          "alternatives": [
+            {
+              "id": "alt-9c94fc444c",
+              "name": "Din Tai Fung Xinyi Branch",
+              "geo": {
+                "lat": 25.0335035,
+                "lng": 121.53011799999999
+              },
+              "address": "No. 194號, Section 2, Xinyi Rd, Fuzhu Village, Da’an District, Taipei City, Taiwan 106",
+              "rating": 4.4,
+              "review_count": 13237,
+              "price_level": "$$",
+              "cuisine": "Takeout restaurant",
+              "reservable": false,
+              "opening_hours": [
+                "Monday: 11:00 AM – 8:30 PM",
+                "Tuesday: 11:00 AM – 8:30 PM",
+                "Wednesday: 11:00 AM – 8:30 PM",
+                "Thursday: 11:00 AM – 8:30 PM",
+                "Friday: 11:00 AM – 8:30 PM",
+                "Saturday: 10:30 AM – 8:30 PM",
+                "Sunday: 10:30 AM – 8:30 PM"
+              ],
+              "source_refs": [
+                {
+                  "title": "Din Tai Fung Xinyi Branch",
+                  "url": "https://maps.google.com/?cid=10663098530229991004&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:45:03.718788+00:00"
+                }
+              ],
+              "booking_url": "https://www.dintaifung.com.tw/",
+              "distance_m": 212,
+              "source_types": [
+                "meal_takeaway",
+                "restaurant",
+                "food",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Found for 'Din Tai Fung Yongkang Street Taipei'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJbTKSE4KpQjQRXDZZI57v-pM/photos/AV-0GLcPFuR2q7866fEcY4vidYhMk8jHl24ezUNheAohzRulIOMYyw-cshs0KY4M6T-5gEoP3GklJ8vVqJVQawLLYkhteSlp0f3IuiTK3K9nFkv_jcBlIOVBKi_h7aJBbfvec13S7uOYJlbKnZQpjCsLa63jlG6UPITxIYdbMqkJBB9hIdIFTo1CezExZNZSUHaNUp6beyzrsXzwO7q80ntk6X6FM0H4U4CTLGhzZIlRI6oJh3OI-WpPVu6vscwrRJTjZBabSdSc-1l_CNWXIg17j83eAGJinnyBWlL58bYH0izELS__sSoDFrsuPN9Iwi6ODjaA18he4f1CyNZALifxTuF1JvxSn8utZkSEDw1FwbSC-2zbacsLbpfAZjccFxYC0S-SCDZoYBp51K7UqrY64qvwgDRwqU-fjOEpoRI7S4DL/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            },
+            {
+              "id": "alt-dd07d2774f",
+              "name": "Moon Moon Food Qingdao Branch",
+              "geo": {
+                "lat": 25.0437017,
+                "lng": 121.5220376
+              },
+              "address": "No. 6之2號, Qingdao E Rd, Xingfu Village, Zhongzheng District, Taipei City, Taiwan 100",
+              "rating": 4.8,
+              "review_count": 25747,
+              "price_level": "$$",
+              "cuisine": "Restaurant",
+              "reservable": false,
+              "opening_hours": [
+                "Monday: 11:00 AM – 2:00 PM, 5:00 – 8:00 PM",
+                "Tuesday: 11:00 AM – 2:00 PM, 5:00 – 8:00 PM",
+                "Wednesday: 11:00 AM – 2:00 PM, 5:00 – 8:00 PM",
+                "Thursday: 11:00 AM – 2:00 PM, 5:00 – 8:00 PM",
+                "Friday: 11:00 AM – 2:00 PM, 5:00 – 8:00 PM",
+                "Saturday: 11:00 AM – 2:00 PM, 5:00 – 8:00 PM",
+                "Sunday: 11:00 AM – 2:00 PM, 5:00 – 8:00 PM"
+              ],
+              "source_refs": [
+                {
+                  "title": "Moon Moon Food Qingdao Branch",
+                  "url": "https://maps.google.com/?cid=6085922673212866287&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:44:58.465555+00:00"
+                }
+              ],
+              "booking_url": "https://www.moonmoonfood.com/",
+              "distance_m": 1344,
+              "source_types": [
+                "restaurant",
+                "deli",
+                "chicken_restaurant",
+                "meal_delivery",
+                "food_delivery",
+                "chinese_restaurant",
+                "food_store",
+                "food"
+              ],
+              "source_summary": "Found for 'famous food in Taipei'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJgbsfD3GpQjQR7z5ZO22KdVQ/photos/AV-0GLfbdEaxntF-a_q5sPSPVxyOMY2LSZm0mpZhHxXlmxpX6gf9wPsyorJ5teAg8-pXUz26bdG-aSj1ERpxoMHT8k0avmTbiLUDWKylOEnD8Y0_GEp4Eqc3i_XCT0Kv6hSUik4xN-wNzCsvbSPjL9f4825YBprq_f6yE0G3iG_q-ulR_vPX1EiNSVt0qqHFt91t9fDNecR5O7E2PSxtK8_pRHJjOuQTqAyxPZRGJ6bfPLplC7pfu7aO97Mw9vFw7OzF5memKgUcLhuSjtM3seAffx-63BFP9JHfnaWXQkJberePh-4ovzBviWtCcEWhb1DZai-89zBWzRyPvMM6pDG2FgPWM1TD-OUi3gSX7Nnrl6HqFGVruSGsWn1VSxGmhXZLEL7qvb0Vpp1qKFFJJbWEu8UzmVSm0aE/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            },
+            {
+              "id": "alt-ab2253cf03",
+              "name": "Din Tai Fung Fuxing Branch",
+              "geo": {
+                "lat": 25.0409656,
+                "lng": 121.5429975
+              },
+              "address": "106, Taiwan, Taipei City, Da’an District, Yicun Village, Section 3, Zhongxiao E Rd, 300號B2",
+              "rating": 4.5,
+              "review_count": 6065,
+              "price_level": "$$",
+              "cuisine": "Taiwanese restaurant",
+              "reservable": false,
+              "opening_hours": [
+                "Monday: 10:00 AM – 8:30 PM",
+                "Tuesday: 10:00 AM – 8:30 PM",
+                "Wednesday: 10:00 AM – 8:30 PM",
+                "Thursday: 10:00 AM – 8:30 PM",
+                "Friday: 10:00 AM – 9:00 PM",
+                "Saturday: 10:00 AM – 9:00 PM",
+                "Sunday: 10:00 AM – 8:30 PM"
+              ],
+              "source_refs": [
+                {
+                  "title": "Din Tai Fung Fuxing Branch",
+                  "url": "https://maps.google.com/?cid=345482929943964166&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:44:58.429743+00:00"
+                }
+              ],
+              "booking_url": "https://www.dintaifung.com.tw/",
+              "distance_m": 1745,
+              "source_types": [
+                "taiwanese_restaurant",
+                "chinese_restaurant",
+                "restaurant",
+                "food",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Found for 'best local restaurants in Taipei'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJaeY0sNCrQjQRBmpF8-RmywQ/photos/AV-0GLfcs1lYNSMVWLz30A-DQTzT136IN9vAJ92pmi8TZwDB1Tz24ujx-33eJIsJU42JMsbpbNV8e4VMFryQMBdnzsQ6RMZzpNnoMXziVHdEr8YMYAL0G5-GxFE0kTaD2Hy3vTMUe08IVJeoID30KJcsSIB2MPpCdbZGWSAa4dYw-A4vWtKYF6WeD9JKbTSNcDMwQw7xAweuS5-1WXqEkRQRZ1GgjLMcWEGPMCMin-g7qeztkW17zGKnhe9kHTwrEANhC9C7uOvd155Y5SJ-ZErkTvMCMdQVMQmqkeDAD4syPqajmNgwmAA-0danU5rGgDC0oOrfF_7ZnskcyTc-NY0bw222LHhv_ARGS4xW4PVGy_b5W51mcpcRio2iRm04IdbV4L5XosufLWwWrn0jhLLyy7Zu3so/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            }
+          ],
+          "links": [],
+          "image": {
+            "url": "https://places.googleapis.com/v1/places/ChIJgRdW94KpQjQRODiapkz_DB0/photos/AV-0GLc9MJmQNxwZLAftPddudV_PrGITFn9xYFmC5P0XZVV1HSNJq0dGizUP7nCcBIJqVSTeCq1UmC-5Zfdecn1BQ1bl05XX2ryvm4O0JQCelEZn6WgG52lC7vSLR0H5I4wLcsjGg9xbhEH0Pk8my2JIau7ZYfjYugxBpa2lQLyMdD2Bg1WlaCUq8z3Q0IuOGgN0ZU03tpGM_2mCk5JxGg7e84p-tK6LxtaHYeM4LzAvhmRG2O0Hdd2tQy1Rg6N0FTbWdesqCJbVUTIHVF-mI8AxzSp7wWCaRSSHEHVsOjBBV9jUeHtJX7djzOS_wUbjI_21fUBIsLprWX0vrsISxyqg21Lsr4KeEwcvyXj-ZlNyvBMmFWVsCDRN019JO1CmVQR0zOz6O7_rGTqdaJYBpPD047Z5VoXtFyQ/media?maxWidthPx=900&key=REDACTED",
+            "attribution": "Google",
+            "source": "google"
+          },
+          "step_free": false
+        },
+        {
+          "id": "usr-9d0df5d505",
+          "type": "attraction",
+          "name": "Shilin Night Market",
+          "start": "20:15",
+          "end": "22:15",
+          "geo": null,
+          "address": "",
+          "notes": "Added at your request. The address, opening hours and ticket price are not confirmed by a source. Unconfirmed stop. It isn't in the candidate pool. Web results say the market is open daily from about 4 PM to midnight.",
+          "source_refs": [],
+          "data_status": "stale",
+          "fetched_at": null,
+          "price": null,
+          "price_kind": "none",
+          "booking_url": "",
+          "locked": false,
+          "confirmed": false,
+          "tags": [
+            "user-provided"
+          ],
+          "opening_hours": [],
+          "hours_status": "unknown",
+          "transfer": null,
+          "names": {},
+          "meal_slot": null,
+          "rating": null,
+          "review_count": null,
+          "price_level": null,
+          "cuisine": null,
+          "reservable": null,
+          "source_types": [],
+          "source_summary": "",
+          "alternatives": [],
+          "links": [],
+          "image": null,
+          "step_free": null
+        }
+      ],
+      "note": "Your flight lands at 13:10, so the day starts after you reach the hotel. Leave time for immigration and the airport transfer.",
+      "elevation_gain_m": null,
+      "segment_id": "seg-1",
+      "city": ""
+    },
+    {
+      "date": "2027-02-12",
+      "title": "National Palace Museum and Beitou hot spring",
+      "weather": {
+        "date": "2027-02-12",
+        "status": "unavailable",
+        "summary": "No forecast yet: the trip is beyond the 16-day forecast window.",
+        "high_c": null,
+        "low_c": null,
+        "precipitation_probability": null,
+        "source": "Open-Meteo",
+        "fetched_at": "2026-11-24T05:44:58.008370+00:00",
+        "note": "A forecast will be fetched closer to the trip."
+      },
+      "items": [
+        {
+          "id": "it-b2a8cb9f2c",
+          "type": "attraction",
+          "name": "National Palace Museum",
+          "start": "09:00",
+          "end": "12:00",
+          "geo": {
+            "lat": 25.1023554,
+            "lng": 121.54849250000001
+          },
+          "address": "No. 221, Sec 2, Zhi Shan Rd, Shilin District, Taipei City, Taiwan 111",
+          "notes": "Head for the highlights of the Chinese art and artifact collection first, while the galleries are quieter.",
+          "source_refs": [
+            {
+              "title": "National Palace Museum",
+              "url": "https://maps.google.com/?cid=6732160267334584769&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+              "source": "Google Places",
+              "fetched_at": "2026-11-24T05:44:58.571869+00:00"
+            }
+          ],
+          "data_status": "ok",
+          "fetched_at": "2026-11-24T05:44:58.571872+00:00",
+          "price": null,
+          "price_kind": "none",
+          "booking_url": "https://www.npm.gov.tw/",
+          "locked": false,
+          "confirmed": false,
+          "tags": [
+            "history_museum",
+            "historical_landmark",
+            "art_museum",
+            "tourist_attraction",
+            "museum",
+            "historical_place",
+            "point_of_interest",
+            "establishment"
+          ],
+          "opening_hours": [
+            "Monday: Closed",
+            "Tuesday: 9:00 AM – 5:00 PM",
+            "Wednesday: 9:00 AM – 5:00 PM",
+            "Thursday: 9:00 AM – 5:00 PM",
+            "Friday: 9:00 AM – 5:00 PM",
+            "Saturday: 9:00 AM – 5:00 PM",
+            "Sunday: 9:00 AM – 5:00 PM"
+          ],
+          "hours_status": "stated",
+          "transfer": null,
+          "names": {},
+          "meal_slot": null,
+          "rating": 4.6,
+          "review_count": 64289,
+          "price_level": null,
+          "cuisine": null,
+          "reservable": null,
+          "source_types": [
+            "history_museum",
+            "historical_landmark",
+            "art_museum",
+            "tourist_attraction",
+            "museum",
+            "historical_place",
+            "point_of_interest",
+            "establishment"
+          ],
+          "source_summary": "Bustling museum featuring one of the largest collections of Chinese art & artifacts in the world.",
+          "alternatives": [
+            {
+              "id": "alt-ad5ddec50b",
+              "name": "Shilin Night Market",
+              "geo": {
+                "lat": 25.0884972,
+                "lng": 121.52435039999999
+              },
+              "address": "No. 101, Jihe Rd, Yixin Village, Shilin District, Taipei City, Taiwan 111",
+              "rating": 4.1,
+              "review_count": 21476,
+              "price_level": null,
+              "cuisine": null,
+              "reservable": null,
+              "opening_hours": [
+                "Monday: 4:00 PM – 12:00 AM",
+                "Tuesday: 4:00 PM – 12:00 AM",
+                "Wednesday: 4:00 PM – 12:00 AM",
+                "Thursday: 4:00 PM – 12:00 AM",
+                "Friday: 4:00 PM – 12:00 AM",
+                "Saturday: 4:00 PM – 12:00 AM",
+                "Sunday: 4:00 PM – 12:00 AM"
+              ],
+              "source_refs": [
+                {
+                  "title": "Shilin Night Market",
+                  "url": "https://maps.google.com/?cid=16700031033317783849&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:44:58.619196+00:00"
+                }
+              ],
+              "booking_url": "https://www.travel.taipei/zh-tw/attraction/details/1536",
+              "distance_m": 2878,
+              "source_types": [
+                "market",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Traditional night market with a large array of vendors selling street food, clothes & jewelry.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJBa_9xLGuQjQRKfnnhr5twuc/photos/AV-0GLd_8imZ4fz75njktg1e9T_fBhbL-NzW0u1c3MQvxndrQmW_TddSGTLUOCVA3HxCRTSf4PhIcXVGb7EYMOLmJbNrXXG2_uXKxMex6IvYK3ymGiIJ7gstF51jpz4v7MRN5ztQ83DW5rUJRL4sKIolNtqwPPb27AfM8fenzamWQc6Hg-dzjqgiz83sB4vPECr_Km1eN8mSbXcl7ScxBjyUrnMzneeRJXF6P7Scc3sSDu1Fs0P8KqnVXdar28dWUmi6kKs1ELFfeV_8tqq0i4ZTOK9FLdkZG8ej8JMcAwidz6pEtBpY2UY_YoslLUpOWA0kwouodz71RIHIVB9VWah-fvup-emLZ-4LTVum9cHF_5Ewb5gKPccm5WWCkE_irkfSv43j9DF4VcahwDBkWDW91gVYkJk/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            },
+            {
+              "id": "alt-aeb03a0a67",
+              "name": "Beitou Public Hotspring",
+              "geo": {
+                "lat": 25.136879399999998,
+                "lng": 121.50837759999997
+              },
+              "address": "No. 6號, Zhongshan Rd, Linquan Village, Beitou District, Taipei City, Taiwan 112",
+              "rating": 3.8,
+              "review_count": 3383,
+              "price_level": null,
+              "cuisine": null,
+              "reservable": null,
+              "opening_hours": [],
+              "source_refs": [
+                {
+                  "title": "Beitou Public Hotspring",
+                  "url": "https://maps.google.com/?cid=8964628537537918509&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:45:03.059781+00:00"
+                }
+              ],
+              "booking_url": "https://pkl.gov.taipei/News_Content.aspx?n=43E05059FCC72525&sms=72544237BBE4C5F6&s=71A18173C4A4777D",
+              "distance_m": 5572,
+              "source_types": [
+                "tourist_attraction",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Popular, mixed-gender complex of 1,000 sq. m. of hot & cold outdoor hot-spring pools.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJSU4BnUSuQjQRLfZGgyjCaHw/photos/AV-0GLfSuKVaxRp8i_Yp_sKA-Bzb5ufDz4_FkfQX-EeRUYPe9s7h0EybKCILdvjN2uxGXpVdPDX57QfTY3R87PSnAGIcZyU88QqvB9p9UaVFQzQFsn3PLA71_ewIMWZmDQPb094-D5Jx6z55RSf9S1tAr19c9IoawX9p4f-dLy-71J2Um1pwnfg9BbE1n5UBCIIWBPXgbbw8XmxvtLy77QMnmVPSA4e74o97W9tvFlfyPMoXpeds3T7mrcUoK4DtISfXHDbbLgROZTr8bCDN4ovTZDh1EC8L0ELvHoZFP9K2aIdrnL3hpzrwWlZZ5ZgQGMYdFL6Joau0qymUwzhgxh4E0OGPXEPnDdhH33c9wojZtO7FsOQ8h1Ngmkl4mo6PMZm6w1bxAtv9SrheLvvrUS5BtEc3OOvt9Fo/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            },
+            {
+              "id": "alt-90a048257c",
+              "name": "Songshan Raohe Night Market",
+              "geo": {
+                "lat": 25.0508854,
+                "lng": 121.5774891
+              },
+              "address": "Raohe St, Ciyou Village, Songshan District, Taipei City, Taiwan 105",
+              "rating": 4.3,
+              "review_count": 82452,
+              "price_level": null,
+              "cuisine": null,
+              "reservable": null,
+              "opening_hours": [
+                "Monday: 5:00 PM – 12:00 AM",
+                "Tuesday: 5:00 PM – 12:00 AM",
+                "Wednesday: 5:00 PM – 12:00 AM",
+                "Thursday: 5:00 PM – 12:00 AM",
+                "Friday: 5:00 PM – 12:00 AM",
+                "Saturday: 5:00 PM – 12:00 AM",
+                "Sunday: 5:00 PM – 12:00 AM"
+              ],
+              "source_refs": [
+                {
+                  "title": "Songshan Raohe Night Market",
+                  "url": "https://maps.google.com/?cid=4441131439049537270&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:44:58.619182+00:00"
+                }
+              ],
+              "booking_url": "https://www.travel.taipei/zh-tw/attraction/details/1538",
+              "distance_m": 6425,
+              "source_types": [
+                "tourist_attraction",
+                "market",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Buzzing, venerable nighttime street market offering shops & street food vendors.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJg6W0DZyrQjQR9vZdgYMRoj0/photos/AV-0GLeR1b69k5SvcqG8IqIG91WC8ZePYKjW0579xwbkmpLnoTf08bIDAjifWL6hpAiPrGQL91mJsXWlzO5JnaHo6Y4gepFgsy8k2b0UTR9OKQUkj2BgCQvDKZ44iMO90uCGGcIG8cGHCFf42lu0ef6RTvKVW6uO7vrrDIjy4Eg2FZzdHekTKrvF4831uCvGqLH33MnD_dZrZHJh2KOkfcUx_IUMns8a-noIgU0TNG-GII2EFnoczIboVj5g75eBFHfRFzkIGUnZuWXh_v0z3INVPrcVjnSt9oXW8fD42xVLAo-GPG5_AnZd_XtdpEkQKVHNc6LH7TgJy8Z6YzXTbPJrDYlpVYXFA5RM8M3GgpWYay42j7Y_ebKxjhqADMtGLQ5r5ac2ZmJ4hnsX5eD8mjVyDgNnVTjKi9850gcAb7QOP01J8g/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            }
+          ],
+          "links": [],
+          "image": {
+            "url": "https://places.googleapis.com/v1/places/ChIJfUpAzTqsQjQRwQl6ORhwbV0/photos/AV-0GLeb1Zcb89xTvCY6oHM-DHRk_Y0TUV_wbdL1GsjB02Zh8_YyL61QGR8O0tZv2J9xnn6llPg77GaeZvTuLl5pK59ZI_S5iOGoxTP1KMWgboCO4XWEfaB6JjU7wWCKEc85iVUKSKKDsWP166vENUAZQPgFFqtaOihRwG8zAV-1OqP20m-6PT9lkZDqQF2i3IWZXqefaPlj4_S6awcOYgIN94XDCNesCs2sVqN4Qfte6OkhnB6b3WXUJO4LgyOiq9bxGYXNUJCyH9knYDUfK8z3FqxHwoCKF1PLvc7USSIwvi643zDGARiQGPxreCNSeyVNqvzDVKRRZWXqBPxjDl_K8073qLwR8p60t_j_m0oye2n1yrVPTv-Ji8I-hnUmHSJ7NzmLDN8JXngcNo2ERAwPfXTQMEeg/media?maxWidthPx=900&key=REDACTED",
+            "attribution": "Google",
+            "source": "google"
+          },
+          "step_free": true
+        },
+        {
+          "id": "it-f3a864ac57",
+          "type": "meal",
+          "name": "Shin Yeh Main Restaurant",
+          "start": "12:45",
+          "end": "14:00",
+          "geo": {
+            "lat": 25.066506,
+            "lng": 121.524184
+          },
+          "address": "No. 34之1號, Shuangcheng St, Qingguang Village, Zhongshan District, Taipei City, Taiwan 10491",
+          "notes": "A Taiwanese lunch in Zhongshan on the way back toward Beitou.",
+          "source_refs": [
+            {
+              "title": "Shin Yeh Main Restaurant",
+              "url": "https://maps.google.com/?cid=17766646873045030280&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+              "source": "Google Places",
+              "fetched_at": "2026-11-24T05:44:58.429705+00:00"
+            }
+          ],
+          "data_status": "ok",
+          "fetched_at": "2026-11-24T05:44:58.429713+00:00",
+          "price": null,
+          "price_kind": "none",
+          "booking_url": "https://www.shinyeh.com.tw/content/zh/brand/Index.aspx?BrandId=1",
+          "locked": false,
+          "confirmed": false,
+          "tags": [
+            "taiwanese_restaurant",
+            "asian_restaurant",
+            "chinese_restaurant",
+            "restaurant",
+            "food",
+            "point_of_interest",
+            "establishment"
+          ],
+          "opening_hours": [
+            "Monday: 11:00 AM – 9:30 PM",
+            "Tuesday: 11:00 AM – 9:30 PM",
+            "Wednesday: 11:00 AM – 9:30 PM",
+            "Thursday: 11:00 AM – 9:30 PM",
+            "Friday: 11:00 AM – 9:30 PM",
+            "Saturday: 11:00 AM – 9:30 PM",
+            "Sunday: 11:00 AM – 9:30 PM"
+          ],
+          "hours_status": "stated",
+          "transfer": {
+            "from_item_id": "it-b2a8cb9f2c",
+            "minutes": 20.3,
+            "mode": "transit",
+            "distance_km": 4.68,
+            "source": "straight-line estimate",
+            "tool": "haversine",
+            "result_id": "it-b2a8cb9f2c->it-f3a864ac57"
+          },
+          "names": {},
+          "meal_slot": "lunch",
+          "rating": 4.2,
+          "review_count": 6574,
+          "price_level": "$$$",
+          "cuisine": "Taiwanese restaurant",
+          "reservable": true,
+          "source_types": [
+            "taiwanese_restaurant",
+            "asian_restaurant",
+            "chinese_restaurant",
+            "restaurant",
+            "food",
+            "point_of_interest",
+            "establishment"
+          ],
+          "source_summary": "Found for 'best local restaurants in Taipei'.",
+          "alternatives": [
+            {
+              "id": "alt-40d5d65ff5",
+              "name": "A Cheng Goose",
+              "geo": {
+                "lat": 25.0564063,
+                "lng": 121.5303624
+              },
+              "address": "No. 105號, Jilin Rd, Zhongshan District, Taipei City, Taiwan 104",
+              "rating": 4.4,
+              "review_count": 8024,
+              "price_level": "$$",
+              "cuisine": "Taiwanese restaurant",
+              "reservable": true,
+              "opening_hours": [
+                "Monday: 11:30 AM – 8:00 PM",
+                "Tuesday: 11:30 AM – 8:00 PM",
+                "Wednesday: 11:30 AM – 8:00 PM",
+                "Thursday: 11:30 AM – 8:00 PM",
+                "Friday: 11:30 AM – 8:00 PM",
+                "Saturday: 11:20 AM – 8:00 PM",
+                "Sunday: 11:20 AM – 8:00 PM"
+              ],
+              "source_refs": [
+                {
+                  "title": "A Cheng Goose",
+                  "url": "https://maps.google.com/?cid=694526374424343264&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:44:58.429580+00:00"
+                }
+              ],
+              "booking_url": "https://imenu.com.tw/ACheng_JL/AC_JiLin/menu",
+              "distance_m": 1284,
+              "source_types": [
+                "taiwanese_restaurant",
+                "restaurant",
+                "food",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Found for 'best local restaurants in Taipei'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJj50p7F2pQjQR4PKzyg50owk/photos/AV-0GLfGMdXlzWNOMucHjECs7_bKfV6WeFx4k4WgKpeXX6HDDmg_SXvtl7XIdY9K3Ft_CJyH4F0Mtvf64LQcqQvbsldz8YkEUl-yNAuSXW4H7bJQxAxtAKQfYYHIjW2Ek1WIkYqcc_wXJ2UeJ35d4Eu37IICDeiLcQMx6nzXqmwqQaRN_4gHu1z3YjAGiqwm5-lSIX0ebuHTek5JlKxM2KEvivlBX6DxHjODwBmTjqrYpfqBLEhSEaoHSa5OtjM7SRTlcXFhR-M70zQS_ccF42VW3l2iTsVzGtHKF3WlB2NlKCsymZU5eYNVLztHllnMI5A4oKaraigJY2rIqrFdYoAYR_osmy_Twu_mqWxG7Ql03nEi8nhUwNlPIDbvteDFpdW3eeBq_EdWdoqFjozkSuqxVs8SRg/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            },
+            {
+              "id": "alt-dd07d2774f",
+              "name": "Moon Moon Food Qingdao Branch",
+              "geo": {
+                "lat": 25.0437017,
+                "lng": 121.5220376
+              },
+              "address": "No. 6之2號, Qingdao E Rd, Xingfu Village, Zhongzheng District, Taipei City, Taiwan 100",
+              "rating": 4.8,
+              "review_count": 25747,
+              "price_level": "$$",
+              "cuisine": "Restaurant",
+              "reservable": false,
+              "opening_hours": [
+                "Monday: 11:00 AM – 2:00 PM, 5:00 – 8:00 PM",
+                "Tuesday: 11:00 AM – 2:00 PM, 5:00 – 8:00 PM",
+                "Wednesday: 11:00 AM – 2:00 PM, 5:00 – 8:00 PM",
+                "Thursday: 11:00 AM – 2:00 PM, 5:00 – 8:00 PM",
+                "Friday: 11:00 AM – 2:00 PM, 5:00 – 8:00 PM",
+                "Saturday: 11:00 AM – 2:00 PM, 5:00 – 8:00 PM",
+                "Sunday: 11:00 AM – 2:00 PM, 5:00 – 8:00 PM"
+              ],
+              "source_refs": [
+                {
+                  "title": "Moon Moon Food Qingdao Branch",
+                  "url": "https://maps.google.com/?cid=6085922673212866287&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:44:58.465555+00:00"
+                }
+              ],
+              "booking_url": "https://www.moonmoonfood.com/",
+              "distance_m": 2545,
+              "source_types": [
+                "restaurant",
+                "deli",
+                "chicken_restaurant",
+                "meal_delivery",
+                "food_delivery",
+                "chinese_restaurant",
+                "food_store",
+                "food"
+              ],
+              "source_summary": "Found for 'famous food in Taipei'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJgbsfD3GpQjQR7z5ZO22KdVQ/photos/AV-0GLfbdEaxntF-a_q5sPSPVxyOMY2LSZm0mpZhHxXlmxpX6gf9wPsyorJ5teAg8-pXUz26bdG-aSj1ERpxoMHT8k0avmTbiLUDWKylOEnD8Y0_GEp4Eqc3i_XCT0Kv6hSUik4xN-wNzCsvbSPjL9f4825YBprq_f6yE0G3iG_q-ulR_vPX1EiNSVt0qqHFt91t9fDNecR5O7E2PSxtK8_pRHJjOuQTqAyxPZRGJ6bfPLplC7pfu7aO97Mw9vFw7OzF5memKgUcLhuSjtM3seAffx-63BFP9JHfnaWXQkJberePh-4ovzBviWtCcEWhb1DZai-89zBWzRyPvMM6pDG2FgPWM1TD-OUi3gSX7Nnrl6HqFGVruSGsWn1VSxGmhXZLEL7qvb0Vpp1qKFFJJbWEu8UzmVSm0aE/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            },
+            {
+              "id": "alt-d2a1419b7b",
+              "name": "Veggienius - Taipei Branch",
+              "geo": {
+                "lat": 25.0520392,
+                "lng": 121.54551690000001
+              },
+              "address": "105, Taiwan, Taipei City, Songshan District, Zhongzheng Village, Section 3, Nanjing E Rd, 275號2樓",
+              "rating": 4.9,
+              "review_count": 13724,
+              "price_level": "$$$",
+              "cuisine": "Vegetarian restaurant",
+              "reservable": true,
+              "opening_hours": [
+                "Monday: 11:30 AM – 3:00 PM, 5:30 – 9:30 PM",
+                "Tuesday: 11:30 AM – 3:00 PM, 5:30 – 9:30 PM",
+                "Wednesday: 11:30 AM – 3:00 PM, 5:30 – 9:30 PM",
+                "Thursday: 11:30 AM – 3:00 PM, 5:30 – 9:30 PM",
+                "Friday: 11:30 AM – 3:00 PM, 5:30 – 9:30 PM",
+                "Saturday: 11:30 AM – 3:00 PM, 5:30 – 9:30 PM",
+                "Sunday: 11:30 AM – 3:00 PM, 5:30 – 9:30 PM"
+              ],
+              "source_refs": [
+                {
+                  "title": "Veggienius - Taipei Branch",
+                  "url": "https://maps.google.com/?cid=558869356515022290&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:44:58.429666+00:00"
+                }
+              ],
+              "booking_url": "https://www.facebook.com/veggienius21/",
+              "distance_m": 2684,
+              "source_types": [
+                "vegetarian_restaurant",
+                "restaurant",
+                "food",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Found for 'best local restaurants in Taipei'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJZRnK2ferQjQR0tXt_reAwQc/photos/AV-0GLdUtZ5D5rzsddSlnveyw7J_6vPoDk67qsDO2kY59MAqak-Z8YMKkpQqcpqKwNv8g_3zla51z6REg23OeQMmk9hIiDJU8fYHJusZ6umWmF4SJ78DDmK7Foq-gNhz1UQY3y1In_1a05pWr7vvLxhvatAwotgZh-O14iTdWRPmLRUCIvXAXslw_a1tAeKRYz1gJvBkxyxtDZxh7UCudSLfCG3moQq8zL-X8tP6_t5SlzDH7n22m2WKPEgJ7EJ128xNy0CybofDC3xAEAF078QeQE0KhvzDnkzpPPO3edqXoV4tYLu7i8z98So2rjLhSc0oFoaRM_EX5s5C2tn8lch475plu-d_RB9_KBSxbeHj6Jk3vSxWA-Df94iuI-AnsqW-ZPijRE7Le8qf3E1T7ZWyBknDbY4PI2g/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            }
+          ],
+          "links": [],
+          "image": {
+            "url": "https://places.googleapis.com/v1/places/ChIJbamMQUWpQjQRiFWnBTPPj_Y/photos/AV-0GLdDc0YV10tXygxzykQXDWk1Pc6nO675H0jG44Jl7HhtUzxm1YDisA0UcW1TaqWSRy97bVDOTyQ4kgU58tgL3k5eglWFE5TWecKl7dj8xTYvXjYH2NcNEK9Ws6_w1xE2NjwHbTzpV4-fJPV0dm9Z4C8ODYq1gwCCOsc66uzq31qdLXxauWQs7J7t3r0tJZEfktkeSyvwVvBcU9JmiPJiIWrkN3T1qsl3zctm4ukkLcWXdmFIbw2Nzvm6SRQ3QoBALGxCYEvlGtCMXSQq1GGqwBEJfYYo0wqrl9O4T08qmfNNuPAGlr_QFvCAEPjKA1hzb_AdGK8ngBp8nd3CLsS0wdgsEbsh5VwuF1jew-xZVEV2cz1YxUN8bkx7q57dj9QF1WWBH751Q7QbcHnoJDjRPhW_7SRO/media?maxWidthPx=900&key=REDACTED",
+            "attribution": "Google",
+            "source": "google"
+          },
+          "step_free": true
+        },
+        {
+          "id": "usr-22aea57b26",
+          "type": "attraction",
+          "name": "Beitou Hell Valley (Thermal Valley)",
+          "start": "14:40",
+          "end": "15:25",
+          "geo": null,
+          "address": "",
+          "notes": "Added at your request. The address, opening hours and ticket price are not confirmed by a source. Added as an unconfirmed stop, after lunch. It is a short walk around the steaming thermal pond, and it is next to the Beitou hot spring area.",
+          "source_refs": [],
+          "data_status": "stale",
+          "fetched_at": null,
+          "price": null,
+          "price_kind": "none",
+          "booking_url": "",
+          "locked": false,
+          "confirmed": false,
+          "tags": [
+            "user-provided"
+          ],
+          "opening_hours": [],
+          "hours_status": "unknown",
+          "transfer": null,
+          "names": {},
+          "meal_slot": null,
+          "rating": null,
+          "review_count": null,
+          "price_level": null,
+          "cuisine": null,
+          "reservable": null,
+          "source_types": [],
+          "source_summary": "",
+          "alternatives": [],
+          "links": [],
+          "image": null,
+          "step_free": null
+        },
+        {
+          "id": "usr-e41fdcf073",
+          "type": "attraction",
+          "name": "Millennium Hot Spring",
+          "start": "15:40",
+          "end": "17:15",
+          "geo": null,
+          "address": "",
+          "notes": "Added at your request. The address, opening hours and ticket price are not confirmed by a source. Added as an unconfirmed stop, in place of Beitou Public Hotspring. It leaves time to get back for the 18:00 dinner.",
+          "source_refs": [],
+          "data_status": "stale",
+          "fetched_at": null,
+          "price": null,
+          "price_kind": "none",
+          "booking_url": "",
+          "locked": false,
+          "confirmed": false,
+          "tags": [
+            "user-provided"
+          ],
+          "opening_hours": [],
+          "hours_status": "unknown",
+          "transfer": null,
+          "names": {},
+          "meal_slot": null,
+          "rating": null,
+          "review_count": null,
+          "price_level": null,
+          "cuisine": null,
+          "reservable": null,
+          "source_types": [],
+          "source_summary": "",
+          "alternatives": [],
+          "links": [],
+          "image": null,
+          "step_free": null
+        },
+        {
+          "id": "it-7340e690c3",
+          "type": "meal",
+          "name": "A Cheng Goose",
+          "start": "18:00",
+          "end": "19:15",
+          "geo": {
+            "lat": 25.0564063,
+            "lng": 121.5303624
+          },
+          "address": "No. 105號, Jilin Rd, Zhongshan District, Taipei City, Taiwan 104",
+          "notes": "Goose is the signature dish here. The restaurant closes at 20:00, so arrive on time.",
+          "source_refs": [
+            {
+              "title": "A Cheng Goose",
+              "url": "https://maps.google.com/?cid=694526374424343264&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+              "source": "Google Places",
+              "fetched_at": "2026-11-24T05:44:58.429580+00:00"
+            }
+          ],
+          "data_status": "ok",
+          "fetched_at": "2026-11-24T05:44:58.429615+00:00",
+          "price": null,
+          "price_kind": "none",
+          "booking_url": "https://imenu.com.tw/ACheng_JL/AC_JiLin/menu",
+          "locked": false,
+          "confirmed": false,
+          "tags": [
+            "taiwanese_restaurant",
+            "restaurant",
+            "food",
+            "point_of_interest",
+            "establishment"
+          ],
+          "opening_hours": [
+            "Monday: 11:30 AM – 8:00 PM",
+            "Tuesday: 11:30 AM – 8:00 PM",
+            "Wednesday: 11:30 AM – 8:00 PM",
+            "Thursday: 11:30 AM – 8:00 PM",
+            "Friday: 11:30 AM – 8:00 PM",
+            "Saturday: 11:20 AM – 8:00 PM",
+            "Sunday: 11:20 AM – 8:00 PM"
+          ],
+          "hours_status": "stated",
+          "transfer": {
+            "from_item_id": "it-873bee7d31",
+            "minutes": 39.9,
+            "mode": "transit",
+            "distance_km": 9.22,
+            "source": "straight-line estimate",
+            "tool": "haversine",
+            "result_id": "it-873bee7d31->it-7340e690c3"
+          },
+          "names": {},
+          "meal_slot": "dinner",
+          "rating": 4.4,
+          "review_count": 8024,
+          "price_level": "$$",
+          "cuisine": "Taiwanese restaurant",
+          "reservable": true,
+          "source_types": [
+            "taiwanese_restaurant",
+            "restaurant",
+            "food",
+            "point_of_interest",
+            "establishment"
+          ],
+          "source_summary": "Found for 'best local restaurants in Taipei'.",
+          "alternatives": [
+            {
+              "id": "alt-bbe11b6d30",
+              "name": "Shin Yeh Main Restaurant",
+              "geo": {
+                "lat": 25.066506,
+                "lng": 121.524184
+              },
+              "address": "No. 34之1號, Shuangcheng St, Qingguang Village, Zhongshan District, Taipei City, Taiwan 10491",
+              "rating": 4.2,
+              "review_count": 6574,
+              "price_level": "$$$",
+              "cuisine": "Taiwanese restaurant",
+              "reservable": true,
+              "opening_hours": [
+                "Monday: 11:00 AM – 9:30 PM",
+                "Tuesday: 11:00 AM – 9:30 PM",
+                "Wednesday: 11:00 AM – 9:30 PM",
+                "Thursday: 11:00 AM – 9:30 PM",
+                "Friday: 11:00 AM – 9:30 PM",
+                "Saturday: 11:00 AM – 9:30 PM",
+                "Sunday: 11:00 AM – 9:30 PM"
+              ],
+              "source_refs": [
+                {
+                  "title": "Shin Yeh Main Restaurant",
+                  "url": "https://maps.google.com/?cid=17766646873045030280&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:44:58.429705+00:00"
+                }
+              ],
+              "booking_url": "https://www.shinyeh.com.tw/content/zh/brand/Index.aspx?BrandId=1",
+              "distance_m": 1284,
+              "source_types": [
+                "taiwanese_restaurant",
+                "asian_restaurant",
+                "chinese_restaurant",
+                "restaurant",
+                "food",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Found for 'best local restaurants in Taipei'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJbamMQUWpQjQRiFWnBTPPj_Y/photos/AV-0GLdDc0YV10tXygxzykQXDWk1Pc6nO675H0jG44Jl7HhtUzxm1YDisA0UcW1TaqWSRy97bVDOTyQ4kgU58tgL3k5eglWFE5TWecKl7dj8xTYvXjYH2NcNEK9Ws6_w1xE2NjwHbTzpV4-fJPV0dm9Z4C8ODYq1gwCCOsc66uzq31qdLXxauWQs7J7t3r0tJZEfktkeSyvwVvBcU9JmiPJiIWrkN3T1qsl3zctm4ukkLcWXdmFIbw2Nzvm6SRQ3QoBALGxCYEvlGtCMXSQq1GGqwBEJfYYo0wqrl9O4T08qmfNNuPAGlr_QFvCAEPjKA1hzb_AdGK8ngBp8nd3CLsS0wdgsEbsh5VwuF1jew-xZVEV2cz1YxUN8bkx7q57dj9QF1WWBH751Q7QbcHnoJDjRPhW_7SRO/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            },
+            {
+              "id": "alt-d2a1419b7b",
+              "name": "Veggienius - Taipei Branch",
+              "geo": {
+                "lat": 25.0520392,
+                "lng": 121.54551690000001
+              },
+              "address": "105, Taiwan, Taipei City, Songshan District, Zhongzheng Village, Section 3, Nanjing E Rd, 275號2樓",
+              "rating": 4.9,
+              "review_count": 13724,
+              "price_level": "$$$",
+              "cuisine": "Vegetarian restaurant",
+              "reservable": true,
+              "opening_hours": [
+                "Monday: 11:30 AM – 3:00 PM, 5:30 – 9:30 PM",
+                "Tuesday: 11:30 AM – 3:00 PM, 5:30 – 9:30 PM",
+                "Wednesday: 11:30 AM – 3:00 PM, 5:30 – 9:30 PM",
+                "Thursday: 11:30 AM – 3:00 PM, 5:30 – 9:30 PM",
+                "Friday: 11:30 AM – 3:00 PM, 5:30 – 9:30 PM",
+                "Saturday: 11:30 AM – 3:00 PM, 5:30 – 9:30 PM",
+                "Sunday: 11:30 AM – 3:00 PM, 5:30 – 9:30 PM"
+              ],
+              "source_refs": [
+                {
+                  "title": "Veggienius - Taipei Branch",
+                  "url": "https://maps.google.com/?cid=558869356515022290&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:44:58.429666+00:00"
+                }
+              ],
+              "booking_url": "https://www.facebook.com/veggienius21/",
+              "distance_m": 1602,
+              "source_types": [
+                "vegetarian_restaurant",
+                "restaurant",
+                "food",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Found for 'best local restaurants in Taipei'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJZRnK2ferQjQR0tXt_reAwQc/photos/AV-0GLdUtZ5D5rzsddSlnveyw7J_6vPoDk67qsDO2kY59MAqak-Z8YMKkpQqcpqKwNv8g_3zla51z6REg23OeQMmk9hIiDJU8fYHJusZ6umWmF4SJ78DDmK7Foq-gNhz1UQY3y1In_1a05pWr7vvLxhvatAwotgZh-O14iTdWRPmLRUCIvXAXslw_a1tAeKRYz1gJvBkxyxtDZxh7UCudSLfCG3moQq8zL-X8tP6_t5SlzDH7n22m2WKPEgJ7EJ128xNy0CybofDC3xAEAF078QeQE0KhvzDnkzpPPO3edqXoV4tYLu7i8z98So2rjLhSc0oFoaRM_EX5s5C2tn8lch475plu-d_RB9_KBSxbeHj6Jk3vSxWA-Df94iuI-AnsqW-ZPijRE7Le8qf3E1T7ZWyBknDbY4PI2g/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            },
+            {
+              "id": "alt-dd07d2774f",
+              "name": "Moon Moon Food Qingdao Branch",
+              "geo": {
+                "lat": 25.0437017,
+                "lng": 121.5220376
+              },
+              "address": "No. 6之2號, Qingdao E Rd, Xingfu Village, Zhongzheng District, Taipei City, Taiwan 100",
+              "rating": 4.8,
+              "review_count": 25747,
+              "price_level": "$$",
+              "cuisine": "Restaurant",
+              "reservable": false,
+              "opening_hours": [
+                "Monday: 11:00 AM – 2:00 PM, 5:00 – 8:00 PM",
+                "Tuesday: 11:00 AM – 2:00 PM, 5:00 – 8:00 PM",
+                "Wednesday: 11:00 AM – 2:00 PM, 5:00 – 8:00 PM",
+                "Thursday: 11:00 AM – 2:00 PM, 5:00 – 8:00 PM",
+                "Friday: 11:00 AM – 2:00 PM, 5:00 – 8:00 PM",
+                "Saturday: 11:00 AM – 2:00 PM, 5:00 – 8:00 PM",
+                "Sunday: 11:00 AM – 2:00 PM, 5:00 – 8:00 PM"
+              ],
+              "source_refs": [
+                {
+                  "title": "Moon Moon Food Qingdao Branch",
+                  "url": "https://maps.google.com/?cid=6085922673212866287&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:44:58.465555+00:00"
+                }
+              ],
+              "booking_url": "https://www.moonmoonfood.com/",
+              "distance_m": 1643,
+              "source_types": [
+                "restaurant",
+                "deli",
+                "chicken_restaurant",
+                "meal_delivery",
+                "food_delivery",
+                "chinese_restaurant",
+                "food_store",
+                "food"
+              ],
+              "source_summary": "Found for 'famous food in Taipei'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJgbsfD3GpQjQR7z5ZO22KdVQ/photos/AV-0GLfbdEaxntF-a_q5sPSPVxyOMY2LSZm0mpZhHxXlmxpX6gf9wPsyorJ5teAg8-pXUz26bdG-aSj1ERpxoMHT8k0avmTbiLUDWKylOEnD8Y0_GEp4Eqc3i_XCT0Kv6hSUik4xN-wNzCsvbSPjL9f4825YBprq_f6yE0G3iG_q-ulR_vPX1EiNSVt0qqHFt91t9fDNecR5O7E2PSxtK8_pRHJjOuQTqAyxPZRGJ6bfPLplC7pfu7aO97Mw9vFw7OzF5memKgUcLhuSjtM3seAffx-63BFP9JHfnaWXQkJberePh-4ovzBviWtCcEWhb1DZai-89zBWzRyPvMM6pDG2FgPWM1TD-OUi3gSX7Nnrl6HqFGVruSGsWn1VSxGmhXZLEL7qvb0Vpp1qKFFJJbWEu8UzmVSm0aE/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            }
+          ],
+          "links": [],
+          "image": {
+            "url": "https://places.googleapis.com/v1/places/ChIJj50p7F2pQjQR4PKzyg50owk/photos/AV-0GLfGMdXlzWNOMucHjECs7_bKfV6WeFx4k4WgKpeXX6HDDmg_SXvtl7XIdY9K3Ft_CJyH4F0Mtvf64LQcqQvbsldz8YkEUl-yNAuSXW4H7bJQxAxtAKQfYYHIjW2Ek1WIkYqcc_wXJ2UeJ35d4Eu37IICDeiLcQMx6nzXqmwqQaRN_4gHu1z3YjAGiqwm5-lSIX0ebuHTek5JlKxM2KEvivlBX6DxHjODwBmTjqrYpfqBLEhSEaoHSa5OtjM7SRTlcXFhR-M70zQS_ccF42VW3l2iTsVzGtHKF3WlB2NlKCsymZU5eYNVLztHllnMI5A4oKaraigJY2rIqrFdYoAYR_osmy_Twu_mqWxG7Ql03nEi8nhUwNlPIDbvteDFpdW3eeBq_EdWdoqFjozkSuqxVs8SRg/media?maxWidthPx=900&key=REDACTED",
+            "attribution": "Google",
+            "source": "google"
+          },
+          "step_free": false
+        }
+      ],
+      "note": "Start early at the museum, then spend the afternoon on a hot-spring soak. Bring swimwear and a towel for the public pools.",
+      "elevation_gain_m": null,
+      "segment_id": "seg-1",
+      "city": ""
+    },
+    {
+      "date": "2027-02-13",
+      "title": "Jiufen and Yehliu day trip",
+      "weather": {
+        "date": "2027-02-13",
+        "status": "unavailable",
+        "summary": "No forecast yet: the trip is beyond the 16-day forecast window.",
+        "high_c": null,
+        "low_c": null,
+        "precipitation_probability": null,
+        "source": "Open-Meteo",
+        "fetched_at": "2026-11-24T05:44:58.008377+00:00",
+        "note": "A forecast will be fetched closer to the trip."
+      },
+      "items": [
+        {
+          "id": "it-66687c739f",
+          "type": "attraction",
+          "name": "Jiufen Old Street",
+          "start": "10:15",
+          "end": "12:15",
+          "geo": {
+            "lat": 25.109806,
+            "lng": 121.84522299999999
+          },
+          "address": "Jishan St, Ruifang District, New Taipei City, Taiwan 224",
+          "notes": "Wander the narrow lanes and snack from the food stalls. Look for the mountain and sea views from the upper stairs.",
+          "source_refs": [
+            {
+              "title": "Jiufen Old Street",
+              "url": "https://maps.google.com/?cid=6851525733968553938&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+              "source": "Google Places",
+              "fetched_at": "2026-11-24T05:44:58.619128+00:00"
+            }
+          ],
+          "data_status": "ok",
+          "fetched_at": "2026-11-24T05:44:58.619141+00:00",
+          "price": null,
+          "price_kind": "none",
+          "booking_url": "https://tour.ntpc.gov.tw/zh-tw/Attraction/Detail?wnd_id=60&id=109990",
+          "locked": false,
+          "confirmed": false,
+          "tags": [
+            "tourist_attraction",
+            "historical_landmark",
+            "historical_place",
+            "point_of_interest",
+            "establishment"
+          ],
+          "opening_hours": [
+            "Monday: 10:00 AM – 8:00 PM",
+            "Tuesday: 10:00 AM – 8:00 PM",
+            "Wednesday: 10:00 AM – 8:00 PM",
+            "Thursday: 10:00 AM – 8:00 PM",
+            "Friday: 10:00 AM – 8:00 PM",
+            "Saturday: 10:00 AM – 8:00 PM",
+            "Sunday: 10:00 AM – 8:00 PM"
+          ],
+          "hours_status": "stated",
+          "transfer": null,
+          "names": {},
+          "meal_slot": null,
+          "rating": 4.3,
+          "review_count": 109395,
+          "price_level": null,
+          "cuisine": null,
+          "reservable": null,
+          "source_types": [
+            "tourist_attraction",
+            "historical_landmark",
+            "historical_place",
+            "point_of_interest",
+            "establishment"
+          ],
+          "source_summary": "Bustling district known for its narrow streets, food stalls & sweeping views of the mountains & sea.",
+          "alternatives": [
+            {
+              "id": "alt-6736d698e6",
+              "name": "Shifen Old Street",
+              "geo": {
+                "lat": 25.0423966,
+                "lng": 121.77636620000001
+              },
+              "address": "No. 81號, Shifen St, Shifen Village, Pingxi District, New Taipei City, Taiwan 226",
+              "rating": 4.3,
+              "review_count": 53107,
+              "price_level": null,
+              "cuisine": null,
+              "reservable": null,
+              "opening_hours": [],
+              "source_refs": [
+                {
+                  "title": "Shifen Old Street",
+                  "url": "https://maps.google.com/?cid=17788871358297568190&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:44:58.619164+00:00"
+                }
+              ],
+              "booking_url": "https://advance-ticket.com/shihfen-tickets-tours/",
+              "distance_m": 10212,
+              "source_types": [
+                "tourist_attraction",
+                "historical_place",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Railroad tracks run through this old street with shops & restaurants, plus sky-lantern lightings.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJ_____y9RXTQRvnNyOkDE3vY/photos/AV-0GLe9iHNY-DItd5GgA-rRbbL6csaj0CmL24ajkmc0gZXdMOA-NPwmZGy3p8nyizt4c7mjfz74aIyvRL1iCM1cM4LouM7fWMLadCsQYsztL_L_EwgeK-M4tTANkbcfJvKmZJ1uwuVF0wwyn9rEvmqDtV_LVT7eJ-hsAXkgtDXo6LZC3X2Zhs_r3cClzM3nljRnSYc7zn-WYyt4Yrnnrp1S20t4cqxLGaaqg9v9gIr91UG5nNNf4y8ZXaiwTwpg__BAAvDP36t2_72s7PysIM4PX-EUiOhHwG2FY0UBQzAMdFeovm8GJURHEYgKCXgbLG1ZzZe9M163SYJG2UPdsFREXHT2O1-lZeHV09ycxBvThLP1wqUZ4Gc0kQTdY5g_P-79Ha3NZbehWKZ-RvSfo5ASizXjH8858_mUg_XBFkrQRFoofA/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            },
+            {
+              "id": "alt-1614046b02",
+              "name": "平溪老街第一家天燈",
+              "geo": {
+                "lat": 25.0256383,
+                "lng": 121.7388072
+              },
+              "address": "No. 32號, Pingxi St, Pingxi District, New Taipei City, Taiwan 226",
+              "rating": 4.1,
+              "review_count": 17319,
+              "price_level": null,
+              "cuisine": null,
+              "reservable": null,
+              "opening_hours": [
+                "Monday: 8:30 AM – 10:00 PM",
+                "Tuesday: 8:30 AM – 10:00 PM",
+                "Wednesday: 8:30 AM – 10:00 PM",
+                "Thursday: 8:30 AM – 10:00 PM",
+                "Friday: 8:30 AM – 10:00 PM",
+                "Saturday: 8:30 AM – 10:00 PM",
+                "Sunday: 8:30 AM – 10:00 PM"
+              ],
+              "source_refs": [
+                {
+                  "title": "平溪老街第一家天燈",
+                  "url": "https://maps.google.com/?cid=8264331728698972676&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:44:58.619210+00:00"
+                }
+              ],
+              "booking_url": "http://www.pingxi.tw/",
+              "distance_m": 14229,
+              "source_types": [
+                "store",
+                "manufacturer",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Old-fashioned, popular gathering place offering stalls selling Taiwanese treats & souvenirs.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJ_____y9RXTQRBJoXw-vNsHI/photos/AV-0GLeU1tfASXl3XTYY_lh9j8jSCw44-csWkB2S6zpMa7hGLk6VRg5-1yYyb4eoN4PZ_ksKE8ozMza1BR8a-NHFGNW3qyaQj7exZvXWpulB4ZzvVNKXt7TdB3E0syVXfi9tny-BBsgATbptHOd4-ALGFZ0lWF-ykDOh77IsR6meUygc_0SnOE5Eu7JURSEiLG6QJr0zBeO7wnIP60cIrFObRA7P1pYVc5iXFyMdvBx78wDgx98za7kVMhVI6zA4nLTQvL-2KbRZhvzesJrpwk3zDwiJjK0XJtwUK0bwEz0T4IU3j9zEgrNIV863IPdBqvuN7iHb4r2JIC28WFZ7KIazlOPR6AOpM4m-DLssRUdn9mDuEvbeu3Pmwp8rMmCHf9wU9NJN7nokTr4sUIYrruJVTBXvUuM/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            },
+            {
+              "id": "alt-7e93197bc1",
+              "name": "Yehliu Geopark",
+              "geo": {
+                "lat": 25.210557599999998,
+                "lng": 121.69537629999999
+              },
+              "address": "207, Taiwan, New Taipei City, Wanli District, 港東路167-1號",
+              "rating": 4.4,
+              "review_count": 54291,
+              "price_level": null,
+              "cuisine": null,
+              "reservable": null,
+              "opening_hours": [
+                "Monday: 8:00 AM – 5:00 PM",
+                "Tuesday: 8:00 AM – 5:00 PM",
+                "Wednesday: 8:00 AM – 5:00 PM",
+                "Thursday: 8:00 AM – 5:00 PM",
+                "Friday: 8:00 AM – 5:00 PM",
+                "Saturday: 8:00 AM – 5:00 PM",
+                "Sunday: 8:00 AM – 5:00 PM"
+              ],
+              "source_refs": [
+                {
+                  "title": "Yehliu Geopark",
+                  "url": "https://maps.google.com/?cid=16487985207228655703&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:45:03.444308+00:00"
+                }
+              ],
+              "booking_url": "https://www.ylgeopark.org.tw/?language=TW",
+              "distance_m": 18787,
+              "source_types": [
+                "nature_preserve",
+                "tourist_attraction",
+                "park",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Popular photo stop with scenic rock formations, fossils, big waves & guides to answer questions.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJ1ZrmCnZMXTQRV2jCWjAX0eQ/photos/AV-0GLeu4AjhNLa6_Bm-sIR96NKsiHhtWMnI1fyyq819N38dPtBogiHY6yg8Lv0BXDrPDd9icdurrPdsU7bMxz9LUoCMdTLmCq4AJc14rJFWS0q-7Rhq0OYQExmiuZaXHcUIWvDpznH3qsMU3JDE4Ivy2VG9VexdE2z4qOZOPF5mC7neTMvLqyVf-QulQd5Dim0-DR7jo07UFR6C8eZnQ1q-m-cFpurKCqdKsqtgSYujKQNt4h8g0VbYz60toAbXtX1r4Ik5YtBv5Sx2gPYf1MXxnUKPPXQWYmLfrtM4mZz_H_uz9k6kz2OB7ujXQJXG_XqqSV4jOpDw8kQtnEsa2coMZPhdv26QW0xPnSK3qbhJ77cOadSrHO66JjYsQN3Hk8QPnYWH250ozobv2OG04MgmN5m_DpKlaAg/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            }
+          ],
+          "links": [],
+          "image": {
+            "url": "https://places.googleapis.com/v1/places/ChIJcZT7-hdFXTQR0qekplqCFV8/photos/AV-0GLdrD7IC_TtrrGHULIYuMW_OikXIKDNE6cCJswXLvnLqLNMyFHo9_9kuNVoIv6oO0jlbyzdREURYY90gFTZzqNbyh7k9Ob7LFEiHhbtBg7479DSJdSizIyOomtkQ0GCy-j-H-CTlf7JVBUa3U-bKf_rSGDbetlYwUosAGKjRZjrD5tWqLERJOun5c4aeUQCLVGNa0n5snGWKZPQMxOVco5qE8QJt17XQCJgt9OU8dTzt14m9f87xZvOqMQcJD2307rgbdZRLEy5GMHtbccekwQib08xyyiW3RGbynJT-ZR6nZQELou05LGhLmrgE63BPhJ8abxOdKY3KjQ131UInXoT8yaaxx-AsV3AdXzXuGr0MLr9X93tvTcWnlrYftSLG1FdZYPmeNf9CX-Tx7TpcqO7W0T21/media?maxWidthPx=900&key=REDACTED",
+            "attribution": "Google",
+            "source": "google"
+          },
+          "step_free": false
+        },
+        {
+          "id": "it-9fc8a11f78",
+          "type": "attraction",
+          "name": "Shifen Old Street",
+          "start": "13:15",
+          "end": "14:45",
+          "geo": {
+            "lat": 25.0423966,
+            "lng": 121.77636620000001
+          },
+          "address": "No. 81號, Shifen St, Shifen Village, Pingxi District, New Taipei City, Taiwan 226",
+          "notes": "Walk the railway street and release a sky lantern, about 30 minutes by car from Jiufen.",
+          "source_refs": [
+            {
+              "title": "Shifen Old Street",
+              "url": "https://maps.google.com/?cid=17788871358297568190&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+              "source": "Google Places",
+              "fetched_at": "2026-11-24T06:55:04.343797+00:00"
+            }
+          ],
+          "data_status": "ok",
+          "fetched_at": "2026-11-24T06:55:04.343804+00:00",
+          "price": null,
+          "price_kind": "none",
+          "booking_url": "https://advance-ticket.com/shihfen-tickets-tours/",
+          "locked": false,
+          "confirmed": false,
+          "tags": [
+            "tourist_attraction",
+            "historical_place",
+            "point_of_interest",
+            "establishment"
+          ],
+          "opening_hours": [],
+          "hours_status": "unknown",
+          "transfer": {
+            "from_item_id": "it-66687c739f",
+            "minutes": 44.3,
+            "mode": "transit",
+            "distance_km": 10.21,
+            "source": "straight-line estimate",
+            "tool": "haversine",
+            "result_id": "it-66687c739f->it-9fc8a11f78"
+          },
+          "names": {},
+          "meal_slot": null,
+          "rating": 4.3,
+          "review_count": 53107,
+          "price_level": null,
+          "cuisine": null,
+          "reservable": null,
+          "source_types": [
+            "tourist_attraction",
+            "historical_place",
+            "point_of_interest",
+            "establishment"
+          ],
+          "source_summary": "Railroad tracks run through this old street with shops & restaurants, plus sky-lantern lightings.",
+          "alternatives": [],
+          "links": [],
+          "image": {
+            "url": "https://places.googleapis.com/v1/places/ChIJ_____y9RXTQRvnNyOkDE3vY/photos/AV-0GLe-DyDyI0kKo0Weoul-oH7fvRVxkz6BITzRscol8itxfPQPOtxhyvM_liTUKSNlNDI3vg9gj-zjZBmBOWj7CcuwdapSdas61IDf6u3ZSWdoe43qaXP3hRLRPppmqHILheFXC4oNT-VbWkUr5P-CmtOM-fHe3a6lekGpGzpVNYypUCASHyYp_hWa7mGIgFHqS7fX6PokGyBr0oK8TVzoF9ogscfYEsuvo5scu4daQcQWVSHhwBI_wEv4vAwHottaS7H8ohvCJe8BL4AxZc1CiIQ4HaedZJl1pq2rM1jBvQKFnVR_Ig-_6PU7dRR-G-3pRBETiD6wO3VigJBXR57HnxcJfcjIF6Tejl7gXsVC9JhZCaUy2FmDYtTY65SpSWZ_OrYZasmLtgkh0V83KQ1ej7zln46QiUthEeZD2CzhU6-AOw/media?maxWidthPx=900&key=REDACTED",
+            "attribution": "Google",
+            "source": "google"
+          },
+          "step_free": null
+        },
+        {
+          "id": "usr-5ed176284a",
+          "type": "attraction",
+          "name": "Yehliu Geopark",
+          "start": "15:30",
+          "end": "16:45",
+          "geo": null,
+          "address": "",
+          "notes": "Added at your request. The address, opening hours and ticket price are not confirmed by a source. Unconfirmed stop on the way back. The park is reported to close at 17:00, so this only works if you go by car or taxi (about 30 minutes from Shifen).",
+          "source_refs": [],
+          "data_status": "stale",
+          "fetched_at": null,
+          "price": null,
+          "price_kind": "none",
+          "booking_url": "",
+          "locked": false,
+          "confirmed": false,
+          "tags": [
+            "user-provided"
+          ],
+          "opening_hours": [],
+          "hours_status": "unknown",
+          "transfer": null,
+          "names": {},
+          "meal_slot": null,
+          "rating": null,
+          "review_count": null,
+          "price_level": null,
+          "cuisine": null,
+          "reservable": null,
+          "source_types": [],
+          "source_summary": "",
+          "alternatives": [],
+          "links": [],
+          "image": null,
+          "step_free": null
+        },
+        {
+          "id": "it-21c5bbf13b",
+          "type": "meal",
+          "name": "Moon Moon Food Qingdao Branch",
+          "start": "18:30",
+          "end": "19:45",
+          "geo": {
+            "lat": 25.0437017,
+            "lng": 121.5220376
+          },
+          "address": "No. 6之2號, Qingdao E Rd, Xingfu Village, Zhongzheng District, Taipei City, Taiwan 100",
+          "notes": "Dinner back in the city. The kitchen closes at 20:00.",
+          "source_refs": [
+            {
+              "title": "Moon Moon Food Qingdao Branch",
+              "url": "https://maps.google.com/?cid=6085922673212866287&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+              "source": "Google Places",
+              "fetched_at": "2026-11-24T05:44:58.465555+00:00"
+            }
+          ],
+          "data_status": "ok",
+          "fetched_at": "2026-11-24T05:44:58.465580+00:00",
+          "price": null,
+          "price_kind": "none",
+          "booking_url": "https://www.moonmoonfood.com/",
+          "locked": false,
+          "confirmed": false,
+          "tags": [
+            "restaurant",
+            "deli",
+            "chicken_restaurant",
+            "meal_delivery",
+            "food_delivery",
+            "chinese_restaurant",
+            "food_store",
+            "food"
+          ],
+          "opening_hours": [
+            "Monday: 11:00 AM – 2:00 PM, 5:00 – 8:00 PM",
+            "Tuesday: 11:00 AM – 2:00 PM, 5:00 – 8:00 PM",
+            "Wednesday: 11:00 AM – 2:00 PM, 5:00 – 8:00 PM",
+            "Thursday: 11:00 AM – 2:00 PM, 5:00 – 8:00 PM",
+            "Friday: 11:00 AM – 2:00 PM, 5:00 – 8:00 PM",
+            "Saturday: 11:00 AM – 2:00 PM, 5:00 – 8:00 PM",
+            "Sunday: 11:00 AM – 2:00 PM, 5:00 – 8:00 PM"
+          ],
+          "hours_status": "stated",
+          "transfer": {
+            "from_item_id": "it-66687c739f",
+            "minutes": 86.8,
+            "mode": "drive",
+            "distance_km": 33.37,
+            "source": "straight-line estimate",
+            "tool": "haversine",
+            "result_id": "it-66687c739f->it-21c5bbf13b"
+          },
+          "names": {},
+          "meal_slot": "dinner",
+          "rating": 4.8,
+          "review_count": 25747,
+          "price_level": "$$",
+          "cuisine": "Restaurant",
+          "reservable": false,
+          "source_types": [
+            "restaurant",
+            "deli",
+            "chicken_restaurant",
+            "meal_delivery",
+            "food_delivery",
+            "chinese_restaurant",
+            "food_store",
+            "food"
+          ],
+          "source_summary": "Found for 'famous food in Taipei'.",
+          "alternatives": [
+            {
+              "id": "alt-8a05c70c1a",
+              "name": "Yongkang Beef Noodles",
+              "geo": {
+                "lat": 25.0329382,
+                "lng": 121.52811109999998
+              },
+              "address": "No. 17號, Lane 31, Section 2, Jinshan S Rd, Yongkang Village, Da’an District, Taipei City, Taiwan 106",
+              "rating": 3.7,
+              "review_count": 12218,
+              "price_level": "$$",
+              "cuisine": "Chinese noodle restaurant",
+              "reservable": false,
+              "opening_hours": [
+                "Monday: 11:00 AM – 8:30 PM",
+                "Tuesday: 11:00 AM – 8:30 PM",
+                "Wednesday: 11:00 AM – 8:30 PM",
+                "Thursday: 11:00 AM – 8:30 PM",
+                "Friday: 11:00 AM – 8:30 PM",
+                "Saturday: 11:00 AM – 8:30 PM",
+                "Sunday: 11:00 AM – 8:30 PM"
+              ],
+              "source_refs": [
+                {
+                  "title": "Yongkang Beef Noodles",
+                  "url": "https://maps.google.com/?cid=2093328631498160184&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:45:02.760908+00:00"
+                }
+              ],
+              "booking_url": "https://www.facebook.com/profile.php?id=100063524573126&mibextid=LQQJ4d",
+              "distance_m": 1344,
+              "source_types": [
+                "chinese_noodle_restaurant",
+                "taiwanese_restaurant",
+                "restaurant",
+                "food",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Down-to-earth spot offering street food-inspired beef noodles in an unpretentious dining area.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJgRdW94KpQjQRODiapkz_DB0/photos/AV-0GLc9MJmQNxwZLAftPddudV_PrGITFn9xYFmC5P0XZVV1HSNJq0dGizUP7nCcBIJqVSTeCq1UmC-5Zfdecn1BQ1bl05XX2ryvm4O0JQCelEZn6WgG52lC7vSLR0H5I4wLcsjGg9xbhEH0Pk8my2JIau7ZYfjYugxBpa2lQLyMdD2Bg1WlaCUq8z3Q0IuOGgN0ZU03tpGM_2mCk5JxGg7e84p-tK6LxtaHYeM4LzAvhmRG2O0Hdd2tQy1Rg6N0FTbWdesqCJbVUTIHVF-mI8AxzSp7wWCaRSSHEHVsOjBBV9jUeHtJX7djzOS_wUbjI_21fUBIsLprWX0vrsISxyqg21Lsr4KeEwcvyXj-ZlNyvBMmFWVsCDRN019JO1CmVQR0zOz6O7_rGTqdaJYBpPD047Z5VoXtFyQ/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            },
+            {
+              "id": "alt-9c94fc444c",
+              "name": "Din Tai Fung Xinyi Branch",
+              "geo": {
+                "lat": 25.0335035,
+                "lng": 121.53011799999999
+              },
+              "address": "No. 194號, Section 2, Xinyi Rd, Fuzhu Village, Da’an District, Taipei City, Taiwan 106",
+              "rating": 4.4,
+              "review_count": 13237,
+              "price_level": "$$",
+              "cuisine": "Takeout restaurant",
+              "reservable": false,
+              "opening_hours": [
+                "Monday: 11:00 AM – 8:30 PM",
+                "Tuesday: 11:00 AM – 8:30 PM",
+                "Wednesday: 11:00 AM – 8:30 PM",
+                "Thursday: 11:00 AM – 8:30 PM",
+                "Friday: 11:00 AM – 8:30 PM",
+                "Saturday: 10:30 AM – 8:30 PM",
+                "Sunday: 10:30 AM – 8:30 PM"
+              ],
+              "source_refs": [
+                {
+                  "title": "Din Tai Fung Xinyi Branch",
+                  "url": "https://maps.google.com/?cid=10663098530229991004&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:45:03.718788+00:00"
+                }
+              ],
+              "booking_url": "https://www.dintaifung.com.tw/",
+              "distance_m": 1396,
+              "source_types": [
+                "meal_takeaway",
+                "restaurant",
+                "food",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Found for 'Din Tai Fung Yongkang Street Taipei'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJbTKSE4KpQjQRXDZZI57v-pM/photos/AV-0GLcPFuR2q7866fEcY4vidYhMk8jHl24ezUNheAohzRulIOMYyw-cshs0KY4M6T-5gEoP3GklJ8vVqJVQawLLYkhteSlp0f3IuiTK3K9nFkv_jcBlIOVBKi_h7aJBbfvec13S7uOYJlbKnZQpjCsLa63jlG6UPITxIYdbMqkJBB9hIdIFTo1CezExZNZSUHaNUp6beyzrsXzwO7q80ntk6X6FM0H4U4CTLGhzZIlRI6oJh3OI-WpPVu6vscwrRJTjZBabSdSc-1l_CNWXIg17j83eAGJinnyBWlL58bYH0izELS__sSoDFrsuPN9Iwi6ODjaA18he4f1CyNZALifxTuF1JvxSn8utZkSEDw1FwbSC-2zbacsLbpfAZjccFxYC0S-SCDZoYBp51K7UqrY64qvwgDRwqU-fjOEpoRI7S4DL/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            },
+            {
+              "id": "alt-40d5d65ff5",
+              "name": "A Cheng Goose",
+              "geo": {
+                "lat": 25.0564063,
+                "lng": 121.5303624
+              },
+              "address": "No. 105號, Jilin Rd, Zhongshan District, Taipei City, Taiwan 104",
+              "rating": 4.4,
+              "review_count": 8024,
+              "price_level": "$$",
+              "cuisine": "Taiwanese restaurant",
+              "reservable": true,
+              "opening_hours": [
+                "Monday: 11:30 AM – 8:00 PM",
+                "Tuesday: 11:30 AM – 8:00 PM",
+                "Wednesday: 11:30 AM – 8:00 PM",
+                "Thursday: 11:30 AM – 8:00 PM",
+                "Friday: 11:30 AM – 8:00 PM",
+                "Saturday: 11:20 AM – 8:00 PM",
+                "Sunday: 11:20 AM – 8:00 PM"
+              ],
+              "source_refs": [
+                {
+                  "title": "A Cheng Goose",
+                  "url": "https://maps.google.com/?cid=694526374424343264&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:44:58.429580+00:00"
+                }
+              ],
+              "booking_url": "https://imenu.com.tw/ACheng_JL/AC_JiLin/menu",
+              "distance_m": 1643,
+              "source_types": [
+                "taiwanese_restaurant",
+                "restaurant",
+                "food",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Found for 'best local restaurants in Taipei'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJj50p7F2pQjQR4PKzyg50owk/photos/AV-0GLfGMdXlzWNOMucHjECs7_bKfV6WeFx4k4WgKpeXX6HDDmg_SXvtl7XIdY9K3Ft_CJyH4F0Mtvf64LQcqQvbsldz8YkEUl-yNAuSXW4H7bJQxAxtAKQfYYHIjW2Ek1WIkYqcc_wXJ2UeJ35d4Eu37IICDeiLcQMx6nzXqmwqQaRN_4gHu1z3YjAGiqwm5-lSIX0ebuHTek5JlKxM2KEvivlBX6DxHjODwBmTjqrYpfqBLEhSEaoHSa5OtjM7SRTlcXFhR-M70zQS_ccF42VW3l2iTsVzGtHKF3WlB2NlKCsymZU5eYNVLztHllnMI5A4oKaraigJY2rIqrFdYoAYR_osmy_Twu_mqWxG7Ql03nEi8nhUwNlPIDbvteDFpdW3eeBq_EdWdoqFjozkSuqxVs8SRg/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            }
+          ],
+          "links": [],
+          "image": {
+            "url": "https://places.googleapis.com/v1/places/ChIJgbsfD3GpQjQR7z5ZO22KdVQ/photos/AV-0GLfbdEaxntF-a_q5sPSPVxyOMY2LSZm0mpZhHxXlmxpX6gf9wPsyorJ5teAg8-pXUz26bdG-aSj1ERpxoMHT8k0avmTbiLUDWKylOEnD8Y0_GEp4Eqc3i_XCT0Kv6hSUik4xN-wNzCsvbSPjL9f4825YBprq_f6yE0G3iG_q-ulR_vPX1EiNSVt0qqHFt91t9fDNecR5O7E2PSxtK8_pRHJjOuQTqAyxPZRGJ6bfPLplC7pfu7aO97Mw9vFw7OzF5memKgUcLhuSjtM3seAffx-63BFP9JHfnaWXQkJberePh-4ovzBviWtCcEWhb1DZai-89zBWzRyPvMM6pDG2FgPWM1TD-OUi3gSX7Nnrl6HqFGVruSGsWn1VSxGmhXZLEL7qvb0Vpp1qKFFJJbWEu8UzmVSm0aE/media?maxWidthPx=900&key=REDACTED",
+            "attribution": "Google",
+            "source": "google"
+          },
+          "step_free": false
+        }
+      ],
+      "note": "This is a long day out of the city. Leave the hotel around 08:30 and expect about 1.5 hours each way by road.",
+      "elevation_gain_m": null,
+      "segment_id": "seg-1",
+      "city": ""
+    },
+    {
+      "date": "2027-02-14",
+      "title": "Memorial Hall, Din Tai Fung and Elephant Mountain sunset",
+      "weather": {
+        "date": "2027-02-14",
+        "status": "unavailable",
+        "summary": "No forecast yet: the trip is beyond the 16-day forecast window.",
+        "high_c": null,
+        "low_c": null,
+        "precipitation_probability": null,
+        "source": "Open-Meteo",
+        "fetched_at": "2026-11-24T05:44:58.008382+00:00",
+        "note": "A forecast will be fetched closer to the trip."
+      },
+      "items": [
+        {
+          "id": "it-7c4ed598e5",
+          "type": "attraction",
+          "name": "Chiang Kai-shek Memorial Hall",
+          "start": "09:30",
+          "end": "11:00",
+          "geo": {
+            "lat": 25.035501999999997,
+            "lng": 121.5201832
+          },
+          "address": "Zhongzheng District, Taipei City, Taiwan 100",
+          "notes": "Walk the grounds and the exhibits inside the hall. The Liberty Square gate is next to it.",
+          "source_refs": [
+            {
+              "title": "Chiang Kai-shek Memorial Hall",
+              "url": "https://maps.google.com/?cid=4893446054581594546&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+              "source": "Google Places",
+              "fetched_at": "2026-11-24T05:44:58.510941+00:00"
+            }
+          ],
+          "data_status": "ok",
+          "fetched_at": "2026-11-24T05:44:58.510948+00:00",
+          "price": null,
+          "price_kind": "none",
+          "booking_url": "https://www.cksmh.gov.tw/",
+          "locked": false,
+          "confirmed": false,
+          "tags": [
+            "cultural_landmark",
+            "historical_landmark",
+            "tourist_attraction",
+            "historical_place",
+            "point_of_interest",
+            "establishment"
+          ],
+          "opening_hours": [
+            "Monday: 9:00 AM – 6:00 PM",
+            "Tuesday: 9:00 AM – 6:00 PM",
+            "Wednesday: 9:00 AM – 6:00 PM",
+            "Thursday: 9:00 AM – 6:00 PM",
+            "Friday: 9:00 AM – 6:00 PM",
+            "Saturday: 9:00 AM – 6:00 PM",
+            "Sunday: 9:00 AM – 6:00 PM"
+          ],
+          "hours_status": "stated",
+          "transfer": null,
+          "names": {},
+          "meal_slot": null,
+          "rating": 4.5,
+          "review_count": 83324,
+          "price_level": null,
+          "cuisine": null,
+          "reservable": null,
+          "source_types": [
+            "cultural_landmark",
+            "historical_landmark",
+            "tourist_attraction",
+            "historical_place",
+            "point_of_interest",
+            "establishment"
+          ],
+          "source_summary": "Celebrated memorial hall with history exhibits surrounded by a large park with fish ponds & gardens.",
+          "alternatives": [
+            {
+              "id": "alt-b99d5adcf8",
+              "name": "Liberty Square Archway",
+              "geo": {
+                "lat": 25.036625899999997,
+                "lng": 121.51756660000001
+              },
+              "address": "No. 21, Zhongshan S Rd, Dongmen Village, Zhongzheng District, Taipei City, Taiwan 100",
+              "rating": 4.6,
+              "review_count": 5256,
+              "price_level": null,
+              "cuisine": null,
+              "reservable": null,
+              "opening_hours": [
+                "Monday: Open 24 hours",
+                "Tuesday: Open 24 hours",
+                "Wednesday: Open 24 hours",
+                "Thursday: Open 24 hours",
+                "Friday: Open 24 hours",
+                "Saturday: Open 24 hours",
+                "Sunday: Open 24 hours"
+              ],
+              "source_refs": [
+                {
+                  "title": "Liberty Square Archway",
+                  "url": "https://maps.google.com/?cid=13125232806023679015&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:44:58.511050+00:00"
+                }
+              ],
+              "booking_url": "http://www.cksmh.gov.tw/index.php?code=list&flag=detail&ids=272&article_id=2043",
+              "distance_m": 292,
+              "source_types": [
+                "historical_landmark",
+                "scenic_spot",
+                "tourist_attraction",
+                "cultural_landmark",
+                "historical_place",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Set in an open square, this grand historical gate with 5 archways is illuminated at night.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJoXv-L56pQjQRJ0xYVbIxJrY/photos/AV-0GLfiIYz7-rYcfwgIeDtQjAPx0sBy285oBZorcYqcUosHqnatbwr2IU2I1V2Q8Te6GzkBSzlNnEhiLZMO1rt-_L_pMenWCgYY0FaNvCpoKxC_d8p7nsOtpviTmkl8rGc-0Q1jrD9jgQgvyuhsQovBTqFfMjR9VAfsMH3xcOgcQKUMrcE8t1_XpD6rEMm5TzLDP2xNixuX39yaSUYfWVfPCMSUTLcuFx5esY8TBz1APLkuB83x9ZJG1Gy3sEtcgTFc09QlDj29W3oCB8oxmMT4AKa2ODkO7m0pcvyPOl9FPk1aFIghSEdiezeUJ3EZ9RlnvBH0Q_UT1UW1Z288-9c3Fq9rMzQOCaqVxi3FXvEKDHn-2NqK4Pi00lC6VRVIH1PNkKpNkhdB7pUKYE8GDz_RzK5zYfIaNPY/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            },
+            {
+              "id": "alt-a3af0ed852",
+              "name": "Taipei Old Town - Taiwan Introduction Free Walking Tour Meeting Point - TourMeAway",
+              "geo": {
+                "lat": 25.0427003,
+                "lng": 121.51625820000001
+              },
+              "address": "No. 52號, Gongyuan Rd, Liming Village, Zhongzheng District, Taipei City, Taiwan 100",
+              "rating": 5,
+              "review_count": 2276,
+              "price_level": null,
+              "cuisine": null,
+              "reservable": null,
+              "opening_hours": [
+                "Monday: 10:30 AM – 5:00 PM",
+                "Tuesday: 10:30 AM – 1:30 PM",
+                "Wednesday: 10:30 AM – 5:00 PM",
+                "Thursday: 10:30 AM – 1:30 PM",
+                "Friday: 10:30 AM – 5:00 PM",
+                "Saturday: 10:30 AM – 5:00 PM",
+                "Sunday: 10:30 AM – 1:30 PM"
+              ],
+              "source_refs": [
+                {
+                  "title": "Taipei Old Town - Taiwan Introduction Free Walking Tour Meeting Point - TourMeAway",
+                  "url": "https://maps.google.com/?cid=10189627558759242129&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:44:58.555467+00:00"
+                }
+              ],
+              "booking_url": "https://tourmeaway.com/",
+              "distance_m": 893,
+              "source_types": [
+                "tourist_attraction",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Found for 'top attractions in Taipei'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJn82Pg9KpQjQRkRlgGUfUaI0/photos/AV-0GLeZ33r5Cw_86QawNbzdDg2x78ifmWOyitmdkLRcx1NsCfkVAMDRq1cT-f7SdSQkKc-PjOOAcosKqwf3OJ6ebadS52ym32Rf7taIw5Ha1SzL8hdMGMcxNMKvTlQktW0k7nR5H3ROv1OGTNx28TDGUd5V0Bca2HWbiM9fyT_1qsStJqzYo7ecDrQEdefNRDYqpU4fc0aSk70yJyxgWR3ijZzmi0Ii-Ip2Dpl-c8ds6hGhbyo_Nr3zRSYWoZzrI5ZB6s30vTtfIwOj3-kkdJ8KuGiFEKIqpdNQlXPg2EDYCdnaZzZo27pUKfGGS7njmdUBVjP6pRduLSS21Qx7eqh55C_E0EJxApiCoXQl88l3C2s527sb8OGSjWeyOPZzosziKWe4wjp-bhwzSLX7qHQMaddE1Q-VKIs/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            },
+            {
+              "id": "alt-9ff101244d",
+              "name": "National Taiwan Museum",
+              "geo": {
+                "lat": 25.0427872,
+                "lng": 121.5151192
+              },
+              "address": "No. 2號, Xiangyang Rd, Liming Village, Zhongzheng District, Taipei City, Taiwan 100",
+              "rating": 4.6,
+              "review_count": 14204,
+              "price_level": null,
+              "cuisine": null,
+              "reservable": null,
+              "opening_hours": [
+                "Monday: Closed",
+                "Tuesday: 9:30 AM – 5:00 PM",
+                "Wednesday: 9:30 AM – 5:00 PM",
+                "Thursday: 9:30 AM – 5:00 PM",
+                "Friday: 9:30 AM – 5:00 PM",
+                "Saturday: 9:30 AM – 5:00 PM",
+                "Sunday: 9:30 AM – 5:00 PM"
+              ],
+              "source_refs": [
+                {
+                  "title": "National Taiwan Museum",
+                  "url": "https://maps.google.com/?cid=746007216145012758&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:44:58.571927+00:00"
+                }
+              ],
+              "booking_url": "https://www.ntm.gov.tw/",
+              "distance_m": 957,
+              "source_types": [
+                "historical_landmark",
+                "tourist_attraction",
+                "museum",
+                "historical_place",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Venerable national museum with a variety of exhibits, including history & natural history.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJcRV3WHOpQjQRFpgzTpxZWgo/photos/AV-0GLdr1VQjZfqg95snXYpLk7l6wVRLfwbylc5vvsBhS_OlGcBJT9pjVpQWYMpokAo1u0N3H4qr7SMDx3l5rvi0CA4_qH7zEALvGuC1FJHKYNxsV7tEr_ahRklvfA5Nxr6TGV6Zc18tGcx0zJ5UI-GB-SHK7fcmZMa5zB7yvAYdNaYgejDp7MPz6hDBH5y02fPNjazkoTY0XImnsCsvo0FTep0jRErg_dTyAhnLjAgfnaDJwyT65NDBLlvDqH6wiNpggdb_3WZBV_1RV2092Lv3KVPvMcUOMrUzwRHrAd5HyBne33f6RTX9E52VbMuy6oDAvRM93UhxBU0AZKnfR5Zzcd4eKENPCT1rDkDOP7QmJEhWX8SAhwQsI6-k63f7RyQj03CmtgW1_BSfUmHLpJ2P-3KiO-Hixca6kJs_tNdBNGyKOQ/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            }
+          ],
+          "links": [],
+          "image": {
+            "url": "https://places.googleapis.com/v1/places/ChIJTamiuZ2pQjQRsmnfkkID6UM/photos/AV-0GLdo8WLDjwDFfo8gV3EPPT_4-ptn1i8bv3osqCG6epanqMkXNxtJE3_8aFw2JhXGmRO34MdQrw4fgZSRsDFx5j8JkjlUCPUgr-HmkQ-je8QobyT6hr1C_SdIIBTyLLlJWTwNWZuLZAbh5sym1FzpoFJM5Giz9bbaYpcjd4ANGySVB6_ym91TEnPam5Deqa76q7Tno41gC40pt8XuPjLKXSgq6-AemshCKZ87FodzLHQbXG7kVSutez56GxbqNlUrENPt3IKJ6myZcm6Yj6b8DXhCOSxQyRWWS0967prfcmej0JL3014U3tLZpb6Dy0UZyIYYKzA6wL8yI3NxBfiMNgNZrnH7kOgpO0CPAoyzGNFkmBM4URY9xWWyyARhe8nINAsHvHdlhWJ68XuEjJBoLSNZyka1Iyk/media?maxWidthPx=900&key=REDACTED",
+            "attribution": "Google",
+            "source": "google"
+          },
+          "step_free": true
+        },
+        {
+          "id": "usr-8bf773a1d4",
+          "type": "attraction",
+          "name": "228 Peace Memorial Park",
+          "start": "11:15",
+          "end": "12:15",
+          "geo": null,
+          "address": "",
+          "notes": "Added at your request. The address, opening hours and ticket price are not confirmed by a source. Added to the morning after Chiang Kai-shek Memorial Hall, as requested. Unconfirmed stop. The park is open 24 hours, and the Taipei 228 Memorial Museum is inside it.",
+          "source_refs": [],
+          "data_status": "stale",
+          "fetched_at": null,
+          "price": null,
+          "price_kind": "none",
+          "booking_url": "",
+          "locked": false,
+          "confirmed": false,
+          "tags": [
+            "user-provided"
+          ],
+          "opening_hours": [],
+          "hours_status": "unknown",
+          "transfer": null,
+          "names": {},
+          "meal_slot": null,
+          "rating": null,
+          "review_count": null,
+          "price_level": null,
+          "cuisine": null,
+          "reservable": null,
+          "source_types": [],
+          "source_summary": "",
+          "alternatives": [],
+          "links": [],
+          "image": null,
+          "step_free": null
+        },
+        {
+          "id": "usr-a7645ef04d",
+          "type": "attraction",
+          "name": "Din Tai Fung Yongkang Street",
+          "start": "12:45",
+          "end": "14:00",
+          "geo": null,
+          "address": "",
+          "notes": "Added at your request. The address, opening hours and ticket price are not confirmed by a source. Xiaolongbao lunch at the Yongkang Street / Xinyi Road Din Tai Fung, replacing the Xinyi Branch lunch. Unconfirmed stop.",
+          "source_refs": [],
+          "data_status": "stale",
+          "fetched_at": null,
+          "price": null,
+          "price_kind": "none",
+          "booking_url": "",
+          "locked": false,
+          "confirmed": false,
+          "tags": [
+            "user-provided"
+          ],
+          "opening_hours": [],
+          "hours_status": "unknown",
+          "transfer": null,
+          "names": {},
+          "meal_slot": null,
+          "rating": null,
+          "review_count": null,
+          "price_level": null,
+          "cuisine": null,
+          "reservable": null,
+          "source_types": [],
+          "source_summary": "",
+          "alternatives": [],
+          "links": [],
+          "image": null,
+          "step_free": null
+        },
+        {
+          "id": "it-f9e593d370",
+          "type": "attraction",
+          "name": "National Taiwan Museum",
+          "start": "14:45",
+          "end": "16:00",
+          "geo": {
+            "lat": 25.0427872,
+            "lng": 121.5151192
+          },
+          "address": "No. 2號, Xiangyang Rd, Liming Village, Zhongzheng District, Taipei City, Taiwan 100",
+          "notes": "A museum stop in the old town, covering history and natural history, before the climb.",
+          "source_refs": [
+            {
+              "title": "National Taiwan Museum",
+              "url": "https://maps.google.com/?cid=746007216145012758&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+              "source": "Google Places",
+              "fetched_at": "2026-11-24T05:44:58.571927+00:00"
+            }
+          ],
+          "data_status": "ok",
+          "fetched_at": "2026-11-24T05:44:58.571933+00:00",
+          "price": null,
+          "price_kind": "none",
+          "booking_url": "https://www.ntm.gov.tw/",
+          "locked": false,
+          "confirmed": false,
+          "tags": [
+            "historical_landmark",
+            "tourist_attraction",
+            "museum",
+            "historical_place",
+            "point_of_interest",
+            "establishment"
+          ],
+          "opening_hours": [
+            "Monday: Closed",
+            "Tuesday: 9:30 AM – 5:00 PM",
+            "Wednesday: 9:30 AM – 5:00 PM",
+            "Thursday: 9:30 AM – 5:00 PM",
+            "Friday: 9:30 AM – 5:00 PM",
+            "Saturday: 9:30 AM – 5:00 PM",
+            "Sunday: 9:30 AM – 5:00 PM"
+          ],
+          "hours_status": "stated",
+          "transfer": {
+            "from_item_id": "it-88bca27993",
+            "minutes": 7.9,
+            "mode": "transit",
+            "distance_km": 1.83,
+            "source": "straight-line estimate",
+            "tool": "haversine",
+            "result_id": "it-88bca27993->it-f9e593d370"
+          },
+          "names": {},
+          "meal_slot": null,
+          "rating": 4.6,
+          "review_count": 14204,
+          "price_level": null,
+          "cuisine": null,
+          "reservable": null,
+          "source_types": [
+            "historical_landmark",
+            "tourist_attraction",
+            "museum",
+            "historical_place",
+            "point_of_interest",
+            "establishment"
+          ],
+          "source_summary": "Venerable national museum with a variety of exhibits, including history & natural history.",
+          "alternatives": [
+            {
+              "id": "alt-a3af0ed852",
+              "name": "Taipei Old Town - Taiwan Introduction Free Walking Tour Meeting Point - TourMeAway",
+              "geo": {
+                "lat": 25.0427003,
+                "lng": 121.51625820000001
+              },
+              "address": "No. 52號, Gongyuan Rd, Liming Village, Zhongzheng District, Taipei City, Taiwan 100",
+              "rating": 5,
+              "review_count": 2276,
+              "price_level": null,
+              "cuisine": null,
+              "reservable": null,
+              "opening_hours": [
+                "Monday: 10:30 AM – 5:00 PM",
+                "Tuesday: 10:30 AM – 1:30 PM",
+                "Wednesday: 10:30 AM – 5:00 PM",
+                "Thursday: 10:30 AM – 1:30 PM",
+                "Friday: 10:30 AM – 5:00 PM",
+                "Saturday: 10:30 AM – 5:00 PM",
+                "Sunday: 10:30 AM – 1:30 PM"
+              ],
+              "source_refs": [
+                {
+                  "title": "Taipei Old Town - Taiwan Introduction Free Walking Tour Meeting Point - TourMeAway",
+                  "url": "https://maps.google.com/?cid=10189627558759242129&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:44:58.555467+00:00"
+                }
+              ],
+              "booking_url": "https://tourmeaway.com/",
+              "distance_m": 115,
+              "source_types": [
+                "tourist_attraction",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Found for 'top attractions in Taipei'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJn82Pg9KpQjQRkRlgGUfUaI0/photos/AV-0GLeZ33r5Cw_86QawNbzdDg2x78ifmWOyitmdkLRcx1NsCfkVAMDRq1cT-f7SdSQkKc-PjOOAcosKqwf3OJ6ebadS52ym32Rf7taIw5Ha1SzL8hdMGMcxNMKvTlQktW0k7nR5H3ROv1OGTNx28TDGUd5V0Bca2HWbiM9fyT_1qsStJqzYo7ecDrQEdefNRDYqpU4fc0aSk70yJyxgWR3ijZzmi0Ii-Ip2Dpl-c8ds6hGhbyo_Nr3zRSYWoZzrI5ZB6s30vTtfIwOj3-kkdJ8KuGiFEKIqpdNQlXPg2EDYCdnaZzZo27pUKfGGS7njmdUBVjP6pRduLSS21Qx7eqh55C_E0EJxApiCoXQl88l3C2s527sb8OGSjWeyOPZzosziKWe4wjp-bhwzSLX7qHQMaddE1Q-VKIs/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            },
+            {
+              "id": "alt-b99d5adcf8",
+              "name": "Liberty Square Archway",
+              "geo": {
+                "lat": 25.036625899999997,
+                "lng": 121.51756660000001
+              },
+              "address": "No. 21, Zhongshan S Rd, Dongmen Village, Zhongzheng District, Taipei City, Taiwan 100",
+              "rating": 4.6,
+              "review_count": 5256,
+              "price_level": null,
+              "cuisine": null,
+              "reservable": null,
+              "opening_hours": [
+                "Monday: Open 24 hours",
+                "Tuesday: Open 24 hours",
+                "Wednesday: Open 24 hours",
+                "Thursday: Open 24 hours",
+                "Friday: Open 24 hours",
+                "Saturday: Open 24 hours",
+                "Sunday: Open 24 hours"
+              ],
+              "source_refs": [
+                {
+                  "title": "Liberty Square Archway",
+                  "url": "https://maps.google.com/?cid=13125232806023679015&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:44:58.511050+00:00"
+                }
+              ],
+              "booking_url": "http://www.cksmh.gov.tw/index.php?code=list&flag=detail&ids=272&article_id=2043",
+              "distance_m": 728,
+              "source_types": [
+                "historical_landmark",
+                "scenic_spot",
+                "tourist_attraction",
+                "cultural_landmark",
+                "historical_place",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Set in an open square, this grand historical gate with 5 archways is illuminated at night.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJoXv-L56pQjQRJ0xYVbIxJrY/photos/AV-0GLfiIYz7-rYcfwgIeDtQjAPx0sBy285oBZorcYqcUosHqnatbwr2IU2I1V2Q8Te6GzkBSzlNnEhiLZMO1rt-_L_pMenWCgYY0FaNvCpoKxC_d8p7nsOtpviTmkl8rGc-0Q1jrD9jgQgvyuhsQovBTqFfMjR9VAfsMH3xcOgcQKUMrcE8t1_XpD6rEMm5TzLDP2xNixuX39yaSUYfWVfPCMSUTLcuFx5esY8TBz1APLkuB83x9ZJG1Gy3sEtcgTFc09QlDj29W3oCB8oxmMT4AKa2ODkO7m0pcvyPOl9FPk1aFIghSEdiezeUJ3EZ9RlnvBH0Q_UT1UW1Z288-9c3Fq9rMzQOCaqVxi3FXvEKDHn-2NqK4Pi00lC6VRVIH1PNkKpNkhdB7pUKYE8GDz_RzK5zYfIaNPY/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            },
+            {
+              "id": "alt-8f1bd5a336",
+              "name": "The Red House",
+              "geo": {
+                "lat": 25.0420139,
+                "lng": 121.5068592
+              },
+              "address": "No. 10號, Chengdu Rd, Ximen Village, Wanhua District, Taipei City, Taiwan 108",
+              "rating": 4.3,
+              "review_count": 19967,
+              "price_level": null,
+              "cuisine": null,
+              "reservable": null,
+              "opening_hours": [
+                "Monday: Closed",
+                "Tuesday: 11:00 AM – 9:00 PM",
+                "Wednesday: 11:00 AM – 9:00 PM",
+                "Thursday: 11:00 AM – 9:00 PM",
+                "Friday: 11:00 AM – 9:00 PM",
+                "Saturday: 11:00 AM – 10:00 PM",
+                "Sunday: 11:00 AM – 9:00 PM"
+              ],
+              "source_refs": [
+                {
+                  "title": "The Red House",
+                  "url": "https://maps.google.com/?cid=8949821639858373061&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:44:58.571956+00:00"
+                }
+              ],
+              "booking_url": "https://www.redhouse.taipei/",
+              "distance_m": 837,
+              "source_types": [
+                "historical_landmark",
+                "tourist_attraction",
+                "historical_place",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Built in 1908, this landmark 8-sided structure features exhibits, a teahouse, markets & theaters.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJi-yspAmpQjQRxcHc_lwnNHw/photos/AV-0GLd5aTDPM8ZXjccnLQIEBF0fSWW3KgGG4ZHT0XiDSTffVkYrcDDWeQuMxH_X90Q904cURoSi05PH5LHrtet-DT1eTWs36iDbxN-mrfrzlY_pXAnX89EEqSzTcnXx5qFnsLBs6RCyymwkcObm2DdyaaUekJw-1CBnWrqDZsTzw-Sw3VEuiAAsh80QcmrigPpsGQvVb6pCcnRCSGQoTNVb-jCfxmuQfq3Y8fMnlEWyIUGqDjfS_kRd8A60rr3Ea-o6O5WOSGwohb4IIAVF6kpQaJfZ2Y6b-0xlDq0lbqr1unv8ESTyYiC_n4HDE7c7drPJ-Gg6mYT2egQqWHYLtbyqQ30QCR7qzVGQiI43n44Rxwi93iDv-vauOKb3EmGDRHhhobBM9Vqa691N8nkoXFKVdyDqZxY/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            }
+          ],
+          "links": [],
+          "image": {
+            "url": "https://places.googleapis.com/v1/places/ChIJcRV3WHOpQjQRFpgzTpxZWgo/photos/AV-0GLdr1VQjZfqg95snXYpLk7l6wVRLfwbylc5vvsBhS_OlGcBJT9pjVpQWYMpokAo1u0N3H4qr7SMDx3l5rvi0CA4_qH7zEALvGuC1FJHKYNxsV7tEr_ahRklvfA5Nxr6TGV6Zc18tGcx0zJ5UI-GB-SHK7fcmZMa5zB7yvAYdNaYgejDp7MPz6hDBH5y02fPNjazkoTY0XImnsCsvo0FTep0jRErg_dTyAhnLjAgfnaDJwyT65NDBLlvDqH6wiNpggdb_3WZBV_1RV2092Lv3KVPvMcUOMrUzwRHrAd5HyBne33f6RTX9E52VbMuy6oDAvRM93UhxBU0AZKnfR5Zzcd4eKENPCT1rDkDOP7QmJEhWX8SAhwQsI6-k63f7RyQj03CmtgW1_BSfUmHLpJ2P-3KiO-Hixca6kJs_tNdBNGyKOQ/media?maxWidthPx=900&key=REDACTED",
+            "attribution": "Google",
+            "source": "google"
+          },
+          "step_free": true
+        },
+        {
+          "id": "it-a93db963aa",
+          "type": "attraction",
+          "name": "Elephant Mountain",
+          "start": "16:40",
+          "end": "18:40",
+          "geo": {
+            "lat": 25.027149299999998,
+            "lng": 121.5731954
+          },
+          "address": "No. 31, Alley 401, Lane 150, Section 5, Xinyi Rd, Sanli Village, Xinyi District, Taipei City, Taiwan 110",
+          "notes": "Climb the stairs for the panoramic view of Taipei and the city lights coming on.",
+          "source_refs": [
+            {
+              "title": "Elephant Mountain",
+              "url": "https://maps.google.com/?cid=4068603574806405848&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+              "source": "Google Places",
+              "fetched_at": "2026-11-24T05:44:58.511001+00:00"
+            }
+          ],
+          "data_status": "ok",
+          "fetched_at": "2026-11-24T05:44:58.511006+00:00",
+          "price": null,
+          "price_kind": "none",
+          "booking_url": "http://xydo.gov.taipei/",
+          "locked": false,
+          "confirmed": false,
+          "tags": [
+            "hiking_area",
+            "observation_deck",
+            "tourist_attraction",
+            "sports_activity_location",
+            "point_of_interest",
+            "establishment"
+          ],
+          "opening_hours": [
+            "Monday: Open 24 hours",
+            "Tuesday: Open 24 hours",
+            "Wednesday: Open 24 hours",
+            "Thursday: Open 24 hours",
+            "Friday: Open 24 hours",
+            "Saturday: Open 24 hours",
+            "Sunday: Open 24 hours"
+          ],
+          "hours_status": "stated",
+          "transfer": {
+            "from_item_id": "it-f9e593d370",
+            "minutes": 26.5,
+            "mode": "transit",
+            "distance_km": 6.1,
+            "source": "straight-line estimate",
+            "tool": "haversine",
+            "result_id": "it-f9e593d370->it-a93db963aa"
+          },
+          "names": {},
+          "meal_slot": null,
+          "rating": 4.7,
+          "review_count": 6259,
+          "price_level": null,
+          "cuisine": null,
+          "reservable": null,
+          "source_types": [
+            "hiking_area",
+            "observation_deck",
+            "tourist_attraction",
+            "sports_activity_location",
+            "point_of_interest",
+            "establishment"
+          ],
+          "source_summary": "Popular hiking trail with walking paths & stairs offering a panoramic view of Taipei from its peak.",
+          "alternatives": [
+            {
+              "id": "alt-74b644268a",
+              "name": "六巨石",
+              "geo": {
+                "lat": 25.026884799999998,
+                "lng": 121.5741994
+              },
+              "address": "110, Taiwan, Taipei City, Xinyi District, Sanli Village, 象山隧道3號",
+              "rating": 4.7,
+              "review_count": 303,
+              "price_level": null,
+              "cuisine": null,
+              "reservable": null,
+              "opening_hours": [
+                "Monday: Open 24 hours",
+                "Tuesday: Open 24 hours",
+                "Wednesday: Open 24 hours",
+                "Thursday: Open 24 hours",
+                "Friday: Open 24 hours",
+                "Saturday: Open 24 hours",
+                "Sunday: Open 24 hours"
+              ],
+              "source_refs": [
+                {
+                  "title": "六巨石",
+                  "url": "https://maps.google.com/?cid=6559751015366228525&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:44:58.555401+00:00"
+                }
+              ],
+              "booking_url": "",
+              "distance_m": 105,
+              "source_types": [
+                "hiking_area",
+                "scenic_spot",
+                "tourist_attraction",
+                "sports_activity_location",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Found for 'top attractions in Taipei'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJ6cjgVKyrQjQRLXrpHcvqCFs/photos/AV-0GLcBzFzQFqgFXaB-Bht33q5jMjPW3M2dEALih-2raD-glKXb7aljvixisAl4WoaBlY8Jnbn9eLWZ4vxm0p37pHZkrUJT3IeZXUl_KaJXL18EgMFuhdYVadWUND0Ty50UFbn2CoG75eJyiuQX-txxYS2XgT-gpQJxqysFqqM6itnl57BT5shcSJ5STdRSEv9uhai8EVrg2yzP7jF7UrcKBR90dQZfDPeuA4TlQ8Z6gECaADOGdVgoYIbR4OmdrtjONOCww3Faexn1kCnXg4_aBm-x7rmGhlbARrYMJW5s5RvB96fnZHSadZFwnl7n3xjOgHVlBbZ30tYuT3KJg4NvNrWXWUSTANYhdX2Nx8aya-q5zeEXMKva8xEerfSkaQtfoE-UlIxQnO23wqPkzTnGkS3P1hBxfs4/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            },
+            {
+              "id": "alt-3bb8198a3e",
+              "name": "Xiangshan Park",
+              "geo": {
+                "lat": 25.0303924,
+                "lng": 121.57012940000001
+              },
+              "address": "Lane 150, Section 5, Xinyi Rd, Sanli Village, Xinyi District, Taipei City, Taiwan 110",
+              "rating": 4.5,
+              "review_count": 7735,
+              "price_level": null,
+              "cuisine": null,
+              "reservable": null,
+              "opening_hours": [
+                "Monday: Open 24 hours",
+                "Tuesday: Open 24 hours",
+                "Wednesday: Open 24 hours",
+                "Thursday: Open 24 hours",
+                "Friday: Open 24 hours",
+                "Saturday: Open 24 hours",
+                "Sunday: Open 24 hours"
+              ],
+              "source_refs": [
+                {
+                  "title": "Xiangshan Park",
+                  "url": "https://maps.google.com/?cid=2966381594250688355&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:44:58.511026+00:00"
+                }
+              ],
+              "booking_url": "",
+              "distance_m": 475,
+              "source_types": [
+                "park",
+                "tourist_attraction",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Jogging paths, basketball courts & a playground, plus a population of Taipei tree frogs.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJuwDE9bGrQjQRY7eR6Ve0Kik/photos/AV-0GLe6n2ne7uWfuYWUZHcP_YePE0hEIbX4Hi4QNXqO5BEr_CjBOcQGIY3m3S7LxfkfvLeO32xDSIfthIyQxnTvs_xB0jGxxPPLaaVYQCOef_tpmHOfKpru_se_fjPFfzxlqhM4bOXZawDltjTHvlhHcvTMvF3g6GF7bvPjByAok8Z1Aw5qfXJfOcnxtRwcjR_vSNAkWg-LP4xXV5U5klhi-Ei5IHzQSLBk5udMv80rA7d5e9tb412a42kcSDrIrWHyDseGZbzkA_y2DrOBAXfuZWLhx4-mH8hL2J7cTe-8dIn6KeKQcminyvlH5w7dunvxsiOM6Z3iai1LMCiC2XOo0qS_gjhdGpFaMJgWq0Ob5I_91WnKedE1dEFmEPBF3WMx8GpwxM82U2aDRp6YKB9buCE_REg/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            },
+            {
+              "id": "alt-71b1c6c594",
+              "name": "Taipei 101",
+              "geo": {
+                "lat": 25.0332276,
+                "lng": 121.56486810000001
+              },
+              "address": "110, Taiwan, Taipei City, Xinyi District, Xicun Village, Section 5, Xinyi Rd, No. 7號",
+              "rating": 4.7,
+              "review_count": 2664,
+              "price_level": null,
+              "cuisine": null,
+              "reservable": null,
+              "opening_hours": [
+                "Monday: 10:00 AM – 9:00 PM",
+                "Tuesday: 10:00 AM – 9:00 PM",
+                "Wednesday: 10:00 AM – 9:00 PM",
+                "Thursday: 10:00 AM – 9:00 PM",
+                "Friday: 10:00 AM – 9:00 PM",
+                "Saturday: 10:00 AM – 9:00 PM",
+                "Sunday: 10:00 AM – 9:00 PM"
+              ],
+              "source_refs": [
+                {
+                  "title": "Taipei 101",
+                  "url": "https://maps.google.com/?cid=10091626862641679651&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:44:58.510974+00:00"
+                }
+              ],
+              "booking_url": "https://gobuyticket.com/taipei-101-observatory-ticket",
+              "distance_m": 1077,
+              "source_types": [
+                "tourist_attraction",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Found for 'top attractions in Taipei'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJh8s4AuGrQjQRIw2M8SmpDIw/photos/AV-0GLeOUcVRtJ6_BwjUHuCLeRw0TBQjsUQU6iO4tQNZhDRsHjFxdVLv_JjWdpJ2zzc9C1uR67w-rjeWuZ6bag1uo0opeGHR0oVfNOdGLjpyCsqWud4UHdaAO0WkrqTr1-lFzMHrqPJScZnsot1wpXNc-jlguxG0DKVmI-GK3rscW1YXca_wZQJ08v4NC7vjhj0pIQrl340cc5A4TOBiED5xADrgV5R1BYr60fIYw2O2fQ05jbhYbnyeCM7dYhPp8rscAB-cA_ocAYL41J636Lmv-igM-vjawjhElTeTEwJ6vMVcEv4CafccgMaME_N39LyQQpdjKGjVaLGDOoVp6tIvQ8Y76NBdqZD5WiXx3d08kPna2IaMrF_M9XtE3typviqMFHsF5ufiwAm4uT5L1B9a_Ps7WkuGv581A9B5-hJ4KNHb/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            }
+          ],
+          "links": [],
+          "image": {
+            "url": "https://places.googleapis.com/v1/places/ChIJJa7chrKrQjQR2GI4GGWVdjg/photos/AV-0GLfr-8r0G8SlcgaGXTeuprpQeHOHDmUTPATx3xuQY3-NmXYkleZDuiftibQ7tKIylRwStnz233stnaarwglsxFfaakuHHrscFuVoqLNokF8fF59TGnb-Wo1Lshf3Owbr9DvqC2Hlkq3LzdqLg7O9eyQK6uHf76BCNLz9wKBVtu2Zk-ezfmUfaQSdSmwRCGh9gK2HB1glUOlxQ4zE947lNt9Ld7J63tzgPck2v_ARqrj1SVzg7cy6TiFTxycI5UXlDJ6ymyOK4df0PXxvDbxf-xn0-2S59ZgX8MajnYkYT6FEzdQ-8HcfQmH4joXuIcfajWV-Vfw9mk0qMHkn1Ni74JQHFPcpFeB4aZOtNvP1NcKrAS0f9DQdZKdpXNWZJoG-lwee6YrPbIH7Ii6kMdzr7uaEnOM/media?maxWidthPx=900&key=REDACTED",
+            "attribution": "Google",
+            "source": "google"
+          },
+          "step_free": false
+        },
+        {
+          "id": "it-3f0082666e",
+          "type": "meal",
+          "name": "SALT&STONE 台北101餐廳",
+          "start": "19:05",
+          "end": "20:20",
+          "geo": {
+            "lat": 25.0343876,
+            "lng": 121.56498979999999
+          },
+          "address": "110, Taiwan, Taipei City, Xinyi District, Xicun Village, City Hall Rd, 45號4樓",
+          "notes": "Dinner close to Xinyi after the descent. The restaurant closes at 20:30.",
+          "source_refs": [
+            {
+              "title": "SALT&STONE 台北101餐廳",
+              "url": "https://maps.google.com/?cid=6540587389450439197&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+              "source": "Google Places",
+              "fetched_at": "2026-11-24T05:44:58.429781+00:00"
+            }
+          ],
+          "data_status": "ok",
+          "fetched_at": "2026-11-24T05:44:58.429789+00:00",
+          "price": null,
+          "price_kind": "none",
+          "booking_url": "https://inline.app/booking/SALTANDSTONE/101",
+          "locked": false,
+          "confirmed": false,
+          "tags": [
+            "californian_restaurant",
+            "bakery",
+            "american_restaurant",
+            "food_store",
+            "restaurant",
+            "food",
+            "point_of_interest",
+            "store"
+          ],
+          "opening_hours": [
+            "Monday: 11:30 AM – 8:30 PM",
+            "Tuesday: 11:30 AM – 8:30 PM",
+            "Wednesday: 11:30 AM – 8:30 PM",
+            "Thursday: 11:30 AM – 8:30 PM",
+            "Friday: 11:30 AM – 8:30 PM",
+            "Saturday: 11:30 AM – 8:30 PM",
+            "Sunday: 11:30 AM – 8:30 PM"
+          ],
+          "hours_status": "stated",
+          "transfer": {
+            "from_item_id": "it-a93db963aa",
+            "minutes": 20,
+            "mode": "walk",
+            "distance_km": 1.15,
+            "source": "straight-line estimate",
+            "tool": "haversine",
+            "result_id": "it-a93db963aa->it-3f0082666e"
+          },
+          "names": {},
+          "meal_slot": "dinner",
+          "rating": 4.6,
+          "review_count": 5995,
+          "price_level": "$$",
+          "cuisine": "Californian restaurant",
+          "reservable": true,
+          "source_types": [
+            "californian_restaurant",
+            "bakery",
+            "american_restaurant",
+            "food_store",
+            "restaurant",
+            "food",
+            "point_of_interest",
+            "store"
+          ],
+          "source_summary": "Found for 'best local restaurants in Taipei'.",
+          "alternatives": [
+            {
+              "id": "alt-23a4eb79ef",
+              "name": "Din Tai Fung 101",
+              "geo": {
+                "lat": 25.033337099999997,
+                "lng": 121.56465960000001
+              },
+              "address": "110, Taiwan, Taipei City, Xinyi District, Xicun Village, City Hall Rd, 45號B1",
+              "rating": 4.5,
+              "review_count": 14166,
+              "price_level": "$$",
+              "cuisine": "Taiwanese restaurant",
+              "reservable": false,
+              "opening_hours": [
+                "Monday: 10:45 AM – 8:30 PM",
+                "Tuesday: 10:45 AM – 8:30 PM",
+                "Wednesday: 10:45 AM – 8:30 PM",
+                "Thursday: 10:45 AM – 8:30 PM",
+                "Friday: 10:45 AM – 8:30 PM",
+                "Saturday: 10:45 AM – 8:30 PM",
+                "Sunday: 10:45 AM – 8:30 PM"
+              ],
+              "source_refs": [
+                {
+                  "title": "Din Tai Fung 101",
+                  "url": "https://maps.google.com/?cid=5895780768888079129&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:44:58.465623+00:00"
+                }
+              ],
+              "booking_url": "https://www.dintaifung.com.tw/",
+              "distance_m": 121,
+              "source_types": [
+                "taiwanese_restaurant",
+                "chinese_restaurant",
+                "restaurant",
+                "food",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Found for 'famous food in Taipei'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJQXcl6LarQjQRGUMnQ18F0lE/photos/AV-0GLfiGeOWWXQunKUpKVsi5KFr-YPvChd9yY2ltIdFVubHpEQl9GQQ-Lw3FGoMjjDt-WGbQIlR5E9xY0EXF0AljAed-6vjWvbd_t0gBUBQql0VG_VLH2YsyAve18yLY7egnC9g6OMUIn0M3yxOkHxcli69yJ7YLKjysEZxwjIZI2NfsuSkk7BgZKEvRfyryNItztFMz9gPBKjFDs8O_0Msmz2djlct7-cENsQ0HWi8W38VFM07aeUSB5ZxYpCaKi6REya1RpYMGW77T6FiasYYxoKfxGIsKPcuxqtzwuUAPovsi7DDuk2ZPAPhsGJDkQFMDD76SyPOUGfla8CiIug0o7wNQ0mR5T9LgJ1HjovZ7-tVg5pUXGdKTflGhMmmWA8U8UD-0D3IYgC3CEAzS2OMAqxlw0bK2Kjsg1u3krQkAURL/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            },
+            {
+              "id": "alt-ab2253cf03",
+              "name": "Din Tai Fung Fuxing Branch",
+              "geo": {
+                "lat": 25.0409656,
+                "lng": 121.5429975
+              },
+              "address": "106, Taiwan, Taipei City, Da’an District, Yicun Village, Section 3, Zhongxiao E Rd, 300號B2",
+              "rating": 4.5,
+              "review_count": 6065,
+              "price_level": "$$",
+              "cuisine": "Taiwanese restaurant",
+              "reservable": false,
+              "opening_hours": [
+                "Monday: 10:00 AM – 8:30 PM",
+                "Tuesday: 10:00 AM – 8:30 PM",
+                "Wednesday: 10:00 AM – 8:30 PM",
+                "Thursday: 10:00 AM – 8:30 PM",
+                "Friday: 10:00 AM – 9:00 PM",
+                "Saturday: 10:00 AM – 9:00 PM",
+                "Sunday: 10:00 AM – 8:30 PM"
+              ],
+              "source_refs": [
+                {
+                  "title": "Din Tai Fung Fuxing Branch",
+                  "url": "https://maps.google.com/?cid=345482929943964166&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:44:58.429743+00:00"
+                }
+              ],
+              "booking_url": "https://www.dintaifung.com.tw/",
+              "distance_m": 2333,
+              "source_types": [
+                "taiwanese_restaurant",
+                "chinese_restaurant",
+                "restaurant",
+                "food",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Found for 'best local restaurants in Taipei'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJaeY0sNCrQjQRBmpF8-RmywQ/photos/AV-0GLfcs1lYNSMVWLz30A-DQTzT136IN9vAJ92pmi8TZwDB1Tz24ujx-33eJIsJU42JMsbpbNV8e4VMFryQMBdnzsQ6RMZzpNnoMXziVHdEr8YMYAL0G5-GxFE0kTaD2Hy3vTMUe08IVJeoID30KJcsSIB2MPpCdbZGWSAa4dYw-A4vWtKYF6WeD9JKbTSNcDMwQw7xAweuS5-1WXqEkRQRZ1GgjLMcWEGPMCMin-g7qeztkW17zGKnhe9kHTwrEANhC9C7uOvd155Y5SJ-ZErkTvMCMdQVMQmqkeDAD4syPqajmNgwmAA-0danU5rGgDC0oOrfF_7ZnskcyTc-NY0bw222LHhv_ARGS4xW4PVGy_b5W51mcpcRio2iRm04IdbV4L5XosufLWwWrn0jhLLyy7Zu3so/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            },
+            {
+              "id": "alt-d2a1419b7b",
+              "name": "Veggienius - Taipei Branch",
+              "geo": {
+                "lat": 25.0520392,
+                "lng": 121.54551690000001
+              },
+              "address": "105, Taiwan, Taipei City, Songshan District, Zhongzheng Village, Section 3, Nanjing E Rd, 275號2樓",
+              "rating": 4.9,
+              "review_count": 13724,
+              "price_level": "$$$",
+              "cuisine": "Vegetarian restaurant",
+              "reservable": true,
+              "opening_hours": [
+                "Monday: 11:30 AM – 3:00 PM, 5:30 – 9:30 PM",
+                "Tuesday: 11:30 AM – 3:00 PM, 5:30 – 9:30 PM",
+                "Wednesday: 11:30 AM – 3:00 PM, 5:30 – 9:30 PM",
+                "Thursday: 11:30 AM – 3:00 PM, 5:30 – 9:30 PM",
+                "Friday: 11:30 AM – 3:00 PM, 5:30 – 9:30 PM",
+                "Saturday: 11:30 AM – 3:00 PM, 5:30 – 9:30 PM",
+                "Sunday: 11:30 AM – 3:00 PM, 5:30 – 9:30 PM"
+              ],
+              "source_refs": [
+                {
+                  "title": "Veggienius - Taipei Branch",
+                  "url": "https://maps.google.com/?cid=558869356515022290&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:44:58.429666+00:00"
+                }
+              ],
+              "booking_url": "https://www.facebook.com/veggienius21/",
+              "distance_m": 2775,
+              "source_types": [
+                "vegetarian_restaurant",
+                "restaurant",
+                "food",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Found for 'best local restaurants in Taipei'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJZRnK2ferQjQR0tXt_reAwQc/photos/AV-0GLdUtZ5D5rzsddSlnveyw7J_6vPoDk67qsDO2kY59MAqak-Z8YMKkpQqcpqKwNv8g_3zla51z6REg23OeQMmk9hIiDJU8fYHJusZ6umWmF4SJ78DDmK7Foq-gNhz1UQY3y1In_1a05pWr7vvLxhvatAwotgZh-O14iTdWRPmLRUCIvXAXslw_a1tAeKRYz1gJvBkxyxtDZxh7UCudSLfCG3moQq8zL-X8tP6_t5SlzDH7n22m2WKPEgJ7EJ128xNy0CybofDC3xAEAF078QeQE0KhvzDnkzpPPO3edqXoV4tYLu7i8z98So2rjLhSc0oFoaRM_EX5s5C2tn8lch475plu-d_RB9_KBSxbeHj6Jk3vSxWA-Df94iuI-AnsqW-ZPijRE7Le8qf3E1T7ZWyBknDbY4PI2g/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            }
+          ],
+          "links": [],
+          "image": {
+            "url": "https://places.googleapis.com/v1/places/ChIJc_6fMzerQjQRHcqXwpPVxFo/photos/AV-0GLcrKKCTKXRM_fak_hzoK96kcQmYKjV7WxafnXIockqKc1Ej3GZ7UYwNyXEaTdWSXwHQWjhQQjgD7nfM9UmZqouuKEgGofaBHgkWvL8QK9xrELoPTSFmw-hEhu97s0wX3oQOW-ZvTgnKYYBY6fminvgXG9-C0XY4yoM-uXrfzZ4lb7SgPfAF53TizxGYK9tz6I1lv_6RN6XohRZ7rYdfEboF_gMn04ttyQOJO1z9kra_Qw2xHDU2XoWmoWgS-7vFzEfL8ECjhcwtYovLKaRY_JAZm8Zvyc0m9nsQjUHva61c1hhEWBAlTyBQn6TdTuB3o8CRRRcV-_t_W3o3NGjI_hUi0RPklVGfKebSILfK3b_1NgliEbmXWRqdhxH7TyMQAbdC9mjM-ff-bJgPciNvHFT3lZzlYmE/media?maxWidthPx=900&key=REDACTED",
+            "attribution": "Google",
+            "source": "google"
+          },
+          "step_free": true
+        }
+      ],
+      "note": "Wear comfortable shoes for the stair climb. Start the hike by about 16:30 to be at the viewpoint before sunset.",
+      "elevation_gain_m": null,
+      "segment_id": "seg-1",
+      "city": ""
+    },
+    {
+      "date": "2027-02-15",
+      "title": "Early stroll and departure",
+      "weather": {
+        "date": "2027-02-15",
+        "status": "unavailable",
+        "summary": "No forecast yet: the trip is beyond the 16-day forecast window.",
+        "high_c": null,
+        "low_c": null,
+        "precipitation_probability": null,
+        "source": "Open-Meteo",
+        "fetched_at": "2026-11-24T05:44:58.008386+00:00",
+        "note": "A forecast will be fetched closer to the trip."
+      },
+      "items": [
+        {
+          "id": "usr-e78c87d60b",
+          "type": "attraction",
+          "name": "Tamsui Old Street",
+          "start": "08:00",
+          "end": "09:00",
+          "geo": null,
+          "address": "",
+          "notes": "Added at your request. The address, opening hours and ticket price are not confirmed by a source. Morning stroll and snacks. Unconfirmed stop, so no hours or address. Some stalls open late, so the street may be quiet at this hour.",
+          "source_refs": [],
+          "data_status": "stale",
+          "fetched_at": null,
+          "price": null,
+          "price_kind": "none",
+          "booking_url": "",
+          "locked": false,
+          "confirmed": false,
+          "tags": [
+            "user-provided"
+          ],
+          "opening_hours": [],
+          "hours_status": "unknown",
+          "transfer": null,
+          "names": {},
+          "meal_slot": null,
+          "rating": null,
+          "review_count": null,
+          "price_level": null,
+          "cuisine": null,
+          "reservable": null,
+          "source_types": [],
+          "source_summary": "",
+          "alternatives": [],
+          "links": [],
+          "image": null,
+          "step_free": null
+        },
+        {
+          "id": "usr-436964ba01",
+          "type": "attraction",
+          "name": "Tamsui Fisherman's Wharf",
+          "start": "09:15",
+          "end": "10:00",
+          "geo": null,
+          "address": "",
+          "notes": "Added at your request. The address, opening hours and ticket price are not confirmed by a source. Waterfront walk. Unconfirmed stop. Leave Tamsui by 10:00 to reach Taoyuan Airport comfortably.",
+          "source_refs": [],
+          "data_status": "stale",
+          "fetched_at": null,
+          "price": null,
+          "price_kind": "none",
+          "booking_url": "",
+          "locked": false,
+          "confirmed": false,
+          "tags": [
+            "user-provided"
+          ],
+          "opening_hours": [],
+          "hours_status": "unknown",
+          "transfer": null,
+          "names": {},
+          "meal_slot": null,
+          "rating": null,
+          "review_count": null,
+          "price_level": null,
+          "cuisine": null,
+          "reservable": null,
+          "source_types": [],
+          "source_summary": "",
+          "alternatives": [],
+          "links": [],
+          "image": null,
+          "step_free": null
+        }
+      ],
+      "note": "Check out early and be at Taoyuan Airport by about 11:30 for the 13:55 flight.",
+      "elevation_gain_m": null,
+      "segment_id": "seg-1",
+      "city": ""
+    }
+  ],
+  "hotels": [
+    {
+      "id": "ho-594a840f81",
+      "name": "Tomorrow Hotel",
+      "area": "",
+      "geo": {
+        "lat": 25.0426004,
+        "lng": 121.5069953
+      },
+      "check_in": "2027-02-11",
+      "check_out": "2027-02-15",
+      "price_per_night": null,
+      "price_kind": "none",
+      "rating": 4.9,
+      "review_count": 26933,
+      "distance_to_centre_km": null,
+      "source_refs": [
+        {
+          "title": "Tomorrow Hotel",
+          "url": "https://maps.google.com/?cid=10855050809680219878&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+          "source": "Google Places",
+          "fetched_at": "2026-11-24T05:44:58.559313+00:00"
+        }
+      ],
+      "data_status": "ok",
+      "booking_url": "https://www.instagram.com/tomorrow_hotel/",
+      "notes": "Pared-down rooms in a casual budget hotel offering a complimentary breakfast buffet & Wi-Fi.",
+      "confirmed": false,
+      "locked": false,
+      "booked": false,
+      "names": {},
+      "amenities": [
+        "hotel",
+        "lodging",
+        "point_of_interest",
+        "establishment"
+      ],
+      "hotel_class": null,
+      "property_token": "",
+      "nearby": [],
+      "room_types": [],
+      "rooms_checked_for": null,
+      "nearest_stop_km": null,
+      "nearest_stop_name": "",
+      "match": null,
+      "segment_id": null,
+      "links": [],
+      "image": {
+        "url": "https://places.googleapis.com/v1/places/ChIJ4XLHCgmpQjQR5k7O6TLjpJY/photos/AV-0GLfC3UZYcO7_lr1EtchuuG1RHms0NrUZbL312BN0DR80dvrKyYU_dk4qorWEedvgXnrEAcvah6khl8hNF4gDEjpSOnc_46e0DY5qZMOtVFkYHEe3cRHLDp7jVaHq3LefzDo-eGU7AhyVbft676wXf8CjKkec8DQmkjc2JqVpcSTs73FzsH-KB5j7wbxsthzgkDGT94BWSUvGaOnvB_RDSKuNBVS_NP9HS0AVVVjKVVDOCwPBW52BgeZp-cgtZTYz0pPmkfT_SQR5J9dumIHIT0rRZ1j-pfqxJnkbMt4Un9GaZZdfuJ_e0uq6LghpVA7T1lWdNAZhQabhG7B939c5DvJZwRK2TzP8UwUrxl6QRM77HdBU-HRMUfU39oYNhPrXxmTbFw5Cgp0cwLJyYY6AEWVxtkvGE-U/media?maxWidthPx=900&key=REDACTED",
+        "attribution": "Google",
+        "source": "google"
+      },
+      "rank": 1,
+      "score": 4.9,
+      "reasons": []
+    }
+  ],
+  "hotel_options": [
+    {
+      "id": "ho-ab5ad84c11",
+      "name": "Taipei Marriott Hotel",
+      "area": "",
+      "geo": {
+        "lat": 25.080489099999998,
+        "lng": 121.55894299999999
+      },
+      "check_in": "",
+      "check_out": "",
+      "price_per_night": null,
+      "price_kind": "none",
+      "rating": 4.4,
+      "review_count": 14177,
+      "distance_to_centre_km": null,
+      "source_refs": [
+        {
+          "title": "Taipei Marriott Hotel",
+          "url": "https://maps.google.com/?cid=11861243104745873290&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+          "source": "Google Places",
+          "fetched_at": "2026-11-24T05:44:58.559250+00:00"
+        }
+      ],
+      "data_status": "ok",
+      "booking_url": "https://www.marriott.com/en-us/hotels/tpetm-taipei-marriott-hotel/overview/?scid=f2ae0541-1279-4f24-b197-a979c79310b0",
+      "notes": "Refined hotel offering chic rooms & suites, plus refined dining & a spa with a rooftop pool.",
+      "confirmed": false,
+      "locked": false,
+      "booked": false,
+      "names": {},
+      "amenities": [
+        "hotel",
+        "wedding_venue",
+        "lodging",
+        "event_venue",
+        "point_of_interest",
+        "service",
+        "establishment"
+      ],
+      "hotel_class": null,
+      "property_token": "",
+      "nearby": [],
+      "room_types": [],
+      "rooms_checked_for": null,
+      "nearest_stop_km": null,
+      "nearest_stop_name": "",
+      "match": null,
+      "segment_id": null,
+      "links": [],
+      "image": {
+        "url": "https://places.googleapis.com/v1/places/ChIJKanLVw2sQjQRit_tnMKZm6Q/photos/AV-0GLcMBrE8mhGbqfB-WHUmRO3XGanIeRzgxXcO-iChjfmwVVP4ZbH2QgutiduBpUYcdRnfyTkVrlnHrzBmNQfmsTDCCcz-08GoCqujhB5ZhTd_hm0LAl6d4fBRtWF7bnGPopaBGHr-WI0LBjM6rRSaUyF88C6siEXCM8AVVi7osk_c4jFUlrIx2olF1-blyirkgnT-vNg6Z8hSJA8rEbJTerEFq97QiSiuyMmHuZTMhZquxICDpIR_oHndNZIjeHFWeSoTfoOpBu29dswdXbqsucRLIscgh5AJFt45q3rAfR_pSPtwH8DPdpJaGzqULoPSc7-N3FxUWBnaMnt30hstOGARPcwh0jOGGo_9Xo_Psb6ayrEtJFfqk0LxT9CjRF6qqEvHRpmsGEFwinqRRt-OTP8s6xEog48/media?maxWidthPx=900&key=REDACTED",
+        "attribution": "Google",
+        "source": "google"
+      },
+      "rank": null,
+      "score": null,
+      "reasons": []
+    },
+    {
+      "id": "ho-0f1b297052",
+      "name": "The Grand Hotel",
+      "area": "",
+      "geo": {
+        "lat": 25.0789293,
+        "lng": 121.52651510000001
+      },
+      "check_in": "",
+      "check_out": "",
+      "price_per_night": null,
+      "price_kind": "none",
+      "rating": 4.4,
+      "review_count": 26023,
+      "distance_to_centre_km": null,
+      "source_refs": [
+        {
+          "title": "The Grand Hotel",
+          "url": "https://maps.google.com/?cid=16602252304743210303&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+          "source": "Google Places",
+          "fetched_at": "2026-11-24T05:44:58.559285+00:00"
+        }
+      ],
+      "data_status": "ok",
+      "booking_url": "https://www.grand-hotel.org/",
+      "notes": "Palatial hotel featuring refined quarters, plus a driving range, 6 tennis courts & 2 restaurants.",
+      "confirmed": false,
+      "locked": false,
+      "booked": false,
+      "names": {},
+      "amenities": [
+        "hotel",
+        "lodging",
+        "point_of_interest",
+        "establishment"
+      ],
+      "hotel_class": null,
+      "property_token": "",
+      "nearby": [],
+      "room_types": [],
+      "rooms_checked_for": null,
+      "nearest_stop_km": null,
+      "nearest_stop_name": "",
+      "match": null,
+      "segment_id": null,
+      "links": [],
+      "image": {
+        "url": "https://places.googleapis.com/v1/places/ChIJ8yTxWq2uQjQRPx2hN4IMZ-Y/photos/AV-0GLeHQrp-PDsXzuHW3evboPOwjsxA_Of5A5BOvVtT5GZeWaBSNbjA_oXgoGGZ-ifVHoMbpqL5jMtcmlKXLso9TNB6vQBIwYCiErxsLYTZWx4JlelJT-nNpvor7hVhm6s_RGWpyt52GQIOZy6w6mVa_XVkojTc7CE4Cdx4WumlEa9Zn6hgqalVEVMXmd-eeoFbe7GQnyn-BbXMI5b7sX3kvUUsQ0mV0wMvRhi4Mlbou6ztkUHvSP2VjipY0R_7G4c5Gdjkrhmi2LeytH40gmXBYRplDRWeJBHf9yn97dCbAIA48UI5r9JckewGcTDoXWes-6SIuTUzTL-PzmkFQGY6UtsnLnf4IEZjpsmroDii-OX5s-mXcxnym0sZZJ1vfe5xjfb4QrRTLdOZ1xDG7K1qlS1--1gcaFQLdqlRhBMOB7mkdw/media?maxWidthPx=900&key=REDACTED",
+        "attribution": "Google",
+        "source": "google"
+      },
+      "rank": null,
+      "score": null,
+      "reasons": []
+    },
+    {
+      "id": "ho-f71f818e64",
+      "name": "Mandarin Oriental, Taipei",
+      "area": "",
+      "geo": {
+        "lat": 25.055741599999998,
+        "lng": 121.5481485
+      },
+      "check_in": "",
+      "check_out": "",
+      "price_per_night": null,
+      "price_kind": "none",
+      "rating": 4.6,
+      "review_count": 12302,
+      "distance_to_centre_km": null,
+      "source_refs": [
+        {
+          "title": "Mandarin Oriental, Taipei",
+          "url": "https://maps.google.com/?cid=6674705079313647668&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+          "source": "Google Places",
+          "fetched_at": "2026-11-24T05:44:58.559300+00:00"
+        }
+      ],
+      "data_status": "ok",
+      "booking_url": "https://www.mandarinoriental.com/en/taipei/songshan?src=loc.dir.motpe.ggl",
+      "notes": "Posh rooms & suites in a luxe hotel offering 3 elegant restaurants, a swanky bar & a spa.",
+      "confirmed": false,
+      "locked": false,
+      "booked": false,
+      "names": {},
+      "amenities": [
+        "hotel",
+        "banquet_hall",
+        "catering_service",
+        "wedding_venue",
+        "lodging",
+        "food_delivery",
+        "spa",
+        "event_venue"
+      ],
+      "hotel_class": null,
+      "property_token": "",
+      "nearby": [],
+      "room_types": [],
+      "rooms_checked_for": null,
+      "nearest_stop_km": null,
+      "nearest_stop_name": "",
+      "match": null,
+      "segment_id": null,
+      "links": [],
+      "image": {
+        "url": "https://places.googleapis.com/v1/places/ChIJWXlWGearQjQRNEj80OdQoVw/photos/AV-0GLefL0nn5p236MAsmTJoCDrSCKr2m5ew9h0onPheFzzgEHyhABn4-z6T402f89-xjCuSA58bLkEKkoqHmlQ2vpDYDQWleE0AsrhSoVqbivhH22-DL1jVPSMosKNy5jd2sEVBXDA1BgCHvhw43UgPlKMix9NAVGr25fAIuTTHK8XC5IASBX39W4pVyzfDvBVH67IOQDMlPi9IdRBrpfH4l0fcwshtzf26YELzZR4E4Kg1KPDAGQasaRFaX0Q0CpqVKqTf61nX35LLeRvc5t_ELe45MKVfGGUiUVx_IT2OxHxF2oqApo5tTW-OqsZAVJ8Da2nYfzc_4LbdrfhrKPni2ioXWBvqYpkt_1bHZbjfpKaIsJsOMDn-uQWItYUJRiM3lIiXAm5v7zmut9adfUq3tU6UL-Mh/media?maxWidthPx=900&key=REDACTED",
+        "attribution": "Google",
+        "source": "google"
+      },
+      "rank": null,
+      "score": null,
+      "reasons": []
+    },
+    {
+      "id": "ho-594a840f81",
+      "name": "Tomorrow Hotel",
+      "area": "",
+      "geo": {
+        "lat": 25.0426004,
+        "lng": 121.5069953
+      },
+      "check_in": "",
+      "check_out": "",
+      "price_per_night": null,
+      "price_kind": "none",
+      "rating": 4.9,
+      "review_count": 26933,
+      "distance_to_centre_km": null,
+      "source_refs": [
+        {
+          "title": "Tomorrow Hotel",
+          "url": "https://maps.google.com/?cid=10855050809680219878&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+          "source": "Google Places",
+          "fetched_at": "2026-11-24T05:44:58.559313+00:00"
+        }
+      ],
+      "data_status": "ok",
+      "booking_url": "https://www.instagram.com/tomorrow_hotel/",
+      "notes": "Pared-down rooms in a casual budget hotel offering a complimentary breakfast buffet & Wi-Fi.",
+      "confirmed": false,
+      "locked": false,
+      "booked": false,
+      "names": {},
+      "amenities": [
+        "hotel",
+        "lodging",
+        "point_of_interest",
+        "establishment"
+      ],
+      "hotel_class": null,
+      "property_token": "",
+      "nearby": [],
+      "room_types": [],
+      "rooms_checked_for": null,
+      "nearest_stop_km": null,
+      "nearest_stop_name": "",
+      "match": null,
+      "segment_id": null,
+      "links": [],
+      "image": {
+        "url": "https://places.googleapis.com/v1/places/ChIJ4XLHCgmpQjQR5k7O6TLjpJY/photos/AV-0GLfC3UZYcO7_lr1EtchuuG1RHms0NrUZbL312BN0DR80dvrKyYU_dk4qorWEedvgXnrEAcvah6khl8hNF4gDEjpSOnc_46e0DY5qZMOtVFkYHEe3cRHLDp7jVaHq3LefzDo-eGU7AhyVbft676wXf8CjKkec8DQmkjc2JqVpcSTs73FzsH-KB5j7wbxsthzgkDGT94BWSUvGaOnvB_RDSKuNBVS_NP9HS0AVVVjKVVDOCwPBW52BgeZp-cgtZTYz0pPmkfT_SQR5J9dumIHIT0rRZ1j-pfqxJnkbMt4Un9GaZZdfuJ_e0uq6LghpVA7T1lWdNAZhQabhG7B939c5DvJZwRK2TzP8UwUrxl6QRM77HdBU-HRMUfU39oYNhPrXxmTbFw5Cgp0cwLJyYY6AEWVxtkvGE-U/media?maxWidthPx=900&key=REDACTED",
+        "attribution": "Google",
+        "source": "google"
+      },
+      "rank": null,
+      "score": null,
+      "reasons": []
+    }
+  ],
+  "tickets": [
+    {
+      "id": "tk-ee6693bf13",
+      "mode": "flight",
+      "leg_id": "leg-out",
+      "estimated": false,
+      "links": [],
+      "rank": null,
+      "score": null,
+      "reasons": [],
+      "name": "Hong Kong to Taipei · Hong Kong Express UO 110",
+      "origin": "Hong Kong",
+      "destination": "Taipei",
+      "depart_at": "2027-02-11T11:25",
+      "arrive_at": "2027-02-11T13:10",
+      "duration_minutes": 110,
+      "return_origin": "",
+      "return_destination": "",
+      "return_depart_at": "2027-02-15T13:55",
+      "return_arrive_at": "2027-02-15T16:00",
+      "return_duration_minutes": null,
+      "return_airline": "",
+      "return_flight_number": "",
+      "price": {
+        "amount": 2880,
+        "currency": "HKD"
+      },
+      "price_kind": "live",
+      "operator": "Hong Kong Express",
+      "booking_url": "https://www.google.com/travel/flights?q=Flights%20from%20HKG%20to%20TPE",
+      "notes": "Outbound Hong Kong Express UO 110 2027-02-11 11:25 → 2027-02-11 13:10. Return Hong Kong Express UO 111 2027-02-15 13:55 → 2027-02-15 16:00. 2 traveller(s).",
+      "source_refs": [
+        {
+          "title": "Google Flights HKG-TPE",
+          "url": "https://www.google.com/travel/flights?q=Flights%20from%20HKG%20to%20TPE",
+          "source": "Google Flights",
+          "fetched_at": "2026-11-24T05:45:02.490054+00:00"
+        }
+      ],
+      "data_status": "ok",
+      "confirmed": false,
+      "selected": true
+    },
+    {
+      "id": "tk-9a8d26f82c",
+      "mode": "flight",
+      "leg_id": "leg-out",
+      "estimated": false,
+      "links": [],
+      "rank": null,
+      "score": null,
+      "reasons": [],
+      "name": "Hong Kong to Taipei · China Airlines CI 904",
+      "origin": "Hong Kong",
+      "destination": "Taipei",
+      "depart_at": "2027-02-11T11:10",
+      "arrive_at": "2027-02-11T12:55",
+      "duration_minutes": 904,
+      "return_origin": "",
+      "return_destination": "",
+      "return_depart_at": "2027-02-15T13:55",
+      "return_arrive_at": "2027-02-15T16:00",
+      "return_duration_minutes": null,
+      "return_airline": "",
+      "return_flight_number": "",
+      "price": {
+        "amount": 3704,
+        "currency": "HKD"
+      },
+      "price_kind": "live",
+      "operator": "China Airlines",
+      "booking_url": "https://www.google.com/travel/flights?q=Flights%20from%20HKG%20to%20TPE",
+      "notes": "Outbound China Airlines CI 904 2027-02-11 11:10 → 2027-02-11 12:55. Return Hong Kong Express UO 111 2027-02-15 13:55 → 2027-02-15 16:00. 2 traveller(s).",
+      "source_refs": [
+        {
+          "title": "Google Flights HKG-TPE",
+          "url": "https://www.google.com/travel/flights?q=Flights%20from%20HKG%20to%20TPE",
+          "source": "Google Flights",
+          "fetched_at": "2026-11-24T05:45:02.490212+00:00"
+        }
+      ],
+      "data_status": "ok",
+      "confirmed": false,
+      "selected": false
+    },
+    {
+      "id": "tk-dc7227f11a",
+      "mode": "flight",
+      "leg_id": "leg-out",
+      "estimated": false,
+      "links": [],
+      "rank": null,
+      "score": null,
+      "reasons": [],
+      "name": "Hong Kong to Taipei · STARLUX Airlines JX 234",
+      "origin": "Hong Kong",
+      "destination": "Taipei",
+      "depart_at": "2027-02-11T11:55",
+      "arrive_at": "2027-02-11T13:40",
+      "duration_minutes": 234,
+      "return_origin": "",
+      "return_destination": "",
+      "return_depart_at": "2027-02-15T13:55",
+      "return_arrive_at": "2027-02-15T16:00",
+      "return_duration_minutes": null,
+      "return_airline": "",
+      "return_flight_number": "",
+      "price": {
+        "amount": 4064,
+        "currency": "HKD"
+      },
+      "price_kind": "live",
+      "operator": "STARLUX Airlines",
+      "booking_url": "https://www.google.com/travel/flights?q=Flights%20from%20HKG%20to%20TPE",
+      "notes": "Outbound STARLUX Airlines JX 234 2027-02-11 11:55 → 2027-02-11 13:40. Return Hong Kong Express UO 111 2027-02-15 13:55 → 2027-02-15 16:00. 2 traveller(s).",
+      "source_refs": [
+        {
+          "title": "Google Flights HKG-TPE",
+          "url": "https://www.google.com/travel/flights?q=Flights%20from%20HKG%20to%20TPE",
+          "source": "Google Flights",
+          "fetched_at": "2026-11-24T05:45:02.490337+00:00"
+        }
+      ],
+      "data_status": "ok",
+      "confirmed": false,
+      "selected": false
+    }
+  ],
+  "segments": [
+    {
+      "id": "seg-1",
+      "destination": {
+        "name": "Taipei",
+        "country_code": "TW",
+        "geo": {
+          "lat": 25.033,
+          "lng": 121.5654
+        },
+        "timezone": "Asia/Taipei"
+      },
+      "dates": {
+        "start": "2027-02-11",
+        "end": "2027-02-15"
+      }
+    }
+  ],
+  "legs": [
+    {
+      "id": "leg-out",
+      "from_place": "Hong Kong",
+      "to_place": "Taipei",
+      "depart_date": "2027-02-11",
+      "kind": "outbound",
+      "locked": false,
+      "booked": false,
+      "segment_id": null,
+      "airport": ""
+    },
+    {
+      "id": "leg-back",
+      "from_place": "Taipei",
+      "to_place": "Hong Kong",
+      "depart_date": "2027-02-15",
+      "kind": "return",
+      "locked": false,
+      "booked": false,
+      "segment_id": null,
+      "airport": ""
+    }
+  ],
+  "cost": {
+    "currency": "HKD",
+    "lines": [
+      {
+        "label": "Travel",
+        "amount": 2880,
+        "kind": "flight",
+        "note": "Return travel for the party."
+      },
+      {
+        "label": "Local transport",
+        "amount": 300,
+        "kind": "local",
+        "note": "Estimate for local travel."
+      }
+    ],
+    "total": 3180,
+    "budget": 15000,
+    "remaining": 11820,
+    "status": "within",
+    "notes": [
+      "Costs use the prices the sources returned; estimates are labelled."
+    ]
+  },
+  "constraints": [
+    {
+      "id": "c1",
+      "text": "keep every named place in the itinerary",
+      "status": "unknown",
+      "evidence": ""
+    },
+    {
+      "id": "c2",
+      "text": "stay near Ximen Station",
+      "status": "pass",
+      "evidence": "The plan is \"based beside Ximen Station\" and the stay is Tomorrow Hotel in the Ximen area, with Day 1 spent at The Red House \"in the Ximen area\"."
+    },
+    {
+      "id": "c3",
+      "text": "Day 1: Ximending, Yongkang Beef Noodle, Shilin Night Market",
+      "status": "pass",
+      "evidence": "Day 1 includes Ximending."
+    },
+    {
+      "id": "c4",
+      "text": "Day 2: National Palace Museum, Beitou Hell Valley, Millennium Hot Spring",
+      "status": "pass",
+      "evidence": "Day 2 includes Millennium Hot Spring."
+    },
+    {
+      "id": "c5",
+      "text": "Day 3: Jiufen Old Street, Shifen sky lantern, Yehliu Geopark if time allows",
+      "status": "unknown",
+      "evidence": ""
+    },
+    {
+      "id": "c6",
+      "text": "Day 4: Chiang Kai-shek Memorial Hall, 228 Peace Memorial Park, Din Tai Fung Yongkang Street, Elephant Mountain at sunset",
+      "status": "pass",
+      "evidence": "Day 4 includes Chiang Kai-shek Memorial Hall."
+    },
+    {
+      "id": "c7",
+      "text": "Day 5: Tamsui Old Street, Fisherman's Wharf, then depart from Taoyuan Airport",
+      "status": "pass",
+      "evidence": "Day 5 includes Tamsui Fisherman's Wharf."
+    }
+  ],
+  "disruptions": [],
+  "reservations": [
+    {
+      "id": "res-hotel",
+      "name": "Tomorrow Hotel",
+      "reason": "Book the stay once the dates are confirmed.",
+      "url": "https://www.instagram.com/tomorrow_hotel/",
+      "needed_by": null,
+      "status": "to_book"
+    }
+  ],
+  "video_notes": [
+    {
+      "title": "How to Experience the City for Under $50 | Day 1 Trip to Taiwan",
+      "url": "https://www.youtube.com/watch?v=2cdKNQRLauA",
+      "source": "youtube",
+      "snippet": "Discover how to experience Taipei in just 24 hours for under $50! This budget-friendly guide will show you the best sights, eats, and ...",
+      "video_id": "2cdKNQRLauA",
+      "thumbnail_url": "https://i.ytimg.com/vi/2cdKNQRLauA/hqdefault.jpg",
+      "published_at": null
+    },
+    {
+      "title": "Taipei in 5 days: Best sights and foods | Taiwan 🇹🇼",
+      "url": "https://www.youtube.com/watch?v=5BrlR81MBzE",
+      "source": "youtube",
+      "snippet": "In our video, we included our recommended tourist destinations and food spots. Trip Guide: Waterfalls, Hot Springs & Neidong Forest Park | City",
+      "video_id": "5BrlR81MBzE",
+      "thumbnail_url": "https://i.ytimg.com/vi/5BrlR81MBzE/hqdefault.jpg",
+      "published_at": null
+    },
+    {
+      "title": "25 AMAZING things to do in Taipei // Taiwan Travel Guide",
+      "url": "https://www.youtube.com/watch?v=SDNncL0mBjg",
+      "source": "youtube",
+      "snippet": "1. Make your own sky lantern 2. Release your sky lantern on a day trip to Pingxi 3. Explore Dongmen Market 4. Private market tour and cooking ...",
+      "video_id": "SDNncL0mBjg",
+      "thumbnail_url": "https://i.ytimg.com/vi/SDNncL0mBjg/hqdefault.jpg",
+      "published_at": null
+    }
+  ],
+  "data_quality": {
+    "sources_used": [
+      "Google Flights",
+      "Google Places"
+    ],
+    "gaps": [
+      {
+        "section": "weather",
+        "kind": "unavailable",
+        "message": "No forecast covered the trip dates.",
+        "retryable": true
+      },
+      {
+        "section": "plan",
+        "kind": "model_gap",
+        "message": "No hotel nightly rate was available, so the total trip cost cannot be confirmed against the 15,000 HKD budget.",
+        "retryable": false
+      },
+      {
+        "section": "plan",
+        "kind": "model_gap",
+        "message": "Shilin Night Market, Shifen, 228 Peace Memorial Park, Tamsui Old Street, Fisherman's Wharf, Beitou Hell Valley and Millennium Hot Spring could not be confirmed.",
+        "retryable": false
+      },
+      {
+        "section": "plan",
+        "kind": "user_provided",
+        "message": "Ximending was added at the traveller's request without a confirmed source; check its address, hours and tickets.",
+        "retryable": true
+      },
+      {
+        "section": "plan",
+        "kind": "user_provided",
+        "message": "Shilin Night Market was added at the traveller's request without a confirmed source; check its address, hours and tickets.",
+        "retryable": true
+      },
+      {
+        "section": "plan",
+        "kind": "user_provided",
+        "message": "Beitou Hell Valley (Thermal Valley) was added at the traveller's request without a confirmed source; check its address, hours and tickets.",
+        "retryable": true
+      },
+      {
+        "section": "plan",
+        "kind": "user_provided",
+        "message": "Millennium Hot Spring was added at the traveller's request without a confirmed source; check its address, hours and tickets.",
+        "retryable": true
+      },
+      {
+        "section": "plan",
+        "kind": "user_provided",
+        "message": "Yehliu Geopark was added at the traveller's request without a confirmed source; check its address, hours and tickets.",
+        "retryable": true
+      },
+      {
+        "section": "plan",
+        "kind": "user_provided",
+        "message": "228 Peace Memorial Park was added at the traveller's request without a confirmed source; check its address, hours and tickets.",
+        "retryable": true
+      },
+      {
+        "section": "plan",
+        "kind": "user_provided",
+        "message": "Din Tai Fung Yongkang Street was added at the traveller's request without a confirmed source; check its address, hours and tickets.",
+        "retryable": true
+      },
+      {
+        "section": "plan",
+        "kind": "user_provided",
+        "message": "Tamsui Old Street was added at the traveller's request without a confirmed source; check its address, hours and tickets.",
+        "retryable": true
+      },
+      {
+        "section": "plan",
+        "kind": "user_provided",
+        "message": "Tamsui Fisherman's Wharf was added at the traveller's request without a confirmed source; check its address, hours and tickets.",
+        "retryable": true
+      }
+    ],
+    "notes": [
+      "weather:5"
+    ],
+    "search_window_months": 24,
+    "generated_at": "2026-11-24T05:47:49.514682+00:00",
+    "freshness": []
+  },
+  "assessment": {
+    "confidence": 0.81,
+    "level": "high",
+    "signals": [
+      {
+        "code": "unsourced_items",
+        "weight": -0.2,
+        "message": "Some stops had no source."
+      },
+      {
+        "code": "data_gaps",
+        "weight": -0.1,
+        "message": "12 data gap(s) remain."
+      }
+    ],
+    "missing": [],
+    "unverified": [
+      "No forecast covered the trip dates.",
+      "No hotel nightly rate was available, so the total trip cost cannot be confirmed against the 15,000 HKD budget.",
+      "Shilin Night Market, Shifen, 228 Peace Memorial Park, Tamsui Old Street, Fisherman's Wharf, Beitou Hell Valley and Millennium Hot Spring could not be confirmed.",
+      "Ximending was added at the traveller's request without a confirmed source; check its address, hours and tickets."
+    ],
+    "next_action": "research",
+    "question": "",
+    "research_rounds": 0,
+    "improvements": []
+  },
+  "change_summary": "Replace Day 5's Botanical Garden and Liberty Square stops with Tamsui Old Street (08:00) and Fisherman's Wharf (09:15), then leave for Taoyuan Airport.",
+  "created_at": "2026-11-24T05:47:49.514756+00:00",
+  "updated_at": "2026-11-24T07:02:30.303640+00:00"
+}

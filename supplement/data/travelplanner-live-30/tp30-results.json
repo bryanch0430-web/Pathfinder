@@ -1,0 +1,4138 @@
+{
+  "generated_at": "2026-11-24T03:57:31.311659+00:00",
+  "clock": "2022-03-01",
+  "model": "claude-sonnet-5.5",
+  "verifier": "deepseek-flash",
+  "sandbox": false,
+  "split": "test",
+  "n": 30,
+  "cases": [
+    {
+      "checks": [
+        {
+          "name": "plan_path",
+          "ok": true,
+          "detail": "router said plan; plan saved"
+        },
+        {
+          "name": "days",
+          "ok": true,
+          "detail": "3 days, expected 3"
+        },
+        {
+          "name": "dates",
+          "ok": true,
+          "detail": "plan starts 2022-03-18, expected 2022-03-18"
+        },
+        {
+          "name": "party",
+          "ok": true,
+          "detail": "plan party 1, expected 1"
+        },
+        {
+          "name": "reference_cities",
+          "ok": true,
+          "detail": "cities in the reference: Eugene"
+        },
+        {
+          "name": "budget",
+          "ok": false,
+          "detail": "USD 2330 / 1100 (over)"
+        },
+        {
+          "name": "tool_attractions",
+          "ok": true,
+          "detail": "attractions: ok"
+        },
+        {
+          "name": "tool_hotels",
+          "ok": true,
+          "detail": "hotels: ok"
+        },
+        {
+          "name": "tool_tickets",
+          "ok": true,
+          "detail": "tickets: partial"
+        },
+        {
+          "name": "grounded",
+          "ok": true,
+          "detail": "13/13 stops cite a tool result"
+        }
+      ],
+      "satisfied": false,
+      "reference_cities": [
+        "Eugene"
+      ],
+      "tools": [
+        {
+          "name": "tickets",
+          "status": "partial",
+          "note": "1 travel option(s), partly estimated"
+        },
+        {
+          "name": "videos",
+          "status": "ok",
+          "note": "3 video note(s)"
+        },
+        {
+          "name": "hotels",
+          "status": "ok",
+          "note": "5 stays"
+        },
+        {
+          "name": "attractions",
+          "status": "ok",
+          "note": "12 sights, 10 places to eat"
+        },
+        {
+          "name": "weather",
+          "status": "partial",
+          "note": "2022-03-18: Weather source did not answer.; 2022-03-19: Weather source did not answer.; 2022-03-20: Weather source did not answer."
+        }
+      ],
+      "grounding": 1.0,
+      "catalogue_places": {
+        "matched": 6,
+        "named": 12,
+        "examples": [
+          "Skinner Butte Park",
+          "Owen Rose Garden",
+          "Hendricks Park",
+          "Museum of Natural and Cultural History",
+          "Alton Baker Park",
+          "Jordan Schnitzer Museum of Art"
+        ]
+      },
+      "cost": {
+        "total": 2330.0,
+        "status": "over",
+        "currency": "USD",
+        "budget": 1100.0
+      },
+      "stops": [
+        "The Columns",
+        "Skinner Butte Park",
+        "Owen Rose Garden",
+        "Hendricks Park",
+        "Museum of Natural and Cultural History",
+        "Alton Baker Park",
+        "Jordan Schnitzer Museum of Art",
+        "Tiger Mama",
+        "Cheba Hut \"Toasted\" Subs",
+        "Beppe & Gianni's Trattoria",
+        "Mr. Dumpling",
+        "Best Western New Oregon"
+      ],
+      "case_id": "TP-E01",
+      "level": "easy",
+      "source_row": 90,
+      "org": "Oakland",
+      "dest": "Eugene",
+      "days": 3,
+      "cities": 1,
+      "people": 1,
+      "budget": 1100.0,
+      "local_constraint": {
+        "house rule": null,
+        "cuisine": null,
+        "room type": null,
+        "transportation": null
+      },
+      "query": "Please help me plan a travel itinerary from Oakland to Eugene that lasts for 3 days, from March 18th to March 20th, 2022, with a budget of $1,100.",
+      "intent": "plan",
+      "follow_up": "USD. 1 people. From Oakland to Eugene, 2022-03-18 to 2022-03-20, 3 days, budget 1100 USD. Please make the plan.",
+      "clarify": "",
+      "error": "",
+      "latency_s": 122.3
+    },
+    {
+      "checks": [
+        {
+          "name": "plan_path",
+          "ok": true,
+          "detail": "router said plan; plan saved"
+        },
+        {
+          "name": "days",
+          "ok": true,
+          "detail": "3 days, expected 3"
+        },
+        {
+          "name": "dates",
+          "ok": true,
+          "detail": "plan starts 2022-03-08, expected 2022-03-08"
+        },
+        {
+          "name": "party",
+          "ok": true,
+          "detail": "plan party 1, expected 1"
+        },
+        {
+          "name": "reference_cities",
+          "ok": true,
+          "detail": "cities in the reference: Des Moines"
+        },
+        {
+          "name": "budget",
+          "ok": false,
+          "detail": "USD 2330 / 1900 (over)"
+        },
+        {
+          "name": "tool_attractions",
+          "ok": true,
+          "detail": "attractions: ok"
+        },
+        {
+          "name": "tool_hotels",
+          "ok": true,
+          "detail": "hotels: ok"
+        },
+        {
+          "name": "tool_tickets",
+          "ok": true,
+          "detail": "tickets: partial"
+        },
+        {
+          "name": "grounded",
+          "ok": true,
+          "detail": "15/15 stops cite a tool result"
+        }
+      ],
+      "satisfied": false,
+      "reference_cities": [
+        "Des Moines"
+      ],
+      "tools": [
+        {
+          "name": "tickets",
+          "status": "partial",
+          "note": "1 travel option(s), partly estimated"
+        },
+        {
+          "name": "hotels",
+          "status": "ok",
+          "note": "6 stays"
+        },
+        {
+          "name": "attractions",
+          "status": "ok",
+          "note": "13 sights, 10 places to eat"
+        },
+        {
+          "name": "weather",
+          "status": "partial",
+          "note": "2022-03-08: Weather source did not answer.; 2022-03-09: Weather source did not answer.; 2022-03-10: Weather source did not answer."
+        },
+        {
+          "name": "videos",
+          "status": "ok",
+          "note": "3 video note(s)"
+        }
+      ],
+      "grounding": 1.0,
+      "catalogue_places": {
+        "matched": 8,
+        "named": 14,
+        "examples": [
+          "Cowles Commons",
+          "Pappajohn Sculpture Park",
+          "Robert D. Ray Asian Garden",
+          "Science Center of Iowa",
+          "Terrace Hill Historic Site",
+          "Salisbury House & Gardens"
+        ]
+      },
+      "cost": {
+        "total": 2330.0,
+        "status": "over",
+        "currency": "USD",
+        "budget": 1900.0
+      },
+      "stops": [
+        "Cowles Commons",
+        "Pappajohn Sculpture Park",
+        "Robert D. Ray Asian Garden",
+        "Science Center of Iowa",
+        "Terrace Hill Historic Site",
+        "Salisbury House & Gardens",
+        "Des Moines Art Center",
+        "Gray's Lake Park",
+        "The High Life Lounge",
+        "Hessen Haus",
+        "Lachele's Fine Foods",
+        "The Iowa Taproom"
+      ],
+      "case_id": "TP-E02",
+      "level": "easy",
+      "source_row": 29,
+      "org": "Miami",
+      "dest": "Des Moines",
+      "days": 3,
+      "cities": 1,
+      "people": 1,
+      "budget": 1900.0,
+      "local_constraint": {
+        "house rule": null,
+        "cuisine": null,
+        "room type": null,
+        "transportation": null
+      },
+      "query": "Please create a 3-day travel plan that starts in Miami and ends in Des Moines, taking place from March 8th to March 10th, 2022. The travel plan is for one person with a budget of $1,900.",
+      "intent": "plan",
+      "follow_up": "",
+      "clarify": "",
+      "error": "",
+      "latency_s": 113.9
+    },
+    {
+      "checks": [
+        {
+          "name": "plan_path",
+          "ok": true,
+          "detail": "router said plan; plan saved"
+        },
+        {
+          "name": "days",
+          "ok": true,
+          "detail": "3 days, expected 3"
+        },
+        {
+          "name": "dates",
+          "ok": true,
+          "detail": "plan starts 2022-03-19, expected 2022-03-19"
+        },
+        {
+          "name": "party",
+          "ok": true,
+          "detail": "plan party 1, expected 1"
+        },
+        {
+          "name": "reference_cities",
+          "ok": true,
+          "detail": "cities in the reference: Fort Lauderdale"
+        },
+        {
+          "name": "budget",
+          "ok": false,
+          "detail": "USD 2330 / 2000 (over)"
+        },
+        {
+          "name": "tool_attractions",
+          "ok": true,
+          "detail": "attractions: ok"
+        },
+        {
+          "name": "tool_hotels",
+          "ok": true,
+          "detail": "hotels: ok"
+        },
+        {
+          "name": "tool_tickets",
+          "ok": true,
+          "detail": "tickets: partial"
+        },
+        {
+          "name": "grounded",
+          "ok": true,
+          "detail": "12/12 stops cite a tool result"
+        }
+      ],
+      "satisfied": false,
+      "reference_cities": [
+        "Fort Lauderdale"
+      ],
+      "tools": [
+        {
+          "name": "tickets",
+          "status": "partial",
+          "note": "1 travel option(s), partly estimated"
+        },
+        {
+          "name": "hotels",
+          "status": "ok",
+          "note": "6 stays"
+        },
+        {
+          "name": "attractions",
+          "status": "ok",
+          "note": "11 sights, 10 places to eat"
+        },
+        {
+          "name": "weather",
+          "status": "partial",
+          "note": "2022-03-19: Weather source did not answer.; 2022-03-20: Weather source did not answer.; 2022-03-21: Weather source did not answer."
+        },
+        {
+          "name": "videos",
+          "status": "ok",
+          "note": "3 video note(s)"
+        }
+      ],
+      "grounding": 1.0,
+      "catalogue_places": {
+        "matched": 6,
+        "named": 11,
+        "examples": [
+          "Esplanade Park",
+          "Riverwalk Fort Lauderdale",
+          "Hugh Taylor Birch State Park",
+          "Bonnet House Museum & Gardens",
+          "History Fort Lauderdale",
+          "Historic Stranahan House Museum"
+        ]
+      },
+      "cost": {
+        "total": 2330.0,
+        "status": "over",
+        "currency": "USD",
+        "budget": 2000.0
+      },
+      "stops": [
+        "Esplanade Park",
+        "Riverwalk Fort Lauderdale",
+        "Hugh Taylor Birch State Park",
+        "Bonnet House Museum & Gardens",
+        "Loggerhead Park",
+        "History Fort Lauderdale",
+        "Historic Stranahan House Museum",
+        "Emily's Garden",
+        "Coconuts",
+        "Shooters Waterfront",
+        "Fort Lauderdale Marriott North"
+      ],
+      "case_id": "TP-E03",
+      "level": "easy",
+      "source_row": 85,
+      "org": "Denver",
+      "dest": "Fort Lauderdale",
+      "days": 3,
+      "cities": 1,
+      "people": 1,
+      "budget": 2000.0,
+      "local_constraint": {
+        "house rule": null,
+        "cuisine": null,
+        "room type": null,
+        "transportation": null
+      },
+      "query": "Please create a 3-day travel plan departing from Denver and heading to Fort Lauderdale, spanning the dates of March 19th to March 21st, 2022, for one person with a budget of $2,000.",
+      "intent": "plan",
+      "follow_up": "",
+      "clarify": "",
+      "error": "",
+      "latency_s": 135.3
+    },
+    {
+      "checks": [
+        {
+          "name": "plan_path",
+          "ok": true,
+          "detail": "router said plan; plan saved"
+        },
+        {
+          "name": "days",
+          "ok": true,
+          "detail": "3 days, expected 3"
+        },
+        {
+          "name": "dates",
+          "ok": true,
+          "detail": "plan starts 2022-03-17, expected 2022-03-17"
+        },
+        {
+          "name": "party",
+          "ok": true,
+          "detail": "plan party 1, expected 1"
+        },
+        {
+          "name": "reference_cities",
+          "ok": true,
+          "detail": "cities in the reference: Seattle"
+        },
+        {
+          "name": "budget",
+          "ok": false,
+          "detail": "USD 2330 / 1700 (over)"
+        },
+        {
+          "name": "tool_attractions",
+          "ok": true,
+          "detail": "attractions: ok"
+        },
+        {
+          "name": "tool_hotels",
+          "ok": true,
+          "detail": "hotels: ok"
+        },
+        {
+          "name": "tool_tickets",
+          "ok": true,
+          "detail": "tickets: partial"
+        },
+        {
+          "name": "grounded",
+          "ok": true,
+          "detail": "15/15 stops cite a tool result"
+        }
+      ],
+      "satisfied": false,
+      "reference_cities": [
+        "Seattle"
+      ],
+      "tools": [
+        {
+          "name": "tickets",
+          "status": "partial",
+          "note": "1 travel option(s), partly estimated"
+        },
+        {
+          "name": "hotels",
+          "status": "ok",
+          "note": "6 stays"
+        },
+        {
+          "name": "attractions",
+          "status": "ok",
+          "note": "13 sights, 10 places to eat"
+        },
+        {
+          "name": "weather",
+          "status": "partial",
+          "note": "2022-03-17: Weather source did not answer.; 2022-03-18: Weather source did not answer.; 2022-03-19: Weather source did not answer."
+        },
+        {
+          "name": "videos",
+          "status": "ok",
+          "note": "3 video note(s)"
+        }
+      ],
+      "grounding": 1.0,
+      "catalogue_places": {
+        "matched": 9,
+        "named": 14,
+        "examples": [
+          "The Gum Wall",
+          "The Seattle Great Wheel",
+          "Chihuly Garden and Glass",
+          "Space Needle",
+          "Kerry Park",
+          "Seattle Aquarium"
+        ]
+      },
+      "cost": {
+        "total": 2330.0,
+        "status": "over",
+        "currency": "USD",
+        "budget": 1700.0
+      },
+      "stops": [
+        "The Gum Wall",
+        "The Seattle Great Wheel",
+        "Chihuly Garden and Glass",
+        "Space Needle",
+        "Kerry Park",
+        "Seattle Aquarium",
+        "Seattle Art Museum",
+        "Pike Place Chowder - Pike Place Market",
+        "Pike Place Market",
+        "The Crab Pot Seattle",
+        "Local Tide",
+        "The Pink Door"
+      ],
+      "case_id": "TP-E04",
+      "level": "easy",
+      "source_row": 54,
+      "org": "Omaha",
+      "dest": "Seattle",
+      "days": 3,
+      "cities": 1,
+      "people": 1,
+      "budget": 1700.0,
+      "local_constraint": {
+        "house rule": null,
+        "cuisine": null,
+        "room type": null,
+        "transportation": null
+      },
+      "query": "Please help me plan a 3-day trip from Omaha to Seattle, starting from March 17th to March 19th, 2022. The trip is for a solo traveler and the budget is $1,700.",
+      "intent": "plan",
+      "follow_up": "USD. 1 people. From Omaha to Seattle, 2022-03-17 to 2022-03-19, 3 days, budget 1700 USD. Please make the plan.",
+      "clarify": "",
+      "error": "",
+      "latency_s": 129.1
+    },
+    {
+      "checks": [
+        {
+          "name": "plan_path",
+          "ok": true,
+          "detail": "router said plan; plan saved"
+        },
+        {
+          "name": "days",
+          "ok": true,
+          "detail": "5 days, expected 5"
+        },
+        {
+          "name": "dates",
+          "ok": true,
+          "detail": "plan starts 2022-03-13, expected 2022-03-13"
+        },
+        {
+          "name": "party",
+          "ok": true,
+          "detail": "plan party 1, expected 1"
+        },
+        {
+          "name": "reference_cities",
+          "ok": false,
+          "detail": "cities in the reference: Wilmington, Fayetteville; missing Wilmington, Fayetteville"
+        },
+        {
+          "name": "budget",
+          "ok": false,
+          "detail": "USD 2390 / 2100 (over)"
+        },
+        {
+          "name": "tool_attractions",
+          "ok": true,
+          "detail": "attractions: ok"
+        },
+        {
+          "name": "tool_hotels",
+          "ok": true,
+          "detail": "hotels: ok"
+        },
+        {
+          "name": "tool_tickets",
+          "ok": true,
+          "detail": "tickets: partial"
+        },
+        {
+          "name": "grounded",
+          "ok": true,
+          "detail": "6/6 stops cite a tool result"
+        }
+      ],
+      "satisfied": false,
+      "reference_cities": [
+        "Wilmington",
+        "Fayetteville"
+      ],
+      "tools": [
+        {
+          "name": "tickets",
+          "status": "partial",
+          "note": "1 travel option(s), partly estimated"
+        },
+        {
+          "name": "attractions",
+          "status": "ok",
+          "note": "2 sights, 10 places to eat"
+        },
+        {
+          "name": "weather",
+          "status": "partial",
+          "note": "2022-03-13: Weather source did not answer.; 2022-03-14: Weather source did not answer.; 2022-03-15: Weather source did not answer."
+        },
+        {
+          "name": "hotels",
+          "status": "ok",
+          "note": "6 stays"
+        },
+        {
+          "name": "videos",
+          "status": "ok",
+          "note": "2 video note(s)"
+        }
+      ],
+      "grounding": 1.0,
+      "catalogue_places": {
+        "matched": 0,
+        "named": 5,
+        "examples": []
+      },
+      "cost": {
+        "total": 2390.0,
+        "status": "over",
+        "currency": "USD",
+        "budget": 2100.0
+      },
+      "stops": [
+        "KoKyu",
+        "Merritt's Grill",
+        "Lexington Barbecue",
+        "Crawford and Son",
+        "Hilton Raleigh North Hills"
+      ],
+      "case_id": "TP-E05",
+      "level": "easy",
+      "source_row": 126,
+      "org": "Providence",
+      "dest": "North Carolina",
+      "days": 5,
+      "cities": 2,
+      "people": 1,
+      "budget": 2100.0,
+      "local_constraint": {
+        "house rule": null,
+        "cuisine": null,
+        "room type": null,
+        "transportation": null
+      },
+      "query": "Could you assist in creating a 5-day travel plan starting in Providence and covering 2 cities in North Carolina from March 13th to March 17th, 2022? The trip is for one person, with an allocated budget of $2,100.",
+      "intent": "plan",
+      "follow_up": "",
+      "clarify": "",
+      "error": "",
+      "latency_s": 150.0
+    },
+    {
+      "case_id": "TP-E06",
+      "level": "easy",
+      "source_row": 219,
+      "query": "Could you please create a 5-day travel plan for one person departing from Atlanta and visiting 2 cities in Colorado from March 8th to March 12th, 2022? The planned budget is $2,000.",
+      "org": "Atlanta",
+      "dest": "Colorado",
+      "satisfied": false,
+      "error": "",
+      "checks": [
+        {
+          "name": "run",
+          "ok": false,
+          "detail": ""
+        }
+      ],
+      "latency_s": 300.0
+    },
+    {
+      "checks": [
+        {
+          "name": "plan_path",
+          "ok": true,
+          "detail": "router said plan; plan saved"
+        },
+        {
+          "name": "days",
+          "ok": true,
+          "detail": "5 days, expected 5"
+        },
+        {
+          "name": "dates",
+          "ok": true,
+          "detail": "plan starts 2022-03-15, expected 2022-03-15"
+        },
+        {
+          "name": "party",
+          "ok": true,
+          "detail": "plan party 1, expected 1"
+        },
+        {
+          "name": "reference_cities",
+          "ok": false,
+          "detail": "cities in the reference: Phoenix, Prescott; missing Prescott"
+        },
+        {
+          "name": "budget",
+          "ok": false,
+          "detail": "USD 2390 / 2100 (over)"
+        },
+        {
+          "name": "tool_attractions",
+          "ok": true,
+          "detail": "attractions: ok"
+        },
+        {
+          "name": "tool_hotels",
+          "ok": true,
+          "detail": "hotels: ok"
+        },
+        {
+          "name": "tool_tickets",
+          "ok": true,
+          "detail": "tickets: partial"
+        },
+        {
+          "name": "grounded",
+          "ok": true,
+          "detail": "12/12 stops cite a tool result"
+        }
+      ],
+      "satisfied": false,
+      "reference_cities": [
+        "Phoenix",
+        "Prescott"
+      ],
+      "tools": [
+        {
+          "name": "tickets",
+          "status": "partial",
+          "note": "1 travel option(s), partly estimated"
+        },
+        {
+          "name": "attractions",
+          "status": "ok",
+          "note": "7 sights, 10 places to eat"
+        },
+        {
+          "name": "weather",
+          "status": "partial",
+          "note": "2022-03-15: Weather source did not answer.; 2022-03-16: Weather source did not answer.; 2022-03-17: Weather source did not answer."
+        },
+        {
+          "name": "hotels",
+          "status": "ok",
+          "note": "6 stays"
+        },
+        {
+          "name": "videos",
+          "status": "ok",
+          "note": "3 video note(s)"
+        }
+      ],
+      "grounding": 1.0,
+      "catalogue_places": {
+        "matched": 0,
+        "named": 11,
+        "examples": []
+      },
+      "cost": {
+        "total": 2390.0,
+        "status": "over",
+        "currency": "USD",
+        "budget": 2100.0
+      },
+      "stops": [
+        "Walnut Canyon National Monument",
+        "Saguaro National Park",
+        "Grand Canyon National Park",
+        "The Sicilian Butcher",
+        "Famous Pizza & Beer - West Sedona",
+        "The Farish House",
+        "Arizona Wilderness Gilbert Brewpub",
+        "Different Pointe of View",
+        "Gus's World Famous Fried Chicken",
+        "Culinary Gangster AZ",
+        "Embassy Suites by Hilton Phoenix Downtown North"
+      ],
+      "case_id": "TP-E07",
+      "level": "easy",
+      "source_row": 190,
+      "org": "Nashville",
+      "dest": "Arizona",
+      "days": 5,
+      "cities": 2,
+      "people": 1,
+      "budget": 2100.0,
+      "local_constraint": {
+        "house rule": null,
+        "cuisine": null,
+        "room type": null,
+        "transportation": null
+      },
+      "query": "Can you create a 5-day travel itinerary starting in Nashville and covering 2 cities in Arizona from March 15th to March 19th, 2022? The plan is for a single traveler, and has a budget of $2,100.",
+      "intent": "plan",
+      "follow_up": "",
+      "clarify": "",
+      "error": "",
+      "latency_s": 167.8
+    },
+    {
+      "checks": [
+        {
+          "name": "plan_path",
+          "ok": true,
+          "detail": "router said plan; plan saved"
+        },
+        {
+          "name": "days",
+          "ok": true,
+          "detail": "7 days, expected 7"
+        },
+        {
+          "name": "dates",
+          "ok": true,
+          "detail": "plan starts 2022-03-13, expected 2022-03-13"
+        },
+        {
+          "name": "party",
+          "ok": true,
+          "detail": "plan party 1, expected 1"
+        },
+        {
+          "name": "reference_cities",
+          "ok": false,
+          "detail": "cities in the reference: Flagstaff, Yuma, Phoenix; missing Yuma"
+        },
+        {
+          "name": "budget",
+          "ok": true,
+          "detail": "USD 2450 / 2600 (within)"
+        },
+        {
+          "name": "tool_attractions",
+          "ok": true,
+          "detail": "attractions: ok"
+        },
+        {
+          "name": "tool_hotels",
+          "ok": true,
+          "detail": "hotels: ok"
+        },
+        {
+          "name": "tool_tickets",
+          "ok": true,
+          "detail": "tickets: partial"
+        },
+        {
+          "name": "grounded",
+          "ok": true,
+          "detail": "14/14 stops cite a tool result"
+        }
+      ],
+      "satisfied": false,
+      "reference_cities": [
+        "Flagstaff",
+        "Yuma",
+        "Phoenix"
+      ],
+      "tools": [
+        {
+          "name": "tickets",
+          "status": "partial",
+          "note": "1 travel option(s), partly estimated"
+        },
+        {
+          "name": "videos",
+          "status": "ok",
+          "note": "3 video note(s)"
+        },
+        {
+          "name": "attractions",
+          "status": "ok",
+          "note": "7 sights, 10 places to eat"
+        },
+        {
+          "name": "weather",
+          "status": "partial",
+          "note": "2022-03-13: Weather source did not answer.; 2022-03-14: Weather source did not answer.; 2022-03-15: Weather source did not answer."
+        },
+        {
+          "name": "hotels",
+          "status": "ok",
+          "note": "6 stays"
+        }
+      ],
+      "grounding": 1.0,
+      "catalogue_places": {
+        "matched": 0,
+        "named": 13,
+        "examples": []
+      },
+      "cost": {
+        "total": 2450.0,
+        "status": "within",
+        "currency": "USD",
+        "budget": 2600.0
+      },
+      "stops": [
+        "Saguaro National Park",
+        "Walnut Canyon National Monument",
+        "Petrified Forest National Park",
+        "Grand Canyon National Park",
+        "Gus's World Famous Fried Chicken",
+        "The Sicilian Butcher",
+        "Famous Pizza & Beer - West Sedona",
+        "The Farish House",
+        "Different Pointe of View",
+        "Tortilla Flat Saloon",
+        "Arizona Wilderness Gilbert Brewpub",
+        "Culinary Gangster AZ"
+      ],
+      "case_id": "TP-E08",
+      "level": "easy",
+      "source_row": 314,
+      "org": "Des Moines",
+      "dest": "Arizona",
+      "days": 7,
+      "cities": 3,
+      "people": 1,
+      "budget": 2600.0,
+      "local_constraint": {
+        "house rule": null,
+        "cuisine": null,
+        "room type": null,
+        "transportation": null
+      },
+      "query": "I need assistance in creating a week-long travel plan for one person with a budget of $2,600. The departure city is Des Moines, with the trip heading towards Arizona, covering three cities from March 13th to March 19th, 2022.",
+      "intent": "plan",
+      "follow_up": "",
+      "clarify": "",
+      "error": "",
+      "latency_s": 217.4
+    },
+    {
+      "checks": [
+        {
+          "name": "plan_path",
+          "ok": true,
+          "detail": "router said plan; plan saved"
+        },
+        {
+          "name": "days",
+          "ok": true,
+          "detail": "7 days, expected 7"
+        },
+        {
+          "name": "dates",
+          "ok": true,
+          "detail": "plan starts 2022-03-09, expected 2022-03-09"
+        },
+        {
+          "name": "party",
+          "ok": true,
+          "detail": "plan party 1, expected 1"
+        },
+        {
+          "name": "reference_cities",
+          "ok": false,
+          "detail": "cities in the reference: Madison, Green Bay, Milwaukee; missing Green Bay, Milwaukee"
+        },
+        {
+          "name": "budget",
+          "ok": true,
+          "detail": "USD 2450 / 4900 (within)"
+        },
+        {
+          "name": "tool_attractions",
+          "ok": true,
+          "detail": "attractions: ok"
+        },
+        {
+          "name": "tool_hotels",
+          "ok": true,
+          "detail": "hotels: ok"
+        },
+        {
+          "name": "tool_tickets",
+          "ok": true,
+          "detail": "tickets: partial"
+        },
+        {
+          "name": "grounded",
+          "ok": true,
+          "detail": "12/12 stops cite a tool result"
+        }
+      ],
+      "satisfied": false,
+      "reference_cities": [
+        "Madison",
+        "Green Bay",
+        "Milwaukee"
+      ],
+      "tools": [
+        {
+          "name": "tickets",
+          "status": "partial",
+          "note": "1 travel option(s), partly estimated"
+        },
+        {
+          "name": "attractions",
+          "status": "ok",
+          "note": "3 sights, 10 places to eat"
+        },
+        {
+          "name": "hotels",
+          "status": "ok",
+          "note": "6 stays"
+        },
+        {
+          "name": "weather",
+          "status": "partial",
+          "note": "2022-03-09: Weather source did not answer.; 2022-03-10: Weather source did not answer.; 2022-03-11: Weather source did not answer."
+        },
+        {
+          "name": "videos",
+          "status": "ok",
+          "note": "3 video note(s)"
+        }
+      ],
+      "grounding": 1.0,
+      "catalogue_places": {
+        "matched": 0,
+        "named": 11,
+        "examples": []
+      },
+      "cost": {
+        "total": 2450.0,
+        "status": "within",
+        "currency": "USD",
+        "budget": 4900.0
+      },
+      "stops": [
+        "Top Secret (Attraction)",
+        "Wizard Quest",
+        "Moosejaw Pizza & Dells Brewing Co.",
+        "The Driftless Cafe",
+        "Famous Dave's Bar-B-Que",
+        "The Old Fashioned",
+        "The Sweet & Salty Pig",
+        "Fox and Crow Bistro",
+        "MACS (Macaroni and Cheese Shop) Wisconsin Dells",
+        "Brat House Grill",
+        "The Wisconsin Hotel"
+      ],
+      "case_id": "TP-E09",
+      "level": "easy",
+      "source_row": 250,
+      "org": "Philadelphia",
+      "dest": "Wisconsin",
+      "days": 7,
+      "cities": 3,
+      "people": 1,
+      "budget": 4900.0,
+      "local_constraint": {
+        "house rule": null,
+        "cuisine": null,
+        "room type": null,
+        "transportation": null
+      },
+      "query": "Can you assist me in crafting a 7-day travel itinerary for a solo traveler commencing from Philadelphia and venturing through 3 different cities in Wisconsin? The journey should stretch from March 9th to March 15th, 2022. Please take into account a maximum budget of $4,900.",
+      "intent": "plan",
+      "follow_up": "",
+      "clarify": "",
+      "error": "",
+      "latency_s": 202.3
+    },
+    {
+      "checks": [
+        {
+          "name": "plan_path",
+          "ok": true,
+          "detail": "router said plan; plan saved"
+        },
+        {
+          "name": "days",
+          "ok": true,
+          "detail": "7 days, expected 7"
+        },
+        {
+          "name": "dates",
+          "ok": true,
+          "detail": "plan starts 2022-03-20, expected 2022-03-20"
+        },
+        {
+          "name": "party",
+          "ok": true,
+          "detail": "plan party 1, expected 1"
+        },
+        {
+          "name": "reference_cities",
+          "ok": false,
+          "detail": "cities in the reference: Abilene, Amarillo, Lubbock; missing Abilene, Amarillo, Lubbock"
+        },
+        {
+          "name": "budget",
+          "ok": true,
+          "detail": "USD 2450 / 5200 (within)"
+        },
+        {
+          "name": "tool_attractions",
+          "ok": true,
+          "detail": "attractions: ok"
+        },
+        {
+          "name": "tool_hotels",
+          "ok": true,
+          "detail": "hotels: ok"
+        },
+        {
+          "name": "tool_tickets",
+          "ok": true,
+          "detail": "tickets: partial"
+        },
+        {
+          "name": "grounded",
+          "ok": true,
+          "detail": "9/9 stops cite a tool result"
+        }
+      ],
+      "satisfied": false,
+      "reference_cities": [
+        "Abilene",
+        "Amarillo",
+        "Lubbock"
+      ],
+      "tools": [
+        {
+          "name": "tickets",
+          "status": "partial",
+          "note": "1 travel option(s), partly estimated"
+        },
+        {
+          "name": "attractions",
+          "status": "ok",
+          "note": "2 sights, 10 places to eat"
+        },
+        {
+          "name": "weather",
+          "status": "partial",
+          "note": "2022-03-20: Weather source did not answer.; 2022-03-21: Weather source did not answer.; 2022-03-22: Weather source did not answer."
+        },
+        {
+          "name": "hotels",
+          "status": "ok",
+          "note": "6 stays"
+        },
+        {
+          "name": "videos",
+          "status": "ok",
+          "note": "3 video note(s)"
+        }
+      ],
+      "grounding": 1.0,
+      "catalogue_places": {
+        "matched": 0,
+        "named": 8,
+        "examples": []
+      },
+      "cost": {
+        "total": 2450.0,
+        "status": "within",
+        "currency": "USD",
+        "budget": 5200.0
+      },
+      "stops": [
+        "Big Bend National Park",
+        "Whip My Soul",
+        "Muck & Fuss",
+        "Tumble 22 - Texas Chicken Joint",
+        "Cabernet Grill Texas Wine Country Restaurant",
+        "Starlight Theatre",
+        "Cattle Drive Cafe & Bull Bar",
+        "DoubleTree by Hilton Hotel Austin"
+      ],
+      "case_id": "TP-E10",
+      "level": "easy",
+      "source_row": 289,
+      "org": "Atlanta",
+      "dest": "Texas",
+      "days": 7,
+      "cities": 3,
+      "people": 1,
+      "budget": 5200.0,
+      "local_constraint": {
+        "house rule": null,
+        "cuisine": null,
+        "room type": null,
+        "transportation": null
+      },
+      "query": "I need help creating a travel plan for 7 days from March 20th to March 26th, 2022. The trip is for a single individual departing from Atlanta and visiting 3 cities in Texas, with a budget up to $5,200.",
+      "intent": "plan",
+      "follow_up": "",
+      "clarify": "",
+      "error": "",
+      "latency_s": 97.0
+    },
+    {
+      "checks": [
+        {
+          "name": "plan_path",
+          "ok": true,
+          "detail": "router said plan; plan saved"
+        },
+        {
+          "name": "days",
+          "ok": true,
+          "detail": "3 days, expected 3"
+        },
+        {
+          "name": "dates",
+          "ok": true,
+          "detail": "plan starts 2022-03-11, expected 2022-03-11"
+        },
+        {
+          "name": "party",
+          "ok": true,
+          "detail": "plan party 2, expected 2"
+        },
+        {
+          "name": "reference_cities",
+          "ok": true,
+          "detail": "cities in the reference: Dallas"
+        },
+        {
+          "name": "budget",
+          "ok": false,
+          "detail": "USD 4670 / 1400 (over)"
+        },
+        {
+          "name": "cuisine",
+          "ok": true,
+          "detail": "wanted Mediterranean, Italian, American, Mexican"
+        },
+        {
+          "name": "house_rule",
+          "ok": false,
+          "detail": "need accommodation that allows parties"
+        },
+        {
+          "name": "room_type",
+          "ok": false,
+          "detail": "need entire room"
+        },
+        {
+          "name": "tool_attractions",
+          "ok": true,
+          "detail": "attractions: ok"
+        },
+        {
+          "name": "tool_hotels",
+          "ok": true,
+          "detail": "hotels: ok"
+        },
+        {
+          "name": "tool_tickets",
+          "ok": true,
+          "detail": "tickets: partial"
+        },
+        {
+          "name": "grounded",
+          "ok": true,
+          "detail": "14/14 stops cite a tool result"
+        }
+      ],
+      "satisfied": false,
+      "reference_cities": [
+        "Dallas"
+      ],
+      "tools": [
+        {
+          "name": "tickets",
+          "status": "partial",
+          "note": "1 travel option(s), partly estimated"
+        },
+        {
+          "name": "weather",
+          "status": "partial",
+          "note": "2022-03-11: Weather source did not answer.; 2022-03-12: Weather source did not answer.; 2022-03-13: Weather source did not answer."
+        },
+        {
+          "name": "attractions",
+          "status": "ok",
+          "note": "18 sights, 10 places to eat"
+        },
+        {
+          "name": "hotels",
+          "status": "ok",
+          "note": "6 stays"
+        },
+        {
+          "name": "videos",
+          "status": "ok",
+          "note": "3 video note(s)"
+        }
+      ],
+      "grounding": 1.0,
+      "catalogue_places": {
+        "matched": 8,
+        "named": 13,
+        "examples": [
+          "Klyde Warren Park",
+          "Reunion Tower",
+          "The Sixth Floor Museum at Dealey Plaza",
+          "Dealey Plaza",
+          "Dallas Museum of Art",
+          "The Dallas Arboretum and Botanical Garden"
+        ]
+      },
+      "cost": {
+        "total": 4670.0,
+        "status": "over",
+        "currency": "USD",
+        "budget": 1400.0
+      },
+      "stops": [
+        "Klyde Warren Park",
+        "Reunion Tower",
+        "The Sixth Floor Museum at Dealey Plaza",
+        "Dealey Plaza",
+        "Dallas Museum of Art",
+        "The Dallas Arboretum and Botanical Garden",
+        "Nasher Sculpture Center",
+        "Miriam Cocina Latina",
+        "Alania Mediterranean Grill",
+        "Las Palmas",
+        "Terra",
+        "Chefika"
+      ],
+      "case_id": "TP-H01",
+      "level": "hard",
+      "source_row": 690,
+      "org": "Wichita",
+      "dest": "Dallas",
+      "days": 3,
+      "cities": 1,
+      "people": 2,
+      "budget": 1400.0,
+      "local_constraint": {
+        "house rule": "parties",
+        "cuisine": [
+          "Mediterranean",
+          "Italian",
+          "American",
+          "Mexican"
+        ],
+        "room type": "entire room",
+        "transportation": null
+      },
+      "query": "Can you assist in creating a 3-day travel plan for 2 individuals departing from Wichita and heading to Dallas from March 11th to March 13th, 2022? Our budget is $1,400. We require accommodations that allow parties and provide entire rooms. As for cuisine, we'd like to sample Mediterranean, Italian, American, and Mexican dishes during our trip.",
+      "intent": "plan",
+      "follow_up": "",
+      "clarify": "",
+      "error": "",
+      "latency_s": 156.6
+    },
+    {
+      "checks": [
+        {
+          "name": "plan_path",
+          "ok": true,
+          "detail": "router said plan; plan saved"
+        },
+        {
+          "name": "days",
+          "ok": true,
+          "detail": "3 days, expected 3"
+        },
+        {
+          "name": "dates",
+          "ok": true,
+          "detail": "plan starts 2022-03-29, expected 2022-03-29"
+        },
+        {
+          "name": "party",
+          "ok": true,
+          "detail": "plan party 3, expected 3"
+        },
+        {
+          "name": "reference_cities",
+          "ok": true,
+          "detail": "cities in the reference: Boston"
+        },
+        {
+          "name": "budget",
+          "ok": false,
+          "detail": "USD 7000 / 1700 (over)"
+        },
+        {
+          "name": "cuisine",
+          "ok": true,
+          "detail": "wanted Mexican, Indian, Chinese, Mediterranean"
+        },
+        {
+          "name": "house_rule",
+          "ok": false,
+          "detail": "need accommodation that allows children under 10"
+        },
+        {
+          "name": "room_type",
+          "ok": false,
+          "detail": "need entire room"
+        },
+        {
+          "name": "tool_attractions",
+          "ok": true,
+          "detail": "attractions: ok"
+        },
+        {
+          "name": "tool_hotels",
+          "ok": true,
+          "detail": "hotels: ok"
+        },
+        {
+          "name": "tool_tickets",
+          "ok": true,
+          "detail": "tickets: partial"
+        },
+        {
+          "name": "grounded",
+          "ok": true,
+          "detail": "12/12 stops cite a tool result"
+        }
+      ],
+      "satisfied": false,
+      "reference_cities": [
+        "Boston"
+      ],
+      "tools": [
+        {
+          "name": "tickets",
+          "status": "partial",
+          "note": "1 travel option(s), partly estimated"
+        },
+        {
+          "name": "hotels",
+          "status": "ok",
+          "note": "1 stays"
+        },
+        {
+          "name": "weather",
+          "status": "partial",
+          "note": "2022-03-29: Weather source did not answer.; 2022-03-30: Weather source did not answer.; 2022-03-31: Weather source did not answer."
+        },
+        {
+          "name": "attractions",
+          "status": "ok",
+          "note": "18 sights, 10 places to eat"
+        },
+        {
+          "name": "videos",
+          "status": "ok",
+          "note": "3 video note(s)"
+        }
+      ],
+      "grounding": 1.0,
+      "catalogue_places": {
+        "matched": 5,
+        "named": 11,
+        "examples": [
+          "Boston Common",
+          "Public Garden",
+          "Boston Children's Museum",
+          "Boston Tea Party Ships & Museum",
+          "New England Aquarium"
+        ]
+      },
+      "cost": {
+        "total": 7000.0,
+        "status": "over",
+        "currency": "USD",
+        "budget": 1700.0
+      },
+      "stops": [
+        "Boston Common",
+        "Public Garden",
+        "Boston Children's Museum",
+        "Boston Tea Party Ships & Museum",
+        "New England Aquarium",
+        "Fan Pier Park",
+        "Mamma Maria",
+        "Five Spices House",
+        "Tabla Express Boston",
+        "Borrachito Taqueria & Spirits",
+        "Hilton Boston Park Plaza"
+      ],
+      "case_id": "TP-H02",
+      "level": "hard",
+      "source_row": 708,
+      "org": "Jacksonville",
+      "dest": "Boston",
+      "days": 3,
+      "cities": 1,
+      "people": 3,
+      "budget": 1700.0,
+      "local_constraint": {
+        "house rule": "children under 10",
+        "cuisine": [
+          "Mexican",
+          "Indian",
+          "Chinese",
+          "Mediterranean"
+        ],
+        "room type": "entire room",
+        "transportation": null
+      },
+      "query": "Could you help me plan a 3-day trip for a group of 3, starting in Jacksonville and heading to Boston, from March 29th to March 31st, 2022? Our budget is $1,700. We require accommodations that allow children under 10, as we're taking our kids along. We would prefer entire rooms at our disposal. As for the food, we enjoy a variety of cuisines, including Mexican, Indian, Chinese, and Mediterranean.",
+      "intent": "plan",
+      "follow_up": "",
+      "clarify": "",
+      "error": "",
+      "latency_s": 150.4
+    },
+    {
+      "checks": [
+        {
+          "name": "plan_path",
+          "ok": true,
+          "detail": "router said plan; plan saved"
+        },
+        {
+          "name": "days",
+          "ok": true,
+          "detail": "3 days, expected 3"
+        },
+        {
+          "name": "dates",
+          "ok": true,
+          "detail": "plan starts 2022-03-21, expected 2022-03-21"
+        },
+        {
+          "name": "party",
+          "ok": true,
+          "detail": "plan party 2, expected 2"
+        },
+        {
+          "name": "reference_cities",
+          "ok": true,
+          "detail": "cities in the reference: Huntsville"
+        },
+        {
+          "name": "budget",
+          "ok": false,
+          "detail": "USD 4670 / 1000 (over)"
+        },
+        {
+          "name": "cuisine",
+          "ok": true,
+          "detail": "wanted Indian, Chinese, Mediterranean, American"
+        },
+        {
+          "name": "house_rule",
+          "ok": false,
+          "detail": "need accommodation that allows visitors"
+        },
+        {
+          "name": "room_type",
+          "ok": false,
+          "detail": "need not shared room"
+        },
+        {
+          "name": "tool_attractions",
+          "ok": true,
+          "detail": "attractions: ok"
+        },
+        {
+          "name": "tool_hotels",
+          "ok": true,
+          "detail": "hotels: ok"
+        },
+        {
+          "name": "tool_tickets",
+          "ok": true,
+          "detail": "tickets: partial"
+        },
+        {
+          "name": "grounded",
+          "ok": true,
+          "detail": "14/14 stops cite a tool result"
+        }
+      ],
+      "satisfied": false,
+      "reference_cities": [
+        "Huntsville"
+      ],
+      "tools": [
+        {
+          "name": "tickets",
+          "status": "partial",
+          "note": "1 travel option(s), partly estimated"
+        },
+        {
+          "name": "hotels",
+          "status": "ok",
+          "note": "6 stays"
+        },
+        {
+          "name": "weather",
+          "status": "partial",
+          "note": "2022-03-21: Weather source did not answer.; 2022-03-22: Weather source did not answer.; 2022-03-23: Weather source did not answer."
+        },
+        {
+          "name": "attractions",
+          "status": "ok",
+          "note": "17 sights, 10 places to eat"
+        },
+        {
+          "name": "videos",
+          "status": "ok",
+          "note": "3 video note(s)"
+        }
+      ],
+      "grounding": 1.0,
+      "catalogue_places": {
+        "matched": 7,
+        "named": 13,
+        "examples": [
+          "Big Spring International Park",
+          "Monte Sano State Park",
+          "U.S. Space & Rocket Center",
+          "Huntsville Museum of Art",
+          "Huntsville Botanical Garden",
+          "Purdy Butterfly House"
+        ]
+      },
+      "cost": {
+        "total": 4670.0,
+        "status": "over",
+        "currency": "USD",
+        "budget": 1000.0
+      },
+      "stops": [
+        "Big Spring International Park",
+        "Monte Sano State Park",
+        "U.S. Space & Rocket Center",
+        "Huntsville Museum of Art",
+        "Huntsville Botanical Garden",
+        "Purdy Butterfly House",
+        "U.S. Veterans Memorial Museum",
+        "MELT HUNTSVILLE",
+        "Sitar Indian Cuisine",
+        "Four Leaves Asian Restaurant",
+        "VEDA INDIAN CUISINE & BAR",
+        "Salt Smokehouse"
+      ],
+      "case_id": "TP-H03",
+      "level": "hard",
+      "source_row": 729,
+      "org": "Indianapolis",
+      "dest": "Huntsville",
+      "days": 3,
+      "cities": 1,
+      "people": 2,
+      "budget": 1000.0,
+      "local_constraint": {
+        "house rule": "visitors",
+        "cuisine": [
+          "Indian",
+          "Chinese",
+          "Mediterranean",
+          "American"
+        ],
+        "room type": "not shared room",
+        "transportation": null
+      },
+      "query": "Can you help formulate a 3-day travel plan for 2 people, originating from Indianapolis and directed towards Huntsville, scheduled from March 21st to March 23rd, 2022? Our budget is set at $1,000. We require accommodations where the rooms are not shared and we can have visitors. Our culinary interests are diverse, and we'd love to experience local Indian, Chinese, Mediterranean, and American cuisines on our trip.",
+      "intent": "plan",
+      "follow_up": "",
+      "clarify": "",
+      "error": "",
+      "latency_s": 148.7
+    },
+    {
+      "checks": [
+        {
+          "name": "plan_path",
+          "ok": true,
+          "detail": "router said plan; plan saved"
+        },
+        {
+          "name": "days",
+          "ok": true,
+          "detail": "3 days, expected 3"
+        },
+        {
+          "name": "dates",
+          "ok": true,
+          "detail": "plan starts 2022-03-15, expected 2022-03-15"
+        },
+        {
+          "name": "party",
+          "ok": true,
+          "detail": "plan party 2, expected 2"
+        },
+        {
+          "name": "reference_cities",
+          "ok": true,
+          "detail": "cities in the reference: Dallas"
+        },
+        {
+          "name": "budget",
+          "ok": false,
+          "detail": "USD 4670 / 2200 (over)"
+        },
+        {
+          "name": "house_rule",
+          "ok": false,
+          "detail": "need accommodation that allows smoking"
+        },
+        {
+          "name": "room_type",
+          "ok": false,
+          "detail": "need entire room"
+        },
+        {
+          "name": "transport",
+          "ok": true,
+          "detail": "the trip must not be self-driving"
+        },
+        {
+          "name": "tool_attractions",
+          "ok": true,
+          "detail": "attractions: ok"
+        },
+        {
+          "name": "tool_hotels",
+          "ok": true,
+          "detail": "hotels: ok"
+        },
+        {
+          "name": "tool_tickets",
+          "ok": true,
+          "detail": "tickets: partial"
+        },
+        {
+          "name": "grounded",
+          "ok": true,
+          "detail": "13/13 stops cite a tool result"
+        }
+      ],
+      "satisfied": false,
+      "reference_cities": [
+        "Dallas"
+      ],
+      "tools": [
+        {
+          "name": "tickets",
+          "status": "partial",
+          "note": "1 travel option(s), partly estimated"
+        },
+        {
+          "name": "videos",
+          "status": "ok",
+          "note": "3 video note(s)"
+        },
+        {
+          "name": "hotels",
+          "status": "ok",
+          "note": "6 stays"
+        },
+        {
+          "name": "attractions",
+          "status": "ok",
+          "note": "18 sights, 10 places to eat"
+        },
+        {
+          "name": "weather",
+          "status": "partial",
+          "note": "2022-03-15: Weather source did not answer.; 2022-03-16: Weather source did not answer.; 2022-03-17: Weather source did not answer."
+        }
+      ],
+      "grounding": 1.0,
+      "catalogue_places": {
+        "matched": 7,
+        "named": 12,
+        "examples": [
+          "Dealey Plaza",
+          "Reunion Tower",
+          "The Sixth Floor Museum at Dealey Plaza",
+          "Dallas Museum of Art",
+          "Klyde Warren Park",
+          "Perot Museum of Nature and Science"
+        ]
+      },
+      "cost": {
+        "total": 4670.0,
+        "status": "over",
+        "currency": "USD",
+        "budget": 2200.0
+      },
+      "stops": [
+        "Dealey Plaza",
+        "Reunion Tower",
+        "The Sixth Floor Museum at Dealey Plaza",
+        "Dallas Museum of Art",
+        "Klyde Warren Park",
+        "Perot Museum of Nature and Science",
+        "Nasher Sculpture Center",
+        "Chet's Dallas",
+        "The Woolworth",
+        "Terry Black's Barbecue",
+        "The Henry",
+        "Hyatt Regency Dallas"
+      ],
+      "case_id": "TP-H04",
+      "level": "hard",
+      "source_row": 740,
+      "org": "San Francisco",
+      "dest": "Dallas",
+      "days": 3,
+      "cities": 1,
+      "people": 2,
+      "budget": 2200.0,
+      "local_constraint": {
+        "house rule": "smoking",
+        "cuisine": null,
+        "room type": "entire room",
+        "transportation": "no self-driving"
+      },
+      "query": "Could you generate a 3-day travel plan for 2 people, traveling from San Francisco to Dallas between March 15th and March 17th, 2022? Our budget is set at $2,200. We require accommodations that allow smoking and we would prefer entire rooms. We will not be self-driving during our stay.",
+      "intent": "plan",
+      "follow_up": "USD. 2 people. From San Francisco to Dallas, 2022-03-15 to 2022-03-17, 3 days, budget 2200 USD. Please make the plan.",
+      "clarify": "",
+      "error": "",
+      "latency_s": 176.9
+    },
+    {
+      "checks": [
+        {
+          "name": "plan_path",
+          "ok": true,
+          "detail": "router said plan; plan saved"
+        },
+        {
+          "name": "days",
+          "ok": true,
+          "detail": "5 days, expected 5"
+        },
+        {
+          "name": "dates",
+          "ok": true,
+          "detail": "plan starts 2022-03-06, expected 2022-03-06"
+        },
+        {
+          "name": "party",
+          "ok": true,
+          "detail": "plan party 2, expected 2"
+        },
+        {
+          "name": "reference_cities",
+          "ok": false,
+          "detail": "cities in the reference: Lake Charles, Baton Rouge; missing Baton Rouge"
+        },
+        {
+          "name": "budget",
+          "ok": false,
+          "detail": "USD 4790 / 3900 (over)"
+        },
+        {
+          "name": "house_rule",
+          "ok": false,
+          "detail": "need accommodation that allows visitors"
+        },
+        {
+          "name": "room_type",
+          "ok": false,
+          "detail": "need not shared room"
+        },
+        {
+          "name": "transport",
+          "ok": false,
+          "detail": "the trip must not fly"
+        },
+        {
+          "name": "tool_attractions",
+          "ok": true,
+          "detail": "attractions: ok"
+        },
+        {
+          "name": "tool_hotels",
+          "ok": true,
+          "detail": "hotels: ok"
+        },
+        {
+          "name": "tool_tickets",
+          "ok": true,
+          "detail": "tickets: partial"
+        },
+        {
+          "name": "grounded",
+          "ok": true,
+          "detail": "10/10 stops cite a tool result"
+        }
+      ],
+      "satisfied": false,
+      "reference_cities": [
+        "Lake Charles",
+        "Baton Rouge"
+      ],
+      "tools": [
+        {
+          "name": "tickets",
+          "status": "partial",
+          "note": "1 travel option(s), partly estimated"
+        },
+        {
+          "name": "attractions",
+          "status": "ok",
+          "note": "2 sights, 10 places to eat"
+        },
+        {
+          "name": "hotels",
+          "status": "ok",
+          "note": "6 stays"
+        },
+        {
+          "name": "weather",
+          "status": "partial",
+          "note": "2022-03-06: Weather source did not answer.; 2022-03-07: Weather source did not answer.; 2022-03-08: Weather source did not answer."
+        },
+        {
+          "name": "videos",
+          "status": "ok",
+          "note": "3 video note(s)"
+        }
+      ],
+      "grounding": 1.0,
+      "catalogue_places": {
+        "matched": 0,
+        "named": 9,
+        "examples": []
+      },
+      "cost": {
+        "total": 4790.0,
+        "status": "over",
+        "currency": "USD",
+        "budget": 3900.0
+      },
+      "stops": [
+        "Jungle Gardens",
+        "Tad's Louisiana Cooking",
+        "Cajun Food Tours",
+        "Bergeron's Boudin & Cajun Meats",
+        "Olde Nola Cookery",
+        "Oceana Grill",
+        "Mambo’s",
+        "Famous Foods",
+        "Holiday Inn & Suites Lafayette North by IHG"
+      ],
+      "case_id": "TP-H05",
+      "level": "hard",
+      "source_row": 814,
+      "org": "Austin",
+      "dest": "Louisiana",
+      "days": 5,
+      "cities": 2,
+      "people": 2,
+      "budget": 3900.0,
+      "local_constraint": {
+        "house rule": "visitors",
+        "cuisine": null,
+        "room type": "not shared room",
+        "transportation": "no flight"
+      },
+      "query": "Can you generate a 5-day travel plan for 2 people, beginning in Austin and visiting 2 cities in Louisiana from March 6th to March 10th, 2022? We have a budget of $3,900. The rooms for accommodation should not be shared, and we won't be flying. Please note that we will be expecting visitors at our accommodations.",
+      "intent": "plan",
+      "follow_up": "",
+      "clarify": "",
+      "error": "",
+      "latency_s": 133.4
+    },
+    {
+      "checks": [
+        {
+          "name": "plan_path",
+          "ok": true,
+          "detail": "router said plan; plan saved"
+        },
+        {
+          "name": "days",
+          "ok": true,
+          "detail": "5 days, expected 5"
+        },
+        {
+          "name": "dates",
+          "ok": true,
+          "detail": "plan starts 2022-03-20, expected 2022-03-20"
+        },
+        {
+          "name": "party",
+          "ok": true,
+          "detail": "plan party 2, expected 2"
+        },
+        {
+          "name": "reference_cities",
+          "ok": false,
+          "detail": "cities in the reference: Amarillo, Lubbock; missing Amarillo, Lubbock"
+        },
+        {
+          "name": "budget",
+          "ok": false,
+          "detail": "USD 4790 / 3300 (over)"
+        },
+        {
+          "name": "house_rule",
+          "ok": false,
+          "detail": "need accommodation that allows parties"
+        },
+        {
+          "name": "room_type",
+          "ok": false,
+          "detail": "need private room"
+        },
+        {
+          "name": "transport",
+          "ok": false,
+          "detail": "the trip must not fly"
+        },
+        {
+          "name": "tool_attractions",
+          "ok": true,
+          "detail": "attractions: ok"
+        },
+        {
+          "name": "tool_hotels",
+          "ok": true,
+          "detail": "hotels: ok"
+        },
+        {
+          "name": "tool_tickets",
+          "ok": true,
+          "detail": "tickets: partial"
+        },
+        {
+          "name": "grounded",
+          "ok": true,
+          "detail": "6/6 stops cite a tool result"
+        }
+      ],
+      "satisfied": false,
+      "reference_cities": [
+        "Amarillo",
+        "Lubbock"
+      ],
+      "tools": [
+        {
+          "name": "tickets",
+          "status": "partial",
+          "note": "1 travel option(s), partly estimated"
+        },
+        {
+          "name": "videos",
+          "status": "ok",
+          "note": "3 video note(s)"
+        },
+        {
+          "name": "weather",
+          "status": "partial",
+          "note": "2022-03-20: Weather source did not answer.; 2022-03-21: Weather source did not answer.; 2022-03-22: Weather source did not answer."
+        },
+        {
+          "name": "hotels",
+          "status": "ok",
+          "note": "6 stays"
+        },
+        {
+          "name": "attractions",
+          "status": "ok",
+          "note": "1 sights, 10 places to eat"
+        }
+      ],
+      "grounding": 1.0,
+      "catalogue_places": {
+        "matched": 0,
+        "named": 5,
+        "examples": []
+      },
+      "cost": {
+        "total": 4790.0,
+        "status": "over",
+        "currency": "USD",
+        "budget": 3300.0
+      },
+      "stops": [
+        "Tumble 22 - Texas Chicken Joint",
+        "Muck & Fuss",
+        "Whip My Soul",
+        "Cabernet Grill Texas Wine Country Restaurant",
+        "Hyatt Regency Lost Pines Resort and Spa"
+      ],
+      "case_id": "TP-H06",
+      "level": "hard",
+      "source_row": 865,
+      "org": "Knoxville",
+      "dest": "Texas",
+      "days": 5,
+      "cities": 2,
+      "people": 2,
+      "budget": 3300.0,
+      "local_constraint": {
+        "house rule": "parties",
+        "cuisine": null,
+        "room type": "private room",
+        "transportation": "no flight"
+      },
+      "query": "Could you assist in crafting a 5-day trip itinerary for a pair traveling from Knoxville to visit 2 cities in Texas between March 20th and March 24th, 2022? Our budget is set at $3,300. Given our preference for accommodations with private rooms, it's also important that the places allow gatherings, as we might want to host parties. As for transportation, we are not considering any flights for this journey.",
+      "intent": "plan",
+      "follow_up": "",
+      "clarify": "",
+      "error": "",
+      "latency_s": 181.1
+    },
+    {
+      "checks": [
+        {
+          "name": "plan_path",
+          "ok": true,
+          "detail": "router said plan; plan saved"
+        },
+        {
+          "name": "days",
+          "ok": true,
+          "detail": "5 days, expected 5"
+        },
+        {
+          "name": "dates",
+          "ok": true,
+          "detail": "plan starts 2022-03-13, expected 2022-03-13"
+        },
+        {
+          "name": "party",
+          "ok": true,
+          "detail": "plan party 2, expected 2"
+        },
+        {
+          "name": "reference_cities",
+          "ok": false,
+          "detail": "cities in the reference: Houston, Dallas; missing Houston, Dallas"
+        },
+        {
+          "name": "budget",
+          "ok": false,
+          "detail": "USD 4790 / 4500 (over)"
+        },
+        {
+          "name": "cuisine",
+          "ok": false,
+          "detail": "wanted Mexican, Italian, American, Chinese"
+        },
+        {
+          "name": "house_rule",
+          "ok": false,
+          "detail": "need accommodation that allows visitors"
+        },
+        {
+          "name": "room_type",
+          "ok": false,
+          "detail": "need entire room"
+        },
+        {
+          "name": "tool_attractions",
+          "ok": true,
+          "detail": "attractions: ok"
+        },
+        {
+          "name": "tool_hotels",
+          "ok": true,
+          "detail": "hotels: ok"
+        },
+        {
+          "name": "tool_tickets",
+          "ok": true,
+          "detail": "tickets: partial"
+        },
+        {
+          "name": "grounded",
+          "ok": true,
+          "detail": "8/8 stops cite a tool result"
+        }
+      ],
+      "satisfied": false,
+      "reference_cities": [
+        "Houston",
+        "Dallas"
+      ],
+      "tools": [
+        {
+          "name": "tickets",
+          "status": "partial",
+          "note": "1 travel option(s), partly estimated"
+        },
+        {
+          "name": "videos",
+          "status": "ok",
+          "note": "3 video note(s)"
+        },
+        {
+          "name": "hotels",
+          "status": "ok",
+          "note": "6 stays"
+        },
+        {
+          "name": "weather",
+          "status": "partial",
+          "note": "2022-03-13: Weather source did not answer.; 2022-03-14: Weather source did not answer.; 2022-03-15: Weather source did not answer."
+        },
+        {
+          "name": "attractions",
+          "status": "ok",
+          "note": "1 sights, 10 places to eat"
+        }
+      ],
+      "grounding": 1.0,
+      "catalogue_places": {
+        "matched": 0,
+        "named": 7,
+        "examples": []
+      },
+      "cost": {
+        "total": 4790.0,
+        "status": "over",
+        "currency": "USD",
+        "budget": 4500.0
+      },
+      "stops": [
+        "Big Bend National Park",
+        "Tumble 22 - Texas Chicken Joint",
+        "Muck & Fuss",
+        "Whip My Soul",
+        "Cabernet Grill Texas Wine Country Restaurant",
+        "Starlight Theatre",
+        "Hyatt Regency Lost Pines Resort and Spa"
+      ],
+      "case_id": "TP-H07",
+      "level": "hard",
+      "source_row": 848,
+      "org": "Santa Ana",
+      "dest": "Texas",
+      "days": 5,
+      "cities": 2,
+      "people": 2,
+      "budget": 4500.0,
+      "local_constraint": {
+        "house rule": "visitors",
+        "cuisine": [
+          "Mexican",
+          "Italian",
+          "American",
+          "Chinese"
+        ],
+        "room type": "entire room",
+        "transportation": null
+      },
+      "query": "We are planning a 5-day trip from Santa Ana to Texas for 2 individuals from March 13th to March 17th, 2022. During our stay, we want to visit 2 cities. We have set the budget to $4,500. For accommodations, we prefer entire rooms and there must be a policy that allows visitors. In terms of cuisine, we are interested in trying Mexican, Italian, American, and Chinese foods.",
+      "intent": "plan",
+      "follow_up": "",
+      "clarify": "",
+      "error": "",
+      "latency_s": 184.0
+    },
+    {
+      "checks": [
+        {
+          "name": "plan_path",
+          "ok": true,
+          "detail": "router said plan; plan saved"
+        },
+        {
+          "name": "days",
+          "ok": true,
+          "detail": "7 days, expected 7"
+        },
+        {
+          "name": "dates",
+          "ok": true,
+          "detail": "plan starts 2022-03-03, expected 2022-03-03"
+        },
+        {
+          "name": "party",
+          "ok": true,
+          "detail": "plan party 2, expected 2"
+        },
+        {
+          "name": "reference_cities",
+          "ok": false,
+          "detail": "cities in the reference: Salt Lake City, Moab, Ogden; missing Moab, Ogden"
+        },
+        {
+          "name": "budget",
+          "ok": true,
+          "detail": "USD 4910 / 7700 (within)"
+        },
+        {
+          "name": "house_rule",
+          "ok": false,
+          "detail": "need accommodation that allows smoking"
+        },
+        {
+          "name": "room_type",
+          "ok": false,
+          "detail": "need private room"
+        },
+        {
+          "name": "transport",
+          "ok": true,
+          "detail": "the trip must not be self-driving"
+        },
+        {
+          "name": "tool_attractions",
+          "ok": true,
+          "detail": "attractions: ok"
+        },
+        {
+          "name": "tool_hotels",
+          "ok": true,
+          "detail": "hotels: ok"
+        },
+        {
+          "name": "tool_tickets",
+          "ok": true,
+          "detail": "tickets: partial"
+        },
+        {
+          "name": "grounded",
+          "ok": true,
+          "detail": "10/10 stops cite a tool result"
+        }
+      ],
+      "satisfied": false,
+      "reference_cities": [
+        "Salt Lake City",
+        "Moab",
+        "Ogden"
+      ],
+      "tools": [
+        {
+          "name": "tickets",
+          "status": "partial",
+          "note": "1 travel option(s), partly estimated"
+        },
+        {
+          "name": "hotels",
+          "status": "ok",
+          "note": "6 stays"
+        },
+        {
+          "name": "attractions",
+          "status": "ok",
+          "note": "6 sights, 10 places to eat"
+        },
+        {
+          "name": "weather",
+          "status": "partial",
+          "note": "2022-03-03: Weather source did not answer.; 2022-03-04: Weather source did not answer.; 2022-03-05: Weather source did not answer."
+        },
+        {
+          "name": "videos",
+          "status": "ok",
+          "note": "3 video note(s)"
+        }
+      ],
+      "grounding": 1.0,
+      "catalogue_places": {
+        "matched": 0,
+        "named": 9,
+        "examples": []
+      },
+      "cost": {
+        "total": 4910.0,
+        "status": "within",
+        "currency": "USD",
+        "budget": 7700.0
+      },
+      "stops": [
+        "Bryce Canyon National Park",
+        "Capitol Reef National Park",
+        "Grand Staircase-Escalante National Monument",
+        "Siegfried's Delicatessen",
+        "Salt & Olive",
+        "Black Sheep Cafe",
+        "From Scratch",
+        "Urban Hill",
+        "Best Western Plus Bryce Canyon Grand Hotel"
+      ],
+      "case_id": "TP-H08",
+      "level": "hard",
+      "source_row": 983,
+      "org": "Dallas",
+      "dest": "Utah",
+      "days": 7,
+      "cities": 3,
+      "people": 2,
+      "budget": 7700.0,
+      "local_constraint": {
+        "house rule": "smoking",
+        "cuisine": null,
+        "room type": "private room",
+        "transportation": "no self-driving"
+      },
+      "query": "We require a 7-day travel itinerary for 2 people, starting from Dallas and visiting 3 cities in Utah. The travel dates are from March 3rd to March 9th, 2022, with a budget of $7,700. Regarding accommodations, private rooms are preferred. Please note that we would like to have the option for smoking. We do not intend to self-drive during this trip.",
+      "intent": "plan",
+      "follow_up": "",
+      "clarify": "",
+      "error": "",
+      "latency_s": 185.7
+    },
+    {
+      "checks": [
+        {
+          "name": "plan_path",
+          "ok": true,
+          "detail": "router said plan; plan saved"
+        },
+        {
+          "name": "days",
+          "ok": true,
+          "detail": "7 days, expected 7"
+        },
+        {
+          "name": "dates",
+          "ok": true,
+          "detail": "plan starts 2022-03-25, expected 2022-03-25"
+        },
+        {
+          "name": "party",
+          "ok": true,
+          "detail": "plan party 2, expected 2"
+        },
+        {
+          "name": "reference_cities",
+          "ok": false,
+          "detail": "cities in the reference: Richmond, Charlottesville, Norfolk; missing Charlottesville, Norfolk"
+        },
+        {
+          "name": "budget",
+          "ok": true,
+          "detail": "USD 4910 / 8500 (within)"
+        },
+        {
+          "name": "cuisine",
+          "ok": false,
+          "detail": "wanted Italian, Mediterranean, Indian, Mexican"
+        },
+        {
+          "name": "house_rule",
+          "ok": false,
+          "detail": "need accommodation that allows smoking"
+        },
+        {
+          "name": "room_type",
+          "ok": false,
+          "detail": "need not shared room"
+        },
+        {
+          "name": "tool_attractions",
+          "ok": true,
+          "detail": "attractions: ok"
+        },
+        {
+          "name": "tool_hotels",
+          "ok": true,
+          "detail": "hotels: ok"
+        },
+        {
+          "name": "tool_tickets",
+          "ok": true,
+          "detail": "tickets: partial"
+        },
+        {
+          "name": "grounded",
+          "ok": true,
+          "detail": "11/11 stops cite a tool result"
+        }
+      ],
+      "satisfied": false,
+      "reference_cities": [
+        "Richmond",
+        "Charlottesville",
+        "Norfolk"
+      ],
+      "tools": [
+        {
+          "name": "tickets",
+          "status": "partial",
+          "note": "1 travel option(s), partly estimated"
+        },
+        {
+          "name": "attractions",
+          "status": "ok",
+          "note": "2 sights, 10 places to eat"
+        },
+        {
+          "name": "weather",
+          "status": "partial",
+          "note": "2022-03-25: Weather source did not answer.; 2022-03-26: Weather source did not answer.; 2022-03-27: Weather source did not answer."
+        },
+        {
+          "name": "hotels",
+          "status": "ok",
+          "note": "6 stays"
+        },
+        {
+          "name": "videos",
+          "status": "ok",
+          "note": "2 video note(s)"
+        }
+      ],
+      "grounding": 1.0,
+      "catalogue_places": {
+        "matched": 1,
+        "named": 10,
+        "examples": [
+          "Amber Ox Public House"
+        ]
+      },
+      "cost": {
+        "total": 4910.0,
+        "status": "within",
+        "currency": "USD",
+        "budget": 8500.0
+      },
+      "stops": [
+        "Virginia Aquarium & Marine Science Center",
+        "Famous Uncle Al's",
+        "Amber Ox Public House",
+        "Virginia Diner",
+        "Famous Fried Chicken & Seafood",
+        "The Roosevelt",
+        "The Fishin' Pig - Farmville",
+        "Michie Tavern ca. 1784",
+        "Founding Farmers Tysons",
+        "Hilton Vacation Club The Historic Powhatan Williamsburg"
+      ],
+      "case_id": "TP-H09",
+      "level": "hard",
+      "source_row": 912,
+      "org": "Dallas",
+      "dest": "Virginia",
+      "days": 7,
+      "cities": 3,
+      "people": 2,
+      "budget": 8500.0,
+      "local_constraint": {
+        "house rule": "smoking",
+        "cuisine": [
+          "Italian",
+          "Mediterranean",
+          "Indian",
+          "Mexican"
+        ],
+        "room type": "not shared room",
+        "transportation": null
+      },
+      "query": "I need a one-week travel plan for 2 people departing from Dallas, with Virginia being the destination. We plan on exploring 3 cities in Virginia from March 25th to March 31st, 2022. Our maximum budget is now $8,500. As for our accommodations, we require rooms that are not shared and where smoking is permitted. In terms of food, we would prefer a variety of cuisines including Italian, Mediterranean, Indian, and Mexican.",
+      "intent": "plan",
+      "follow_up": "",
+      "clarify": "",
+      "error": "",
+      "latency_s": 135.2
+    },
+    {
+      "checks": [
+        {
+          "name": "plan_path",
+          "ok": true,
+          "detail": "router said plan; plan saved"
+        },
+        {
+          "name": "days",
+          "ok": true,
+          "detail": "7 days, expected 7"
+        },
+        {
+          "name": "dates",
+          "ok": true,
+          "detail": "plan starts 2022-03-21, expected 2022-03-21"
+        },
+        {
+          "name": "party",
+          "ok": true,
+          "detail": "plan party 6, expected 6"
+        },
+        {
+          "name": "reference_cities",
+          "ok": false,
+          "detail": "cities in the reference: San Diego, Sacramento, Santa Ana; missing San Diego, Sacramento, Santa Ana"
+        },
+        {
+          "name": "budget",
+          "ok": true,
+          "detail": "USD 14720 / 19200 (within)"
+        },
+        {
+          "name": "cuisine",
+          "ok": false,
+          "detail": "wanted Mediterranean, Italian, Indian, American"
+        },
+        {
+          "name": "house_rule",
+          "ok": false,
+          "detail": "need accommodation that allows visitors"
+        },
+        {
+          "name": "room_type",
+          "ok": false,
+          "detail": "need entire room"
+        },
+        {
+          "name": "tool_attractions",
+          "ok": true,
+          "detail": "attractions: ok"
+        },
+        {
+          "name": "tool_hotels",
+          "ok": true,
+          "detail": "hotels: ok"
+        },
+        {
+          "name": "tool_tickets",
+          "ok": true,
+          "detail": "tickets: partial"
+        },
+        {
+          "name": "grounded",
+          "ok": true,
+          "detail": "11/11 stops cite a tool result"
+        }
+      ],
+      "satisfied": false,
+      "reference_cities": [
+        "San Diego",
+        "Sacramento",
+        "Santa Ana"
+      ],
+      "tools": [
+        {
+          "name": "tickets",
+          "status": "partial",
+          "note": "1 travel option(s), partly estimated"
+        },
+        {
+          "name": "weather",
+          "status": "partial",
+          "note": "2022-03-21: Weather source did not answer.; 2022-03-22: Weather source did not answer.; 2022-03-23: Weather source did not answer."
+        },
+        {
+          "name": "attractions",
+          "status": "ok",
+          "note": "6 sights, 10 places to eat"
+        },
+        {
+          "name": "hotels",
+          "status": "ok",
+          "note": "6 stays"
+        },
+        {
+          "name": "videos",
+          "status": "ok",
+          "note": "2 video note(s)"
+        }
+      ],
+      "grounding": 1.0,
+      "catalogue_places": {
+        "matched": 0,
+        "named": 10,
+        "examples": []
+      },
+      "cost": {
+        "total": 14720.0,
+        "status": "within",
+        "currency": "USD",
+        "budget": 19200.0
+      },
+      "stops": [
+        "Channel Islands National Park",
+        "Joshua Tree National Park",
+        "Sequoia National Park",
+        "Kings Canyon National Park",
+        "Home Restaurant",
+        "Lure Fish House",
+        "JOEY DTLA",
+        "Chuck Wagon",
+        "Old Place",
+        "Omni Los Angeles Hotel at California Plaza"
+      ],
+      "case_id": "TP-H10",
+      "level": "hard",
+      "source_row": 907,
+      "org": "New York",
+      "dest": "California",
+      "days": 7,
+      "cities": 3,
+      "people": 6,
+      "budget": 19200.0,
+      "local_constraint": {
+        "house rule": "visitors",
+        "cuisine": [
+          "Mediterranean",
+          "Italian",
+          "Indian",
+          "American"
+        ],
+        "room type": "entire room",
+        "transportation": null
+      },
+      "query": "Could you assist in creating a week-long travel itinerary for a group of 6, departing from New York and visiting 3 cities in California from March 21st to March 27th, 2022? Our budget is set at $19,200. We require accommodations that allow visitors and should ideally be entire rooms. In terms of dining, we enjoy a range of cuisines including Mediterranean, Italian, Indian, and American.",
+      "intent": "plan",
+      "follow_up": "",
+      "clarify": "",
+      "error": "",
+      "latency_s": 229.9
+    },
+    {
+      "checks": [
+        {
+          "name": "plan_path",
+          "ok": true,
+          "detail": "router said plan; plan saved"
+        },
+        {
+          "name": "days",
+          "ok": true,
+          "detail": "3 days, expected 3"
+        },
+        {
+          "name": "dates",
+          "ok": true,
+          "detail": "plan starts 2022-03-05, expected 2022-03-05"
+        },
+        {
+          "name": "party",
+          "ok": true,
+          "detail": "plan party 8, expected 8"
+        },
+        {
+          "name": "reference_cities",
+          "ok": true,
+          "detail": "cities in the reference: Minot"
+        },
+        {
+          "name": "budget",
+          "ok": false,
+          "detail": "USD 18670 / 13500 (over)"
+        },
+        {
+          "name": "room_type",
+          "ok": false,
+          "detail": "need entire room"
+        },
+        {
+          "name": "tool_attractions",
+          "ok": true,
+          "detail": "attractions: ok"
+        },
+        {
+          "name": "tool_hotels",
+          "ok": true,
+          "detail": "hotels: ok"
+        },
+        {
+          "name": "tool_tickets",
+          "ok": true,
+          "detail": "tickets: partial"
+        },
+        {
+          "name": "grounded",
+          "ok": true,
+          "detail": "13/13 stops cite a tool result"
+        }
+      ],
+      "satisfied": false,
+      "reference_cities": [
+        "Minot"
+      ],
+      "tools": [
+        {
+          "name": "tickets",
+          "status": "partial",
+          "note": "1 travel option(s), partly estimated"
+        },
+        {
+          "name": "hotels",
+          "status": "ok",
+          "note": "6 stays"
+        },
+        {
+          "name": "attractions",
+          "status": "ok",
+          "note": "11 sights, 10 places to eat"
+        },
+        {
+          "name": "weather",
+          "status": "partial",
+          "note": "2022-03-05: Weather source did not answer.; 2022-03-06: Weather source did not answer.; 2022-03-07: Weather source did not answer."
+        },
+        {
+          "name": "videos",
+          "status": "ok",
+          "note": "3 video note(s)"
+        }
+      ],
+      "grounding": 1.0,
+      "catalogue_places": {
+        "matched": 6,
+        "named": 12,
+        "examples": [
+          "Railroad Museum of Minot",
+          "Scandinavian Heritage Park",
+          "Roosevelt Park Zoo",
+          "Biggest Cottonwood in Minot",
+          "Magic City Discovery Center",
+          "Oak Park"
+        ]
+      },
+      "cost": {
+        "total": 18670.0,
+        "status": "over",
+        "currency": "USD",
+        "budget": 13500.0
+      },
+      "stops": [
+        "Railroad Museum of Minot",
+        "Citizens Alley",
+        "Scandinavian Heritage Park",
+        "Roosevelt Park Zoo",
+        "Biggest Cottonwood in Minot",
+        "Magic City Discovery Center",
+        "Oak Park",
+        "The Starving Rooster",
+        "Kroll's Diner",
+        "Ziggy's Caribbean Cuisine",
+        "Charlie's Main Street Cafe",
+        "Staybridge Suites Minot, an IHG Hotel"
+      ],
+      "case_id": "TP-M01",
+      "level": "medium",
+      "source_row": 415,
+      "org": "Las Vegas",
+      "dest": "Minot",
+      "days": 3,
+      "cities": 1,
+      "people": 8,
+      "budget": 13500.0,
+      "local_constraint": {
+        "house rule": null,
+        "cuisine": null,
+        "room type": "entire room",
+        "transportation": null
+      },
+      "query": "I need help planning a travel itinerary for a group of 8 people. The journey begins in Las Vegas and our destination is Minot, spanning from March 5th to March 7th, 2022. We have a budget of $13,500 for this trip. For our lodging, it's essential that we have entire rooms.",
+      "intent": "plan",
+      "follow_up": "",
+      "clarify": "",
+      "error": "",
+      "latency_s": 146.6
+    },
+    {
+      "checks": [
+        {
+          "name": "plan_path",
+          "ok": true,
+          "detail": "router said plan; plan saved"
+        },
+        {
+          "name": "days",
+          "ok": true,
+          "detail": "3 days, expected 3"
+        },
+        {
+          "name": "dates",
+          "ok": true,
+          "detail": "plan starts 2022-03-12, expected 2022-03-12"
+        },
+        {
+          "name": "party",
+          "ok": true,
+          "detail": "plan party 8, expected 8"
+        },
+        {
+          "name": "reference_cities",
+          "ok": true,
+          "detail": "cities in the reference: Atlanta"
+        },
+        {
+          "name": "budget",
+          "ok": false,
+          "detail": "USD 18670 / 13600 (over)"
+        },
+        {
+          "name": "house_rule",
+          "ok": false,
+          "detail": "need accommodation that allows parties"
+        },
+        {
+          "name": "tool_attractions",
+          "ok": true,
+          "detail": "attractions: ok"
+        },
+        {
+          "name": "tool_hotels",
+          "ok": true,
+          "detail": "hotels: ok"
+        },
+        {
+          "name": "tool_tickets",
+          "ok": true,
+          "detail": "tickets: partial"
+        },
+        {
+          "name": "grounded",
+          "ok": true,
+          "detail": "14/14 stops cite a tool result"
+        }
+      ],
+      "satisfied": false,
+      "reference_cities": [
+        "Atlanta"
+      ],
+      "tools": [
+        {
+          "name": "tickets",
+          "status": "partial",
+          "note": "1 travel option(s), partly estimated"
+        },
+        {
+          "name": "weather",
+          "status": "partial",
+          "note": "2022-03-12: Weather source did not answer.; 2022-03-13: Weather source did not answer.; 2022-03-14: Weather source did not answer."
+        },
+        {
+          "name": "hotels",
+          "status": "ok",
+          "note": "2 stays"
+        },
+        {
+          "name": "attractions",
+          "status": "ok",
+          "note": "12 sights, 10 places to eat"
+        },
+        {
+          "name": "videos",
+          "status": "ok",
+          "note": "3 video note(s)"
+        }
+      ],
+      "grounding": 1.0,
+      "catalogue_places": {
+        "matched": 8,
+        "named": 13,
+        "examples": [
+          "Georgia Aquarium",
+          "World of Coca-Cola",
+          "Centennial Olympic Park",
+          "Martin Luther King, Jr. National Historical Park",
+          "Piedmont Park",
+          "Zoo Atlanta"
+        ]
+      },
+      "cost": {
+        "total": 18670.0,
+        "status": "over",
+        "currency": "USD",
+        "budget": 13600.0
+      },
+      "stops": [
+        "Georgia Aquarium",
+        "World of Coca-Cola",
+        "Centennial Olympic Park",
+        "Martin Luther King, Jr. National Historical Park",
+        "Piedmont Park",
+        "Zoo Atlanta",
+        "Krog Street Tunnel",
+        "Paschal's Restaurant & Bar",
+        "Utopia Restaurant at the Underground Atlanta",
+        "Mary Mac's Tea Room",
+        "9 Mile Station",
+        "South City Kitchen Midtown"
+      ],
+      "case_id": "TP-M02",
+      "level": "medium",
+      "source_row": 412,
+      "org": "Little Rock",
+      "dest": "Atlanta",
+      "days": 3,
+      "cities": 1,
+      "people": 8,
+      "budget": 13600.0,
+      "local_constraint": {
+        "house rule": "parties",
+        "cuisine": null,
+        "room type": null,
+        "transportation": null
+      },
+      "query": "Could you prepare a 3-day travel itinerary, from March 12th to March 14th, 2022, for a group of 8 departing Little Rock with Atlanta as their destination? Our budget for this trip is set at $13,600. We require accommodations that allow parties.",
+      "intent": "plan",
+      "follow_up": "",
+      "clarify": "",
+      "error": "",
+      "latency_s": 152.4
+    },
+    {
+      "checks": [
+        {
+          "name": "plan_path",
+          "ok": true,
+          "detail": "router said plan; plan saved"
+        },
+        {
+          "name": "days",
+          "ok": true,
+          "detail": "3 days, expected 3"
+        },
+        {
+          "name": "dates",
+          "ok": true,
+          "detail": "plan starts 2022-03-21, expected 2022-03-21"
+        },
+        {
+          "name": "party",
+          "ok": true,
+          "detail": "plan party 2, expected 2"
+        },
+        {
+          "name": "reference_cities",
+          "ok": true,
+          "detail": "cities in the reference: Colorado Springs"
+        },
+        {
+          "name": "budget",
+          "ok": false,
+          "detail": "USD 4670 / 2200 (over)"
+        },
+        {
+          "name": "house_rule",
+          "ok": false,
+          "detail": "need accommodation that allows pets"
+        },
+        {
+          "name": "tool_attractions",
+          "ok": true,
+          "detail": "attractions: ok"
+        },
+        {
+          "name": "tool_hotels",
+          "ok": true,
+          "detail": "hotels: ok"
+        },
+        {
+          "name": "tool_tickets",
+          "ok": true,
+          "detail": "tickets: partial"
+        },
+        {
+          "name": "grounded",
+          "ok": true,
+          "detail": "14/14 stops cite a tool result"
+        }
+      ],
+      "satisfied": false,
+      "reference_cities": [
+        "Colorado Springs"
+      ],
+      "tools": [
+        {
+          "name": "tickets",
+          "status": "partial",
+          "note": "1 travel option(s), partly estimated"
+        },
+        {
+          "name": "attractions",
+          "status": "ok",
+          "note": "9 sights, 10 places to eat"
+        },
+        {
+          "name": "hotels",
+          "status": "ok",
+          "note": "6 stays"
+        },
+        {
+          "name": "weather",
+          "status": "partial",
+          "note": "2022-03-21: Weather source did not answer.; 2022-03-22: Weather source did not answer.; 2022-03-23: Weather source did not answer."
+        },
+        {
+          "name": "videos",
+          "status": "ok",
+          "note": "3 video note(s)"
+        }
+      ],
+      "grounding": 1.0,
+      "catalogue_places": {
+        "matched": 6,
+        "named": 13,
+        "examples": [
+          "Garden of the Gods",
+          "Balanced Rock",
+          "Cheyenne Mountain Zoo",
+          "Red Rock Canyon",
+          "Kissing Camels",
+          "Ghost Town Museum"
+        ]
+      },
+      "cost": {
+        "total": 4670.0,
+        "status": "over",
+        "currency": "USD",
+        "budget": 2200.0
+      },
+      "stops": [
+        "Garden of the Gods",
+        "Balanced Rock",
+        "Cheyenne Mountain Zoo",
+        "Colorado Springs Pioneers Museum",
+        "Red Rock Canyon",
+        "Kissing Camels",
+        "Ghost Town Museum",
+        "Edelweiss German Restaurant",
+        "Shuga's",
+        "Burrowing Owl",
+        "The Rabbit Hole",
+        "GAIA MASALA AND BURGER Colorado Springs"
+      ],
+      "case_id": "TP-M03",
+      "level": "medium",
+      "source_row": 411,
+      "org": "Houston",
+      "dest": "Colorado Springs",
+      "days": 3,
+      "cities": 1,
+      "people": 2,
+      "budget": 2200.0,
+      "local_constraint": {
+        "house rule": "pets",
+        "cuisine": null,
+        "room type": null,
+        "transportation": null
+      },
+      "query": "Could you arrange a 3-day travel plan departing from Houston and going to Colorado Springs for two people from March 21st to March 23rd, 2022? We have a budget of $2,200 and we're bringing pets, so accommodations need to be pet-friendly.",
+      "intent": "plan",
+      "follow_up": "",
+      "clarify": "",
+      "error": "",
+      "latency_s": 155.1
+    },
+    {
+      "checks": [
+        {
+          "name": "plan_path",
+          "ok": true,
+          "detail": "router said plan; plan saved"
+        },
+        {
+          "name": "days",
+          "ok": true,
+          "detail": "3 days, expected 3"
+        },
+        {
+          "name": "dates",
+          "ok": true,
+          "detail": "plan starts 2022-03-20, expected 2022-03-20"
+        },
+        {
+          "name": "party",
+          "ok": true,
+          "detail": "plan party 6, expected 6"
+        },
+        {
+          "name": "reference_cities",
+          "ok": true,
+          "detail": "cities in the reference: Detroit"
+        },
+        {
+          "name": "budget",
+          "ok": false,
+          "detail": "USD 14000 / 2600 (over)"
+        },
+        {
+          "name": "room_type",
+          "ok": false,
+          "detail": "need private room"
+        },
+        {
+          "name": "tool_attractions",
+          "ok": true,
+          "detail": "attractions: ok"
+        },
+        {
+          "name": "tool_hotels",
+          "ok": true,
+          "detail": "hotels: ok"
+        },
+        {
+          "name": "tool_tickets",
+          "ok": true,
+          "detail": "tickets: partial"
+        },
+        {
+          "name": "grounded",
+          "ok": true,
+          "detail": "14/14 stops cite a tool result"
+        }
+      ],
+      "satisfied": false,
+      "reference_cities": [
+        "Detroit"
+      ],
+      "tools": [
+        {
+          "name": "tickets",
+          "status": "partial",
+          "note": "1 travel option(s), partly estimated"
+        },
+        {
+          "name": "hotels",
+          "status": "ok",
+          "note": "3 stays"
+        },
+        {
+          "name": "weather",
+          "status": "partial",
+          "note": "2022-03-20: Weather source did not answer.; 2022-03-21: Weather source did not answer.; 2022-03-22: Weather source did not answer."
+        },
+        {
+          "name": "attractions",
+          "status": "ok",
+          "note": "15 sights, 10 places to eat"
+        },
+        {
+          "name": "videos",
+          "status": "ok",
+          "note": "3 video note(s)"
+        }
+      ],
+      "grounding": 1.0,
+      "catalogue_places": {
+        "matched": 5,
+        "named": 13,
+        "examples": [
+          "Campus Martius Park",
+          "Grand Circus Park",
+          "Detroit Riverwalk",
+          "Detroit Institute of Arts",
+          "Charles H. Wright Museum of African American History"
+        ]
+      },
+      "cost": {
+        "total": 14000.0,
+        "status": "over",
+        "currency": "USD",
+        "budget": 2600.0
+      },
+      "stops": [
+        "Guardian Building",
+        "Campus Martius Park",
+        "Grand Circus Park",
+        "William G. Milliken State Park and Harbor",
+        "Detroit Riverwalk",
+        "The BELT",
+        "Detroit Institute of Arts",
+        "Charles H. Wright Museum of African American History",
+        "Mom's Spaghetti",
+        "Sweetwater Tavern",
+        "Grey Ghost Detroit",
+        "Gus's World Famous Fried Chicken"
+      ],
+      "case_id": "TP-M04",
+      "level": "medium",
+      "source_row": 419,
+      "org": "La Crosse",
+      "dest": "Detroit",
+      "days": 3,
+      "cities": 1,
+      "people": 6,
+      "budget": 2600.0,
+      "local_constraint": {
+        "house rule": null,
+        "cuisine": null,
+        "room type": "private room",
+        "transportation": null
+      },
+      "query": "We need a trip plan starting from La Crosse to Detroit for a duration of 3 days, from March 20th to March 22nd, 2022. The trip involves a group of 6 people and our budget is set at $2,600. Also, we require private rooms for accommodations.",
+      "intent": "plan",
+      "follow_up": "",
+      "clarify": "",
+      "error": "",
+      "latency_s": 122.0
+    },
+    {
+      "checks": [
+        {
+          "name": "plan_path",
+          "ok": true,
+          "detail": "router said plan; plan saved"
+        },
+        {
+          "name": "days",
+          "ok": true,
+          "detail": "5 days, expected 5"
+        },
+        {
+          "name": "dates",
+          "ok": true,
+          "detail": "plan starts 2022-03-27, expected 2022-03-27"
+        },
+        {
+          "name": "party",
+          "ok": true,
+          "detail": "plan party 6, expected 6"
+        },
+        {
+          "name": "reference_cities",
+          "ok": false,
+          "detail": "cities in the reference: Pellston, Traverse City; missing Pellston, Traverse City"
+        },
+        {
+          "name": "budget",
+          "ok": false,
+          "detail": "USD 14360 / 12500 (over)"
+        },
+        {
+          "name": "room_type",
+          "ok": false,
+          "detail": "need private room"
+        },
+        {
+          "name": "tool_attractions",
+          "ok": false,
+          "detail": "attractions: unavailable"
+        },
+        {
+          "name": "tool_hotels",
+          "ok": true,
+          "detail": "hotels: ok"
+        },
+        {
+          "name": "tool_tickets",
+          "ok": true,
+          "detail": "tickets: partial"
+        },
+        {
+          "name": "grounded",
+          "ok": true,
+          "detail": "8/8 stops cite a tool result"
+        }
+      ],
+      "satisfied": false,
+      "reference_cities": [
+        "Pellston",
+        "Traverse City"
+      ],
+      "tools": [
+        {
+          "name": "tickets",
+          "status": "partial",
+          "note": "1 travel option(s), partly estimated"
+        },
+        {
+          "name": "weather",
+          "status": "partial",
+          "note": "2022-03-27: Weather source did not answer.; 2022-03-28: Weather source did not answer.; 2022-03-29: Weather source did not answer."
+        },
+        {
+          "name": "attractions",
+          "status": "unavailable",
+          "note": "0 sights, 10 places to eat"
+        },
+        {
+          "name": "hotels",
+          "status": "ok",
+          "note": "6 stays"
+        },
+        {
+          "name": "videos",
+          "status": "ok",
+          "note": "3 video note(s)"
+        }
+      ],
+      "grounding": 1.0,
+      "catalogue_places": {
+        "matched": 1,
+        "named": 7,
+        "examples": [
+          "Famous Dave's Bar-B-Que"
+        ]
+      },
+      "cost": {
+        "total": 14360.0,
+        "status": "over",
+        "currency": "USD",
+        "budget": 12500.0
+      },
+      "stops": [
+        "Selden Standard",
+        "The Whitney",
+        "Bavarian Inn Restaurant",
+        "Famous Dave's Bar-B-Que",
+        "Oak & Reel",
+        "Famous Hamburger - Dearborn",
+        "Holiday Inn & Suites Warren by IHG"
+      ],
+      "case_id": "TP-M05",
+      "level": "medium",
+      "source_row": 521,
+      "org": "New York",
+      "dest": "Michigan",
+      "days": 5,
+      "cities": 2,
+      "people": 6,
+      "budget": 12500.0,
+      "local_constraint": {
+        "house rule": null,
+        "cuisine": null,
+        "room type": "private room",
+        "transportation": null
+      },
+      "query": "Could you arrange a 5-day trip for a group of six from New York to Michigan, exploring 2 cities, spanning from March 27th to March 31st, 2022? We have a budget of $12,500, and for accommodations, we prefer private rooms.",
+      "intent": "plan",
+      "follow_up": "",
+      "clarify": "",
+      "error": "",
+      "latency_s": 114.2
+    },
+    {
+      "checks": [
+        {
+          "name": "plan_path",
+          "ok": true,
+          "detail": "router said plan; plan saved"
+        },
+        {
+          "name": "days",
+          "ok": true,
+          "detail": "5 days, expected 5"
+        },
+        {
+          "name": "dates",
+          "ok": true,
+          "detail": "plan starts 2022-03-21, expected 2022-03-21"
+        },
+        {
+          "name": "party",
+          "ok": true,
+          "detail": "plan party 4, expected 4"
+        },
+        {
+          "name": "reference_cities",
+          "ok": false,
+          "detail": "cities in the reference: Detroit, Traverse City; missing Traverse City"
+        },
+        {
+          "name": "budget",
+          "ok": false,
+          "detail": "USD 9580 / 5400 (over)"
+        },
+        {
+          "name": "room_type",
+          "ok": false,
+          "detail": "need entire room"
+        },
+        {
+          "name": "tool_attractions",
+          "ok": true,
+          "detail": "attractions: ok"
+        },
+        {
+          "name": "tool_hotels",
+          "ok": true,
+          "detail": "hotels: ok"
+        },
+        {
+          "name": "tool_tickets",
+          "ok": true,
+          "detail": "tickets: partial"
+        },
+        {
+          "name": "grounded",
+          "ok": true,
+          "detail": "8/8 stops cite a tool result"
+        }
+      ],
+      "satisfied": false,
+      "reference_cities": [
+        "Detroit",
+        "Traverse City"
+      ],
+      "tools": [
+        {
+          "name": "tickets",
+          "status": "partial",
+          "note": "1 travel option(s), partly estimated"
+        },
+        {
+          "name": "videos",
+          "status": "ok",
+          "note": "3 video note(s)"
+        },
+        {
+          "name": "hotels",
+          "status": "ok",
+          "note": "6 stays"
+        },
+        {
+          "name": "attractions",
+          "status": "ok",
+          "note": "1 sights, 10 places to eat"
+        },
+        {
+          "name": "weather",
+          "status": "partial",
+          "note": "2022-03-21: Weather source did not answer.; 2022-03-22: Weather source did not answer.; 2022-03-23: Weather source did not answer."
+        }
+      ],
+      "grounding": 1.0,
+      "catalogue_places": {
+        "matched": 1,
+        "named": 7,
+        "examples": [
+          "Famous Dave's Bar-B-Que"
+        ]
+      },
+      "cost": {
+        "total": 9580.0,
+        "status": "over",
+        "currency": "USD",
+        "budget": 5400.0
+      },
+      "stops": [
+        "The Whitney",
+        "Mabel Gray",
+        "Oak & Reel",
+        "Bavarian Inn Restaurant",
+        "Famous Dave's Bar-B-Que",
+        "Famous Hamburger - Dearborn",
+        "Holiday Inn & Suites Warren by IHG"
+      ],
+      "case_id": "TP-M06",
+      "level": "medium",
+      "source_row": 491,
+      "org": "St. Louis",
+      "dest": "Michigan",
+      "days": 5,
+      "cities": 2,
+      "people": 4,
+      "budget": 5400.0,
+      "local_constraint": {
+        "house rule": null,
+        "cuisine": null,
+        "room type": "entire room",
+        "transportation": null
+      },
+      "query": "I need you to curate a 5-day trip itinerary for a group of 4. We will be leaving from St. Louis and plan on touring 2 different cities in Michigan. Our journey is set from March 21st to March 25th, 2022. We have an allocated budget of $5,400 for this trip. In terms of accommodations, we'd strongly prefer to have entire rooms to ourselves.",
+      "intent": "plan",
+      "follow_up": "",
+      "clarify": "",
+      "error": "",
+      "latency_s": 110.7
+    },
+    {
+      "checks": [
+        {
+          "name": "plan_path",
+          "ok": true,
+          "detail": "router said plan; plan saved"
+        },
+        {
+          "name": "days",
+          "ok": true,
+          "detail": "5 days, expected 5"
+        },
+        {
+          "name": "dates",
+          "ok": true,
+          "detail": "plan starts 2022-03-10, expected 2022-03-10"
+        },
+        {
+          "name": "party",
+          "ok": true,
+          "detail": "plan party 2, expected 2"
+        },
+        {
+          "name": "reference_cities",
+          "ok": false,
+          "detail": "cities in the reference: Pellston, Detroit; missing Pellston"
+        },
+        {
+          "name": "budget",
+          "ok": false,
+          "detail": "USD 4790 / 4100 (over)"
+        },
+        {
+          "name": "cuisine",
+          "ok": true,
+          "detail": "wanted American, Mediterranean"
+        },
+        {
+          "name": "tool_attractions",
+          "ok": true,
+          "detail": "attractions: ok"
+        },
+        {
+          "name": "tool_hotels",
+          "ok": true,
+          "detail": "hotels: ok"
+        },
+        {
+          "name": "tool_tickets",
+          "ok": true,
+          "detail": "tickets: partial"
+        },
+        {
+          "name": "grounded",
+          "ok": true,
+          "detail": "7/7 stops cite a tool result"
+        }
+      ],
+      "satisfied": false,
+      "reference_cities": [
+        "Pellston",
+        "Detroit"
+      ],
+      "tools": [
+        {
+          "name": "tickets",
+          "status": "partial",
+          "note": "1 travel option(s), partly estimated"
+        },
+        {
+          "name": "videos",
+          "status": "ok",
+          "note": "3 video note(s)"
+        },
+        {
+          "name": "hotels",
+          "status": "ok",
+          "note": "6 stays"
+        },
+        {
+          "name": "attractions",
+          "status": "ok",
+          "note": "1 sights, 10 places to eat"
+        },
+        {
+          "name": "weather",
+          "status": "partial",
+          "note": "2022-03-10: Weather source did not answer.; 2022-03-11: Weather source did not answer.; 2022-03-12: Weather source did not answer."
+        }
+      ],
+      "grounding": 1.0,
+      "catalogue_places": {
+        "matched": 0,
+        "named": 6,
+        "examples": []
+      },
+      "cost": {
+        "total": 4790.0,
+        "status": "over",
+        "currency": "USD",
+        "budget": 4100.0
+      },
+      "stops": [
+        "The Whitney",
+        "The Oasis Kitchen Of Dearborn",
+        "Selden Standard",
+        "Lee's Famous Recipe Chicken PLYMOUTH MICHIGAN",
+        "Famous Hamburger - Dearborn",
+        "Holiday Inn & Suites Warren by IHG"
+      ],
+      "case_id": "TP-M07",
+      "level": "medium",
+      "source_row": 549,
+      "org": "Rochester",
+      "dest": "Michigan",
+      "days": 5,
+      "cities": 2,
+      "people": 2,
+      "budget": 4100.0,
+      "local_constraint": {
+        "house rule": null,
+        "cuisine": [
+          "American",
+          "Mediterranean"
+        ],
+        "room type": null,
+        "transportation": null
+      },
+      "query": "I need assistance in crafting a 5-day travel itinerary for 2 people. We will be leaving from Rochester and plan on visiting 2 cities in Michigan from March 10th to March 14th, 2022. Our total budget for this trip is $4,100. During our stay, we would love to try local American and Mediterranean cuisines.",
+      "intent": "plan",
+      "follow_up": "",
+      "clarify": "",
+      "error": "",
+      "latency_s": 146.9
+    },
+    {
+      "checks": [
+        {
+          "name": "plan_path",
+          "ok": true,
+          "detail": "router said plan; plan saved"
+        },
+        {
+          "name": "days",
+          "ok": true,
+          "detail": "7 days, expected 7"
+        },
+        {
+          "name": "dates",
+          "ok": true,
+          "detail": "plan starts 2022-03-01, expected 2022-03-01"
+        },
+        {
+          "name": "party",
+          "ok": true,
+          "detail": "plan party 2, expected 2"
+        },
+        {
+          "name": "reference_cities",
+          "ok": false,
+          "detail": "cities in the reference: Longview, Killeen, Dallas; missing Longview, Killeen, Dallas"
+        },
+        {
+          "name": "budget",
+          "ok": true,
+          "detail": "USD 4910 / 5100 (within)"
+        },
+        {
+          "name": "room_type",
+          "ok": false,
+          "detail": "need not shared room"
+        },
+        {
+          "name": "tool_attractions",
+          "ok": true,
+          "detail": "attractions: ok"
+        },
+        {
+          "name": "tool_hotels",
+          "ok": true,
+          "detail": "hotels: ok"
+        },
+        {
+          "name": "tool_tickets",
+          "ok": true,
+          "detail": "tickets: partial"
+        },
+        {
+          "name": "grounded",
+          "ok": true,
+          "detail": "6/6 stops cite a tool result"
+        }
+      ],
+      "satisfied": false,
+      "reference_cities": [
+        "Longview",
+        "Killeen",
+        "Dallas"
+      ],
+      "tools": [
+        {
+          "name": "tickets",
+          "status": "partial",
+          "note": "1 travel option(s), partly estimated"
+        },
+        {
+          "name": "videos",
+          "status": "ok",
+          "note": "3 video note(s)"
+        },
+        {
+          "name": "attractions",
+          "status": "ok",
+          "note": "2 sights, 10 places to eat"
+        },
+        {
+          "name": "weather",
+          "status": "partial",
+          "note": "2022-03-01: Weather source did not answer.; 2022-03-02: Weather source did not answer.; 2022-03-03: Weather source did not answer."
+        },
+        {
+          "name": "hotels",
+          "status": "ok",
+          "note": "6 stays"
+        }
+      ],
+      "grounding": 1.0,
+      "catalogue_places": {
+        "matched": 0,
+        "named": 5,
+        "examples": []
+      },
+      "cost": {
+        "total": 4910.0,
+        "status": "within",
+        "currency": "USD",
+        "budget": 5100.0
+      },
+      "stops": [
+        "Tumble 22 - Texas Chicken Joint",
+        "Whip My Soul",
+        "Cabernet Grill Texas Wine Country Restaurant",
+        "Muck & Fuss",
+        "Hyatt Regency Lost Pines Resort and Spa"
+      ],
+      "case_id": "TP-M08",
+      "level": "medium",
+      "source_row": 612,
+      "org": "Grand Rapids",
+      "dest": "Texas",
+      "days": 7,
+      "cities": 3,
+      "people": 2,
+      "budget": 5100.0,
+      "local_constraint": {
+        "house rule": null,
+        "cuisine": null,
+        "room type": "not shared room",
+        "transportation": null
+      },
+      "query": "Could you help me outline a one-week travel plan for 2 people, starting in Grand Rapids and visiting 3 different cities in Texas from March 1st to March 7th, 2022? We have allocated a budget of $5,100 for this trip. Please ensure that our accommodations consist of rooms that are not shared with others.",
+      "intent": "plan",
+      "follow_up": "",
+      "clarify": "",
+      "error": "",
+      "latency_s": 164.7
+    },
+    {
+      "checks": [
+        {
+          "name": "plan_path",
+          "ok": true,
+          "detail": "router said plan; plan saved"
+        },
+        {
+          "name": "days",
+          "ok": true,
+          "detail": "7 days, expected 7"
+        },
+        {
+          "name": "dates",
+          "ok": true,
+          "detail": "plan starts 2022-03-11, expected 2022-03-11"
+        },
+        {
+          "name": "party",
+          "ok": true,
+          "detail": "plan party 4, expected 4"
+        },
+        {
+          "name": "reference_cities",
+          "ok": false,
+          "detail": "cities in the reference: Abilene, Amarillo, Lubbock; missing Abilene, Amarillo, Lubbock"
+        },
+        {
+          "name": "budget",
+          "ok": false,
+          "detail": "USD 9820 / 8600 (over)"
+        },
+        {
+          "name": "room_type",
+          "ok": false,
+          "detail": "need entire room"
+        },
+        {
+          "name": "tool_attractions",
+          "ok": true,
+          "detail": "attractions: ok"
+        },
+        {
+          "name": "tool_hotels",
+          "ok": true,
+          "detail": "hotels: ok"
+        },
+        {
+          "name": "tool_tickets",
+          "ok": true,
+          "detail": "tickets: partial"
+        },
+        {
+          "name": "grounded",
+          "ok": true,
+          "detail": "6/6 stops cite a tool result"
+        }
+      ],
+      "satisfied": false,
+      "reference_cities": [
+        "Abilene",
+        "Amarillo",
+        "Lubbock"
+      ],
+      "tools": [
+        {
+          "name": "tickets",
+          "status": "partial",
+          "note": "1 travel option(s), partly estimated"
+        },
+        {
+          "name": "videos",
+          "status": "ok",
+          "note": "3 video note(s)"
+        },
+        {
+          "name": "attractions",
+          "status": "ok",
+          "note": "2 sights, 10 places to eat"
+        },
+        {
+          "name": "weather",
+          "status": "partial",
+          "note": "2022-03-11: Weather source did not answer.; 2022-03-12: Weather source did not answer.; 2022-03-13: Weather source did not answer."
+        },
+        {
+          "name": "hotels",
+          "status": "ok",
+          "note": "6 stays"
+        }
+      ],
+      "grounding": 1.0,
+      "catalogue_places": {
+        "matched": 0,
+        "named": 5,
+        "examples": []
+      },
+      "cost": {
+        "total": 9820.0,
+        "status": "over",
+        "currency": "USD",
+        "budget": 8600.0
+      },
+      "stops": [
+        "Tumble 22 - Texas Chicken Joint",
+        "Whip My Soul",
+        "Muck & Fuss",
+        "Cabernet Grill Texas Wine Country Restaurant",
+        "DoubleTree by Hilton Hotel Austin"
+      ],
+      "case_id": "TP-M09",
+      "level": "medium",
+      "source_row": 567,
+      "org": "Cedar Rapids",
+      "dest": "Texas",
+      "days": 7,
+      "cities": 3,
+      "people": 4,
+      "budget": 8600.0,
+      "local_constraint": {
+        "house rule": null,
+        "cuisine": null,
+        "room type": "entire room",
+        "transportation": null
+      },
+      "query": "Could you create a travel itinerary for a group of 4 people starting from Cedar Rapids, and covering 3 cities in Texas over 7 days, beginning from March 11th to March 17th, 2022? Our budget for this trip is $8,600. For accommodations, we will require entire rooms.",
+      "intent": "plan",
+      "follow_up": "",
+      "clarify": "",
+      "error": "",
+      "latency_s": 150.0
+    },
+    {
+      "checks": [
+        {
+          "name": "plan_path",
+          "ok": true,
+          "detail": "router said plan; plan saved"
+        },
+        {
+          "name": "days",
+          "ok": true,
+          "detail": "7 days, expected 7"
+        },
+        {
+          "name": "dates",
+          "ok": true,
+          "detail": "plan starts 2022-03-14, expected 2022-03-14"
+        },
+        {
+          "name": "party",
+          "ok": true,
+          "detail": "plan party 6, expected 6"
+        },
+        {
+          "name": "reference_cities",
+          "ok": false,
+          "detail": "cities in the reference: Pellston, Traverse City, Alpena; missing Pellston, Traverse City, Alpena"
+        },
+        {
+          "name": "budget",
+          "ok": true,
+          "detail": "USD 14720 / 15900 (within)"
+        },
+        {
+          "name": "cuisine",
+          "ok": false,
+          "detail": "wanted Italian, Chinese"
+        },
+        {
+          "name": "tool_attractions",
+          "ok": false,
+          "detail": "attractions: unavailable"
+        },
+        {
+          "name": "tool_hotels",
+          "ok": true,
+          "detail": "hotels: ok"
+        },
+        {
+          "name": "tool_tickets",
+          "ok": true,
+          "detail": "tickets: partial"
+        },
+        {
+          "name": "grounded",
+          "ok": true,
+          "detail": "9/9 stops cite a tool result"
+        }
+      ],
+      "satisfied": false,
+      "reference_cities": [
+        "Pellston",
+        "Traverse City",
+        "Alpena"
+      ],
+      "tools": [
+        {
+          "name": "tickets",
+          "status": "partial",
+          "note": "1 travel option(s), partly estimated"
+        },
+        {
+          "name": "hotels",
+          "status": "ok",
+          "note": "6 stays"
+        },
+        {
+          "name": "videos",
+          "status": "ok",
+          "note": "3 video note(s)"
+        },
+        {
+          "name": "weather",
+          "status": "partial",
+          "note": "2022-03-14: Weather source did not answer.; 2022-03-15: Weather source did not answer.; 2022-03-16: Weather source did not answer."
+        },
+        {
+          "name": "attractions",
+          "status": "unavailable",
+          "note": "0 sights, 10 places to eat"
+        }
+      ],
+      "grounding": 1.0,
+      "catalogue_places": {
+        "matched": 1,
+        "named": 8,
+        "examples": [
+          "Famous Dave's Bar-B-Que"
+        ]
+      },
+      "cost": {
+        "total": 14720.0,
+        "status": "within",
+        "currency": "USD",
+        "budget": 15900.0
+      },
+      "stops": [
+        "Selden Standard",
+        "Mabel Gray",
+        "Oak & Reel",
+        "Bavarian Inn Restaurant",
+        "The Whitney",
+        "Famous Dave's Bar-B-Que",
+        "Famous Hamburger - Dearborn",
+        "Holiday Inn & Suites Warren by IHG"
+      ],
+      "case_id": "TP-M10",
+      "level": "medium",
+      "source_row": 582,
+      "org": "Baltimore",
+      "dest": "Michigan",
+      "days": 7,
+      "cities": 3,
+      "people": 6,
+      "budget": 15900.0,
+      "local_constraint": {
+        "house rule": null,
+        "cuisine": [
+          "Italian",
+          "Chinese"
+        ],
+        "room type": null,
+        "transportation": null
+      },
+      "query": "Could you arrange a week-long travel plan for a group of 6, departing from Baltimore and seeking to visit 3 cities in Michigan? Our trip will span from March 14th to March 20th, 2022, with a maximum budget of $15,900. We are particularly fond of Italian and Chinese cuisines and would like accommodations that could potentially cater to these preferences during our trip.",
+      "intent": "plan",
+      "follow_up": "",
+      "clarify": "",
+      "error": "",
+      "latency_s": 117.4
+    }
+  ]
+}

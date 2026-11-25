@@ -1,0 +1,3 @@
+trial,mode,plan_seconds,edit_seconds,plan_total_tokens,edit_total_tokens,plan_calls,edit_calls,target_removed,untouched_preserved
+v5.2.11 proposal,review=True (proposal),36.11,7.86,19641,14843,2,2,3/3,3/3
+v5.2.11 applied,review=False (applied),39.4,12.21,20252,15521,2,2,3/3,3/3

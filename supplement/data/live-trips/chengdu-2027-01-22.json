@@ -1,0 +1,3099 @@
+{
+  "schema_version": "5.0",
+  "trip_id": "trip-546ef9bccc42",
+  "session_id": "588af7e153f6436a83be8b222817d9e3",
+  "version": 5,
+  "status": "draft",
+  "destination": {
+    "name": "Chengdu",
+    "country_code": "",
+    "geo": null,
+    "timezone": "UTC"
+  },
+  "origin": "Hong Kong",
+  "dates": {
+    "start": "2027-01-22",
+    "end": "2027-01-26"
+  },
+  "party_size": 2,
+  "budget": {
+    "amount": 12000,
+    "currency": "HKD"
+  },
+  "summary": "A five-day Chengdu trip based near Luomashi, a short walk from Chunxi Road. It has a hotpot dinner on arrival, Kuanzhai Alleys in the old quarter, a day trip to Dujiangyan and Qingcheng Shan, and a relaxed last morning before the airport. Several of your named places (Taikoo Li, the Panda Base, Wuhou Shrine, Jinli, Du Fu Thatched Cottage) could not be scheduled, so days 1, 3 and 5 are lighter than you asked for.",
+  "days": [
+    {
+      "date": "2027-01-22",
+      "title": "Arrival and Shu Da Xia hotpot",
+      "weather": {
+        "date": "2027-01-22",
+        "status": "unavailable",
+        "summary": "No forecast yet: the trip is beyond the 16-day forecast window.",
+        "high_c": null,
+        "low_c": null,
+        "precipitation_probability": null,
+        "source": "Open-Meteo",
+        "fetched_at": "2026-11-24T05:33:38.339852+00:00",
+        "note": "A forecast will be fetched closer to the trip."
+      },
+      "items": [
+        {
+          "id": "it-5f043c5b72",
+          "type": "attraction",
+          "name": "Taikoo Li",
+          "start": "16:00",
+          "end": "18:00",
+          "geo": {
+            "lat": 30.654708999999997,
+            "lng": 104.084964
+          },
+          "address": "8 Zhong Sha Mao Jie, Jin Jiang Qu, Cheng Du Shi, Si Chuan Sheng, China, 610000",
+          "notes": "Walk Taikoo Li after check-in. It is a short walk from the Luomashi hotel and leaves time before the 18:30 hotpot.",
+          "source_refs": [
+            {
+              "title": "Taikoo Li",
+              "url": "https://maps.google.com/?cid=16620488406187363799&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+              "source": "Google Places",
+              "fetched_at": "2026-11-24T05:38:02.144817+00:00"
+            }
+          ],
+          "data_status": "ok",
+          "fetched_at": "2026-11-24T05:38:02.144844+00:00",
+          "price": null,
+          "price_kind": "none",
+          "booking_url": "http://www.soltklcd.com/",
+          "locked": false,
+          "confirmed": false,
+          "tags": [
+            "point_of_interest",
+            "establishment"
+          ],
+          "opening_hours": [],
+          "hours_status": "unknown",
+          "transfer": null,
+          "names": {},
+          "meal_slot": null,
+          "rating": 4.7,
+          "review_count": 214,
+          "price_level": null,
+          "cuisine": null,
+          "reservable": null,
+          "source_types": [
+            "point_of_interest",
+            "establishment"
+          ],
+          "source_summary": "Found for 'Chengdu Taikoo Li Chengdu'.",
+          "alternatives": [],
+          "links": [],
+          "image": {
+            "url": "https://places.googleapis.com/v1/places/ChIJnXr0mUPF7zYR181LdCXWp-Y/photos/AV-0GLfY7Kbw-dgbA1iM0kLciQJX3d_-DkBG5x0gOozK5LLdKQbUM5vbzMFSkMPpqs1MD2BpZ5ZnkR3Od80XnpZCGAaQmYZLebUhVIzFp-D7d9kgURlyng7Y0jcEqBjzG2E1k4hUju6IDg_v6QiZI3WN2u6MF--A1qyXt7PX0BgPgmD82Y4cxjkFdXqF3-sZNSrBIRJLdGxRDIPNCkecvc4R9l559EDwY_KMInKm5HJm476anE9VuuRCUweq10PU71AQndXfh69EJjZW4m2Wr8mKwsI503tmO7I0HqkHa5Mwse2y4XhQhuDyha9MobawNG6VHP-_8vZQwvN_TjPPGkHEdE_9AUek6eMj3SFELUjkRpYgdARcmAaLEPM2iOUw1VE2s8YA2hbiP3TQ3VCMoP-LV3rUnUA/media?maxWidthPx=900&key=REDACTED",
+            "attribution": "Google",
+            "source": "google"
+          },
+          "step_free": true
+        },
+        {
+          "id": "it-6b8209e18f",
+          "type": "meal",
+          "name": "Shudaxia Hot Pot Luomashi Branch",
+          "start": "18:30",
+          "end": "19:45",
+          "geo": {
+            "lat": 30.667240000000003,
+            "lng": 104.06846
+          },
+          "address": "18 Xi Yu Long Jie, Luomashi, Qing Yang Qu, Cheng Du Shi, Si Chuan Sheng, China, 610014",
+          "notes": "Your Day 1 hotpot dinner. Ask for a split pot with a mild side if you want to pace the spice on the first night.",
+          "source_refs": [
+            {
+              "title": "Shudaxia Hot Pot Luomashi Branch",
+              "url": "https://maps.google.com/?cid=3509367645958431346&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+              "source": "Google Places",
+              "fetched_at": "2026-11-24T05:33:43.855436+00:00"
+            }
+          ],
+          "data_status": "ok",
+          "fetched_at": "2026-11-24T05:33:43.855471+00:00",
+          "price": null,
+          "price_kind": "none",
+          "booking_url": "",
+          "locked": false,
+          "confirmed": false,
+          "tags": [
+            "chinese_restaurant",
+            "restaurant",
+            "food",
+            "point_of_interest",
+            "establishment"
+          ],
+          "opening_hours": [],
+          "hours_status": "unknown",
+          "transfer": {
+            "from_item_id": "it-5f043c5b72",
+            "minutes": 9.1,
+            "mode": "transit",
+            "distance_km": 2.11,
+            "source": "straight-line estimate",
+            "tool": "haversine",
+            "result_id": "it-5f043c5b72->it-6b8209e18f"
+          },
+          "names": {},
+          "meal_slot": "dinner",
+          "rating": 4.9,
+          "review_count": 21,
+          "price_level": "$$",
+          "cuisine": "Chinese restaurant",
+          "reservable": true,
+          "source_types": [
+            "chinese_restaurant",
+            "restaurant",
+            "food",
+            "point_of_interest",
+            "establishment"
+          ],
+          "source_summary": "Found for 'Shu Da Xia hotpot Chengdu Chengdu'.",
+          "alternatives": [
+            {
+              "id": "alt-e7c86066f1",
+              "name": "Dongzi Kouzhang Lao'er Liangfen",
+              "geo": {
+                "lat": 30.674167999999998,
+                "lng": 104.072552
+              },
+              "address": "39 Wen Shu Yuan Jie, Qing Yang Qu, Cheng Du Shi, Si Chuan Sheng, China, 610084",
+              "rating": 4.5,
+              "review_count": 43,
+              "price_level": "$",
+              "cuisine": "Chinese restaurant",
+              "reservable": null,
+              "opening_hours": [
+                "Monday: 10:00 AM – 10:00 PM",
+                "Tuesday: 10:00 AM – 10:00 PM",
+                "Wednesday: 10:00 AM – 10:00 PM",
+                "Thursday: 10:00 AM – 10:00 PM",
+                "Friday: 10:00 AM – 10:00 PM",
+                "Saturday: 10:00 AM – 10:00 PM",
+                "Sunday: 10:00 AM – 10:00 PM"
+              ],
+              "source_refs": [
+                {
+                  "title": "Dongzi Kouzhang Lao'er Liangfen",
+                  "url": "https://maps.google.com/?cid=13094957439530278683&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:33:38.723935+00:00"
+                }
+              ],
+              "booking_url": "",
+              "distance_m": 864,
+              "source_types": [
+                "chinese_restaurant",
+                "restaurant",
+                "food",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Found for 'famous food in Chengdu'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJ85DQSsva7zYRG58PRGmiurU/photos/AV-0GLcOv4Ghc3kzPK7hcvd5fh94QvhmZPRcd3PQnn7LTAdRXt5yrrB5epKUI5S8bR9H-BRxoKRfG0O9DUf266MvbLWFuMR3TcyqXCmnBRv4_eYpn-F8b-EsZoVvQbPSU43t15uGBnksuBsPq6_tiXqQHvVme_vOV_RR2rmvYGPieKiSI2KO1XWWJbU8p9gxOYn4H5abkOuanAgug5R9uu04vhNsYGd8f8AIC7sMOwxn0NotnMmMhCJtEewRnbHwH-yLcFu-rjyIUWw_GWolpv8LzUD24XhMLmsvGxzA99VDHYFnlyzSOVNyFKh2_stZJgNeEiTASqPUYGjBY6c2ZOzmqGMm4yLroLHaIdkWuI6KE7xe6ApgWNsL71AWFVam1WPVwdamCdMBHGu3VpNPtpwd-LjlUYb2WzmEvvsZjR2JlnAW7g/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            },
+            {
+              "id": "alt-9535333422",
+              "name": "Taolin Restaurant",
+              "geo": {
+                "lat": 30.650109999999998,
+                "lng": 104.077784
+              },
+              "address": "China, Si Chuan Sheng, Cheng Du Shi, Jin Jiang Qu, Dong Sheng Jie, 69号附1 邮政编码: 610023",
+              "rating": 4.7,
+              "review_count": 35,
+              "price_level": "$",
+              "cuisine": "Restaurant",
+              "reservable": true,
+              "opening_hours": [
+                "Monday: 10:00 AM – 10:00 PM",
+                "Tuesday: 10:00 AM – 10:00 PM",
+                "Wednesday: 10:00 AM – 10:00 PM",
+                "Thursday: 10:00 AM – 10:00 PM",
+                "Friday: 10:00 AM – 10:00 PM",
+                "Saturday: 10:00 AM – 10:00 PM",
+                "Sunday: 10:00 AM – 10:00 PM"
+              ],
+              "source_refs": [
+                {
+                  "title": "Taolin Restaurant",
+                  "url": "https://maps.google.com/?cid=9808605796430431176&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:33:38.736107+00:00"
+                }
+              ],
+              "booking_url": "",
+              "distance_m": 2103,
+              "source_types": [
+                "restaurant",
+                "food",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Found for 'best local restaurants in Chengdu'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJJb3kumrF7zYRyMMS7gArH4g/photos/AV-0GLfpi-1Z2MTp1HTvfgigJW_PvwKT6q-yvQaWy_G1xe1QtcmR4980_ZnS3FJzztqhDz0x3hIDuCiGBVMnVYSarBRIN2ARHT23D7tQyGYuv1azemqUdcrRTiXf6nAMLjTl5F4Ryy0h4R-P4UKHFxP0gvWYGmzJiQLcbRr_gE65x9WOeXI9-3uwFDPvgVIkLdyiRYxW0aANqi95LnSHsWpG5e3xbiQE5sw-yZmf3Cv-ZTvxuBFdVvs7GsL8a3_taF2F2RshqeuRC4tcAHsUsh39SBtCkEHRvd5DClh__XZyh346gfj_uaK6txXxu0K0dgCd_1dDUwzUld4-xcPNQNwaLXTceiwzTW8z2CCQfFwCe9pUQDLzMaiEvnWiFfiEvLLFbMIhoE8SETX5UcBoBIoOZ1rXkupykWx7E5hLzOD1WqJJ/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            },
+            {
+              "id": "alt-611115fc63",
+              "name": "Ma Wang Zi Chuan Restaurant",
+              "geo": {
+                "lat": 30.65141,
+                "lng": 104.08393
+              },
+              "address": "China, Cheng Du Shi, Jin Jiang Qu, CN 四川省 成都市 锦江区 东糠市街 1 1号附5 邮政编码: 610023",
+              "rating": 4.8,
+              "review_count": 137,
+              "price_level": "$$",
+              "cuisine": "Chinese restaurant",
+              "reservable": true,
+              "opening_hours": [],
+              "source_refs": [
+                {
+                  "title": "Ma Wang Zi Chuan Restaurant",
+                  "url": "https://maps.google.com/?cid=15791323567895507616&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:33:38.736081+00:00"
+                }
+              ],
+              "booking_url": "",
+              "distance_m": 2300,
+              "source_types": [
+                "chinese_restaurant",
+                "restaurant",
+                "food",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Found for 'best local restaurants in Chengdu'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJwaBCFELF7zYRoHKqdR4NJts/photos/AV-0GLfmV79QzRaIv8_Ur1-VNRWsHklwJ0Wa0gsFNw4kIvnX7Rv6hU-eylsrY82SJ9HZQ7LlYdWEeF0YyRpc3CjIXxCBsMGF0F68eFE9bQKteu5RF6MBpe_hSanyKvhMK2a8Mse6zzCtIEYTuo3PIzUm9qrMg_79ayCD48enpZzsHDXNUpU1U9iYdx7UDkg1rIw703uGz77spcTKzR17EVOw1D_KOwrIp1zkI6YV25roAzPR7wd6gTAGN8bi_07rexNRWAUo8M03mH9ufSrl3g0YeF62OLYacAEP2guDYHMNoY6XKcVQJLKfogEF85wy7gmUpPcTwCLmNFRu3Kd7cu5kPB4ujeuI8KCqjW9_MPT_lYPL3u8MUmA8lVs8D76odV-xQcI6c3wPzAmgYqlqTEeWJAIfogA/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            }
+          ],
+          "links": [],
+          "image": {
+            "url": "https://places.googleapis.com/v1/places/ChIJ_7OiCzHF7zYRcuKZ00fHszA/photos/AV-0GLeANMavBaa8DDoLbIJ1qqW72KiSfo_bSflvhjR0MxpZhP3vyaBB7Z_P0XBtpC0E1Qo_7W41gPNo9_2sq7zaJOvnt7k9ehkXCmD4mdDlI40ebkDEpu6V4Rj7bNW5cqI2vKAt4-gtg6_kdAi3PEH20bOpygK4osvGpeXzfIshQUwsQrOLEhyyeBFZ4mupVBntW-FRpIhGVWhrXOwtbTorIV0Rx1pSTNXQU3kI9evqbp7T1Ui03ymP9GNiZzhqg6w_sfk7X1W6ciEGtzRueSmO_JQ6BtlKB53APcd3hMpo5KYGdQIKm3bLfnlkJJdFcbbD1MolXRdGW8-orpcjaBFKkFl_tAXyOXGp04uXiD6wrkX1CNFppL_Gi_EsSCLQFM5YBdM29Y9TxhvUJFjOOBQpn-p4r5U/media?maxWidthPx=900&key=REDACTED",
+            "attribution": "Google",
+            "source": "google"
+          },
+          "step_free": null
+        },
+        {
+          "id": "usr-c49bea3b08",
+          "type": "attraction",
+          "name": "Chunxi Road",
+          "start": "20:00",
+          "end": "21:00",
+          "geo": null,
+          "address": "",
+          "notes": "Added at your request. The address, opening hours and ticket price are not confirmed by a source. Evening stroll on the pedestrian street after dinner. It is free and open 24 hours, and the shops stay open until about 22:00.",
+          "source_refs": [],
+          "data_status": "stale",
+          "fetched_at": null,
+          "price": null,
+          "price_kind": "none",
+          "booking_url": "",
+          "locked": false,
+          "confirmed": false,
+          "tags": [
+            "user-provided"
+          ],
+          "opening_hours": [],
+          "hours_status": "unknown",
+          "transfer": null,
+          "names": {},
+          "meal_slot": null,
+          "rating": null,
+          "review_count": null,
+          "price_level": null,
+          "cuisine": null,
+          "reservable": null,
+          "source_types": [],
+          "source_summary": "",
+          "alternatives": [],
+          "links": [],
+          "image": null,
+          "step_free": null
+        }
+      ],
+      "note": "Check in at the Luomashi hotel, then walk to dinner; the restaurant is in the same Luomashi area as the hotel.",
+      "elevation_gain_m": null,
+      "segment_id": "seg-1",
+      "city": ""
+    },
+    {
+      "date": "2027-01-23",
+      "title": "Kuanzhai Alleys",
+      "weather": {
+        "date": "2027-01-23",
+        "status": "unavailable",
+        "summary": "No forecast yet: the trip is beyond the 16-day forecast window.",
+        "high_c": null,
+        "low_c": null,
+        "precipitation_probability": null,
+        "source": "Open-Meteo",
+        "fetched_at": "2026-11-24T05:33:38.339907+00:00",
+        "note": "A forecast will be fetched closer to the trip."
+      },
+      "items": [
+        {
+          "id": "it-e3edb9c308",
+          "type": "attraction",
+          "name": "Chengdu Research Base of Giant Panda Breeding",
+          "start": "08:00",
+          "end": "10:00",
+          "geo": {
+            "lat": 30.732969,
+            "lng": 104.14581
+          },
+          "address": "1375 Xiong Mao Da Dao, Cheng Hua Qu, Cheng Du Shi, Si Chuan Sheng, China, 610016",
+          "notes": "Early-morning visit at the panda base, which opens at 7:30. Morning feeding starts around 8:00, when the pandas are most active and queues are shortest.",
+          "source_refs": [
+            {
+              "title": "Chengdu Research Base of Giant Panda Breeding",
+              "url": "https://maps.google.com/?cid=15261964047182500215&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+              "source": "Google Places",
+              "fetched_at": "2026-11-24T05:39:48.870210+00:00"
+            }
+          ],
+          "data_status": "ok",
+          "fetched_at": "2026-11-24T05:39:48.870252+00:00",
+          "price": null,
+          "price_kind": "none",
+          "booking_url": "https://www.panda.org.cn/",
+          "locked": false,
+          "confirmed": false,
+          "tags": [
+            "tourist_attraction",
+            "research_institute",
+            "non_profit_organization",
+            "association_or_organization",
+            "point_of_interest",
+            "establishment"
+          ],
+          "opening_hours": [
+            "Monday: 7:30 AM – 5:00 PM",
+            "Tuesday: 7:30 AM – 5:00 PM",
+            "Wednesday: 7:30 AM – 5:00 PM",
+            "Thursday: 7:30 AM – 5:00 PM",
+            "Friday: 7:30 AM – 5:00 PM",
+            "Saturday: 7:30 AM – 5:00 PM",
+            "Sunday: 7:30 AM – 5:00 PM"
+          ],
+          "hours_status": "stated",
+          "transfer": null,
+          "names": {},
+          "meal_slot": null,
+          "rating": 4.6,
+          "review_count": 3473,
+          "price_level": null,
+          "cuisine": null,
+          "reservable": null,
+          "source_types": [
+            "tourist_attraction",
+            "research_institute",
+            "non_profit_organization",
+            "association_or_organization",
+            "point_of_interest",
+            "establishment"
+          ],
+          "source_summary": "Giant Panda conservation facility allowing visitors to observe pandas & other endangered animals.",
+          "alternatives": [],
+          "links": [],
+          "image": {
+            "url": "https://places.googleapis.com/v1/places/ChIJ8VuaD-DQ7zYRd5EYh3BjzdM/photos/AV-0GLcvx-pdLDboUe7KZCK3UfvUPJPZYN520VaUKJZiYrCgXCH-gr4v0DVwH4t8FbYENKW6teSXlEl_dhoM99NdYlKdNl8rO2UDNKsbvsxDLKTCI_Vlv5ZqKRCNlo0_V7ivWkmze-iIkNyzxBkC031kNuGX-x4mYaeEY5naMA-_oRjnltdoFuNLBRg0XqqfZm_Mruu0ZJwerCflJRGu49JrAQu5ndkvBR67Ml9cHwfZKTec1rxAkRixSUZGpq97PNaRbZtk09E4d_9wj2pBgSgSipLiw7q8HrfOj_S0lN1i3_mKBVm4TLX_UcO7PWe05QCVLfUhEwQea36ti-53ilqz408LA5yHkO2eGKXvT9lYR9lnxKbXypGayCRI87bcZGkS1a68tHgAVQUvdwBsoQXCh3j9WxZx/media?maxWidthPx=900&key=REDACTED",
+            "attribution": "Google",
+            "source": "google"
+          },
+          "step_free": true
+        },
+        {
+          "id": "it-0d6168fc86",
+          "type": "meal",
+          "name": "Dongzi Kouzhang Lao'er Liangfen",
+          "start": "12:30",
+          "end": "13:45",
+          "geo": {
+            "lat": 30.674167999999998,
+            "lng": 104.072552
+          },
+          "address": "39 Wen Shu Yuan Jie, Qing Yang Qu, Cheng Du Shi, Si Chuan Sheng, China, 610084",
+          "notes": "A local liangfen (cold noodle) lunch a short ride from the alleys.",
+          "source_refs": [
+            {
+              "title": "Dongzi Kouzhang Lao'er Liangfen",
+              "url": "https://maps.google.com/?cid=13094957439530278683&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+              "source": "Google Places",
+              "fetched_at": "2026-11-24T05:33:38.723935+00:00"
+            }
+          ],
+          "data_status": "ok",
+          "fetched_at": "2026-11-24T05:33:38.723940+00:00",
+          "price": null,
+          "price_kind": "none",
+          "booking_url": "",
+          "locked": false,
+          "confirmed": false,
+          "tags": [
+            "chinese_restaurant",
+            "restaurant",
+            "food",
+            "point_of_interest",
+            "establishment"
+          ],
+          "opening_hours": [
+            "Monday: 10:00 AM – 10:00 PM",
+            "Tuesday: 10:00 AM – 10:00 PM",
+            "Wednesday: 10:00 AM – 10:00 PM",
+            "Thursday: 10:00 AM – 10:00 PM",
+            "Friday: 10:00 AM – 10:00 PM",
+            "Saturday: 10:00 AM – 10:00 PM",
+            "Sunday: 10:00 AM – 10:00 PM"
+          ],
+          "hours_status": "stated",
+          "transfer": {
+            "from_item_id": "it-e3edb9c308",
+            "minutes": 41.5,
+            "mode": "transit",
+            "distance_km": 9.58,
+            "source": "straight-line estimate",
+            "tool": "haversine",
+            "result_id": "it-e3edb9c308->it-0d6168fc86"
+          },
+          "names": {},
+          "meal_slot": "lunch",
+          "rating": 4.5,
+          "review_count": 43,
+          "price_level": "$",
+          "cuisine": "Chinese restaurant",
+          "reservable": null,
+          "source_types": [
+            "chinese_restaurant",
+            "restaurant",
+            "food",
+            "point_of_interest",
+            "establishment"
+          ],
+          "source_summary": "Found for 'famous food in Chengdu'.",
+          "alternatives": [
+            {
+              "id": "alt-3b86b403c0",
+              "name": "Shudaxia Hot Pot Luomashi Branch",
+              "geo": {
+                "lat": 30.667240000000003,
+                "lng": 104.06846
+              },
+              "address": "18 Xi Yu Long Jie, Luomashi, Qing Yang Qu, Cheng Du Shi, Si Chuan Sheng, China, 610014",
+              "rating": 4.9,
+              "review_count": 21,
+              "price_level": "$$",
+              "cuisine": "Chinese restaurant",
+              "reservable": true,
+              "opening_hours": [],
+              "source_refs": [
+                {
+                  "title": "Shudaxia Hot Pot Luomashi Branch",
+                  "url": "https://maps.google.com/?cid=3509367645958431346&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:33:43.855436+00:00"
+                }
+              ],
+              "booking_url": "",
+              "distance_m": 864,
+              "source_types": [
+                "chinese_restaurant",
+                "restaurant",
+                "food",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Found for 'Shu Da Xia hotpot Chengdu Chengdu'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJ_7OiCzHF7zYRcuKZ00fHszA/photos/AV-0GLeANMavBaa8DDoLbIJ1qqW72KiSfo_bSflvhjR0MxpZhP3vyaBB7Z_P0XBtpC0E1Qo_7W41gPNo9_2sq7zaJOvnt7k9ehkXCmD4mdDlI40ebkDEpu6V4Rj7bNW5cqI2vKAt4-gtg6_kdAi3PEH20bOpygK4osvGpeXzfIshQUwsQrOLEhyyeBFZ4mupVBntW-FRpIhGVWhrXOwtbTorIV0Rx1pSTNXQU3kI9evqbp7T1Ui03ymP9GNiZzhqg6w_sfk7X1W6ciEGtzRueSmO_JQ6BtlKB53APcd3hMpo5KYGdQIKm3bLfnlkJJdFcbbD1MolXRdGW8-orpcjaBFKkFl_tAXyOXGp04uXiD6wrkX1CNFppL_Gi_EsSCLQFM5YBdM29Y9TxhvUJFjOOBQpn-p4r5U/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            },
+            {
+              "id": "alt-b6dabd5be9",
+              "name": "苍蝇馆子",
+              "geo": {
+                "lat": 30.681919999999998,
+                "lng": 104.09447
+              },
+              "address": "M3JV+QQ9, Fu Qing Lu Er Duan, 李家沱 Cheng Hua Qu, Cheng Du Shi, Si Chuan Sheng, China, 610051",
+              "rating": 4.9,
+              "review_count": 35,
+              "price_level": null,
+              "cuisine": "Restaurant",
+              "reservable": true,
+              "opening_hours": [
+                "Monday: 8:00 AM – 9:00 PM",
+                "Tuesday: 8:00 AM – 9:00 PM",
+                "Wednesday: 8:00 AM – 9:00 PM",
+                "Thursday: 8:00 AM – 9:00 PM",
+                "Friday: 8:00 AM – 9:00 PM",
+                "Saturday: 8:00 AM – 9:00 PM",
+                "Sunday: 8:00 AM – 9:00 PM"
+              ],
+              "source_refs": [
+                {
+                  "title": "苍蝇馆子",
+                  "url": "https://maps.google.com/?cid=3933190410791851961&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:33:38.723860+00:00"
+                }
+              ],
+              "booking_url": "https://www.zhihu.com/question/21843946",
+              "distance_m": 2266,
+              "source_types": [
+                "restaurant",
+                "food",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Found for 'famous food in Chengdu'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJW2YiAana7zYRuZc49dZ_lTY/photos/AV-0GLeoD-K-M54L6TUnRhknYH_QAw6hGp7hBMnpVyVnceRmblr4DVHmFcn-1Lw0fizCcyX2kA7gD0oFpm7GFlhEDTH7DjGT9gmZmTGE9UgTC_LwRyd59OeDQ7whZ3Z-d1OQUuajvMjveOxL1WiNEWBHhNxGkfozHhbDda5ycckVpUP2gI4wE6DzySfuczWS6_bWaNU4XceV4_d52SROw5g_FbTY8W5j4P7PTnkf5D8eY0S6hfQ4VoqCuTn55x7BjuW5Me0_pwQaiICGYmRxILvKpDstEZ3R1SoE3HxO80ewEnwj2YRCAMBD-eQQO5AAG9j_CS1oG6f3F7xpN7PrssoqR5fEaaPc7T6VsZ1RaQTzwAxl44cUYKK-kgogPU2K2Hy0sV28okLx5ik0QZeVtybEtbnHzUoH83k/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            },
+            {
+              "id": "alt-9535333422",
+              "name": "Taolin Restaurant",
+              "geo": {
+                "lat": 30.650109999999998,
+                "lng": 104.077784
+              },
+              "address": "China, Si Chuan Sheng, Cheng Du Shi, Jin Jiang Qu, Dong Sheng Jie, 69号附1 邮政编码: 610023",
+              "rating": 4.7,
+              "review_count": 35,
+              "price_level": "$",
+              "cuisine": "Restaurant",
+              "reservable": true,
+              "opening_hours": [
+                "Monday: 10:00 AM – 10:00 PM",
+                "Tuesday: 10:00 AM – 10:00 PM",
+                "Wednesday: 10:00 AM – 10:00 PM",
+                "Thursday: 10:00 AM – 10:00 PM",
+                "Friday: 10:00 AM – 10:00 PM",
+                "Saturday: 10:00 AM – 10:00 PM",
+                "Sunday: 10:00 AM – 10:00 PM"
+              ],
+              "source_refs": [
+                {
+                  "title": "Taolin Restaurant",
+                  "url": "https://maps.google.com/?cid=9808605796430431176&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:33:38.736107+00:00"
+                }
+              ],
+              "booking_url": "",
+              "distance_m": 2722,
+              "source_types": [
+                "restaurant",
+                "food",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Found for 'best local restaurants in Chengdu'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJJb3kumrF7zYRyMMS7gArH4g/photos/AV-0GLfpi-1Z2MTp1HTvfgigJW_PvwKT6q-yvQaWy_G1xe1QtcmR4980_ZnS3FJzztqhDz0x3hIDuCiGBVMnVYSarBRIN2ARHT23D7tQyGYuv1azemqUdcrRTiXf6nAMLjTl5F4Ryy0h4R-P4UKHFxP0gvWYGmzJiQLcbRr_gE65x9WOeXI9-3uwFDPvgVIkLdyiRYxW0aANqi95LnSHsWpG5e3xbiQE5sw-yZmf3Cv-ZTvxuBFdVvs7GsL8a3_taF2F2RshqeuRC4tcAHsUsh39SBtCkEHRvd5DClh__XZyh346gfj_uaK6txXxu0K0dgCd_1dDUwzUld4-xcPNQNwaLXTceiwzTW8z2CCQfFwCe9pUQDLzMaiEvnWiFfiEvLLFbMIhoE8SETX5UcBoBIoOZ1rXkupykWx7E5hLzOD1WqJJ/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            }
+          ],
+          "links": [],
+          "image": {
+            "url": "https://places.googleapis.com/v1/places/ChIJ85DQSsva7zYRG58PRGmiurU/photos/AV-0GLcOv4Ghc3kzPK7hcvd5fh94QvhmZPRcd3PQnn7LTAdRXt5yrrB5epKUI5S8bR9H-BRxoKRfG0O9DUf266MvbLWFuMR3TcyqXCmnBRv4_eYpn-F8b-EsZoVvQbPSU43t15uGBnksuBsPq6_tiXqQHvVme_vOV_RR2rmvYGPieKiSI2KO1XWWJbU8p9gxOYn4H5abkOuanAgug5R9uu04vhNsYGd8f8AIC7sMOwxn0NotnMmMhCJtEewRnbHwH-yLcFu-rjyIUWw_GWolpv8LzUD24XhMLmsvGxzA99VDHYFnlyzSOVNyFKh2_stZJgNeEiTASqPUYGjBY6c2ZOzmqGMm4yLroLHaIdkWuI6KE7xe6ApgWNsL71AWFVam1WPVwdamCdMBHGu3VpNPtpwd-LjlUYb2WzmEvvsZjR2JlnAW7g/media?maxWidthPx=900&key=REDACTED",
+            "attribution": "Google",
+            "source": "google"
+          },
+          "step_free": null
+        },
+        {
+          "id": "it-fa4f260cf4",
+          "type": "attraction",
+          "name": "Kuan Alley and Zhai Alley",
+          "start": "14:30",
+          "end": "16:30",
+          "geo": {
+            "lat": 30.663611099999997,
+            "lng": 104.0525
+          },
+          "address": "China, Si Chuan Sheng, Cheng Du Shi, Qing Yang Qu, 长顺上街127号 邮政编码: 610032",
+          "notes": "Wander both alleys for folk-art shops and snacks. Go before the midday crowds.",
+          "source_refs": [
+            {
+              "title": "Kuan Alley and Zhai Alley",
+              "url": "https://maps.google.com/?cid=9460711288364552805&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+              "source": "Google Places",
+              "fetched_at": "2026-11-24T05:33:44.100281+00:00"
+            }
+          ],
+          "data_status": "ok",
+          "fetched_at": "2026-11-24T05:33:44.100322+00:00",
+          "price": null,
+          "price_kind": "none",
+          "booking_url": "",
+          "locked": false,
+          "confirmed": false,
+          "tags": [
+            "tourist_attraction",
+            "point_of_interest",
+            "establishment"
+          ],
+          "opening_hours": [],
+          "hours_status": "unknown",
+          "transfer": {
+            "from_item_id": "it-0d6168fc86",
+            "minutes": 9.7,
+            "mode": "transit",
+            "distance_km": 2.25,
+            "source": "straight-line estimate",
+            "tool": "haversine",
+            "result_id": "it-0d6168fc86->it-fa4f260cf4"
+          },
+          "names": {},
+          "meal_slot": null,
+          "rating": 4.4,
+          "review_count": 2155,
+          "price_level": null,
+          "cuisine": null,
+          "reservable": null,
+          "source_types": [
+            "tourist_attraction",
+            "point_of_interest",
+            "establishment"
+          ],
+          "source_summary": "Cultural hub on an ancient street, with souvenirs, local folk art & dining specialties.",
+          "alternatives": [
+            {
+              "id": "alt-b7a5a1fcc3",
+              "name": "Dujiangyan Irrigation System",
+              "geo": {
+                "lat": 31.005164899999997,
+                "lng": 103.60753079999999
+              },
+              "address": "2J45+326, Dujiangyan City, Chengdu, Sichuan, China, 611830",
+              "rating": 4.6,
+              "review_count": 1642,
+              "price_level": null,
+              "cuisine": null,
+              "reservable": null,
+              "opening_hours": [],
+              "source_refs": [
+                {
+                  "title": "Dujiangyan Irrigation System",
+                  "url": "https://maps.google.com/?cid=4983796136975335869&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:33:44.340248+00:00"
+                }
+              ],
+              "booking_url": "",
+              "distance_m": 56985,
+              "source_types": [
+                "historical_place",
+                "tourist_attraction",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Network of dams & levees for irrigation built circa 250 B.C. & still in use today.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJq9QOqsgG8DYRvQFhaS4AKkU/photos/AV-0GLej5IdYRlVxHN1bd8PcPMZWCCrYJpxazKAYlsaUMVXPXFS1L9cCC5HOX3DjNbHB5_07ShRpYxAH--rHEu2dzMep43YEbx6lHILo2W8PEIkid7nocJraIZqwE1PgvwZWIrwNxrF1t3qE0LsIBWHpR_qSuPSiFTU8R7uyxt1wmOfqpmOs_f8__68sj_MHK_MjzmVKNPsylnqUKw63RMfanrOFzcsY3s0GG2R2GmWeNX0B0k8dSVEpgcRBd9zse5kiBn9GK5fpjQcUzJtJpVMSWxvG7ntd-l5Tza0tau464pKLGEMW2ERf9i1zIBt2GWYMqI2XAetVBaqZY1icKEpA78Kaic_i52A77_k9disp-IpTU3YOByuNrFfC9LYNtBa7csVu1juIE88yctyrxKMpn6wHKPk/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            },
+            {
+              "id": "alt-879847fd4a",
+              "name": "Qingcheng Shan",
+              "geo": {
+                "lat": 30.966666699999998,
+                "lng": 103.5166667
+              },
+              "address": "Qingcheng Shan, Dujiangyan City, Chengdu, China, 623001",
+              "rating": 4.5,
+              "review_count": 50,
+              "price_level": null,
+              "cuisine": null,
+              "reservable": null,
+              "opening_hours": [],
+              "source_refs": [
+                {
+                  "title": "Qingcheng Shan",
+                  "url": "https://maps.google.com/?cid=16330642719317156214&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:33:44.540217+00:00"
+                }
+              ],
+              "booking_url": "",
+              "distance_m": 61270,
+              "source_types": [
+                "mountain_peak",
+                "natural_feature",
+                "establishment"
+              ],
+              "source_summary": "Found for 'Qingcheng Mountain Chengdu'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJrZa9Rlyq-jYRduG3ngcZouI/photos/AV-0GLcU6c5474bZavMP5ml-O9ZMHFUnhtgEPqZZbtsdmQQj5hOPb74JqsKm7iXqf8R8fHMu6ztKBZNq5fhJ6PUv60Zy9dzy_nKTGci6URUkb6gbdj5Eh-kQ1uOBVvhqKXMS7rvO_StOgM1sKfGVEb-guQM5c1OqWCGFm77FZ0xKKZ9p-6s9jkRoH8wobbZMMEOQSvmMBtAXVGVvvWp15rV9pAHDoHtCgOYDQaekPRDzA5OHwNV7dOFfRqSaLoVskzgXs2wiUQk1ajcqLpA95_-mEmyFsZebn1yWA0ta-31ZKD4JcyWuvn-w_thRqTBIg8yqEQt2zGXlB0E0ctTIy0InaA_hgYLswI6dCSGDgxXyJgw90SJUzruB8EhjE2pS0D5xoxvNlDQ3wgYtN3_hb4BCrdCvayc/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            }
+          ],
+          "links": [],
+          "image": {
+            "url": "https://places.googleapis.com/v1/places/ChIJRxJWE9jE7zYRZVJ_scoyS4M/photos/AV-0GLeKw2BEDK1y44njlNk7toiM6Vcrdj-pSi9P7KRW_L5HtUA8pahQxfSeMpn4WZig2coLvKFTDq1GV4U2e9Q5N7rdj0osvTSD9uJ1maV-3nCCc8aiuRSUOJYA-i9kMX69eKhuN28D_538xW9-sBtNAzGCh2gjFgwPPQdK6cyiUylxAoKAERTOvuJ77UQcYB26DhZdJvNX2WRDGH-hNnE-gVT92uPV59dpu7VzGSl4mIZNjKmKoocZj_bgUwJ2cH2qDLlsH9YmxdmPRon4NblWWeHdo5NGi8VYx3Heg2rnwqbB274SO6VuHt2QQJuFftVpQm8wfael1VAbeVrH8JPP-HXHPObJNkF8lUEcdzu8ZuuEJuEzxbm6FEJ3gh88EGNUUOu2uOFIfO3eUIkPcC-eaAFBlDzLp0w/media?maxWidthPx=900&key=REDACTED",
+            "attribution": "Google",
+            "source": "google"
+          },
+          "step_free": true
+        },
+        {
+          "id": "it-b6dabd5be9",
+          "type": "meal",
+          "name": "苍蝇馆子",
+          "start": "18:30",
+          "end": "19:45",
+          "geo": {
+            "lat": 30.681919999999998,
+            "lng": 104.09447
+          },
+          "address": "M3JV+QQ9, Fu Qing Lu Er Duan, 李家沱 Cheng Hua Qu, Cheng Du Shi, Si Chuan Sheng, China, 610051",
+          "notes": "A highly rated local restaurant for a relaxed dinner. It is on the east side of the city, so allow time to get there.",
+          "source_refs": [
+            {
+              "title": "苍蝇馆子",
+              "url": "https://maps.google.com/?cid=3933190410791851961&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+              "source": "Google Places",
+              "fetched_at": "2026-11-24T05:33:38.723860+00:00"
+            }
+          ],
+          "data_status": "ok",
+          "fetched_at": "2026-11-24T05:33:38.723866+00:00",
+          "price": null,
+          "price_kind": "none",
+          "booking_url": "https://www.zhihu.com/question/21843946",
+          "locked": false,
+          "confirmed": false,
+          "tags": [
+            "restaurant",
+            "food",
+            "point_of_interest",
+            "establishment"
+          ],
+          "opening_hours": [
+            "Monday: 8:00 AM – 9:00 PM",
+            "Tuesday: 8:00 AM – 9:00 PM",
+            "Wednesday: 8:00 AM – 9:00 PM",
+            "Thursday: 8:00 AM – 9:00 PM",
+            "Friday: 8:00 AM – 9:00 PM",
+            "Saturday: 8:00 AM – 9:00 PM",
+            "Sunday: 8:00 AM – 9:00 PM"
+          ],
+          "hours_status": "stated",
+          "transfer": {
+            "from_item_id": "it-fa4f260cf4",
+            "minutes": 19.5,
+            "mode": "transit",
+            "distance_km": 4.5,
+            "source": "straight-line estimate",
+            "tool": "haversine",
+            "result_id": "it-fa4f260cf4->it-b6dabd5be9"
+          },
+          "names": {},
+          "meal_slot": "dinner",
+          "rating": 4.9,
+          "review_count": 35,
+          "price_level": null,
+          "cuisine": "Restaurant",
+          "reservable": true,
+          "source_types": [
+            "restaurant",
+            "food",
+            "point_of_interest",
+            "establishment"
+          ],
+          "source_summary": "Found for 'famous food in Chengdu'.",
+          "alternatives": [
+            {
+              "id": "alt-e7c86066f1",
+              "name": "Dongzi Kouzhang Lao'er Liangfen",
+              "geo": {
+                "lat": 30.674167999999998,
+                "lng": 104.072552
+              },
+              "address": "39 Wen Shu Yuan Jie, Qing Yang Qu, Cheng Du Shi, Si Chuan Sheng, China, 610084",
+              "rating": 4.5,
+              "review_count": 43,
+              "price_level": "$",
+              "cuisine": "Chinese restaurant",
+              "reservable": null,
+              "opening_hours": [
+                "Monday: 10:00 AM – 10:00 PM",
+                "Tuesday: 10:00 AM – 10:00 PM",
+                "Wednesday: 10:00 AM – 10:00 PM",
+                "Thursday: 10:00 AM – 10:00 PM",
+                "Friday: 10:00 AM – 10:00 PM",
+                "Saturday: 10:00 AM – 10:00 PM",
+                "Sunday: 10:00 AM – 10:00 PM"
+              ],
+              "source_refs": [
+                {
+                  "title": "Dongzi Kouzhang Lao'er Liangfen",
+                  "url": "https://maps.google.com/?cid=13094957439530278683&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:33:38.723935+00:00"
+                }
+              ],
+              "booking_url": "",
+              "distance_m": 2266,
+              "source_types": [
+                "chinese_restaurant",
+                "restaurant",
+                "food",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Found for 'famous food in Chengdu'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJ85DQSsva7zYRG58PRGmiurU/photos/AV-0GLcOv4Ghc3kzPK7hcvd5fh94QvhmZPRcd3PQnn7LTAdRXt5yrrB5epKUI5S8bR9H-BRxoKRfG0O9DUf266MvbLWFuMR3TcyqXCmnBRv4_eYpn-F8b-EsZoVvQbPSU43t15uGBnksuBsPq6_tiXqQHvVme_vOV_RR2rmvYGPieKiSI2KO1XWWJbU8p9gxOYn4H5abkOuanAgug5R9uu04vhNsYGd8f8AIC7sMOwxn0NotnMmMhCJtEewRnbHwH-yLcFu-rjyIUWw_GWolpv8LzUD24XhMLmsvGxzA99VDHYFnlyzSOVNyFKh2_stZJgNeEiTASqPUYGjBY6c2ZOzmqGMm4yLroLHaIdkWuI6KE7xe6ApgWNsL71AWFVam1WPVwdamCdMBHGu3VpNPtpwd-LjlUYb2WzmEvvsZjR2JlnAW7g/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            },
+            {
+              "id": "alt-3b86b403c0",
+              "name": "Shudaxia Hot Pot Luomashi Branch",
+              "geo": {
+                "lat": 30.667240000000003,
+                "lng": 104.06846
+              },
+              "address": "18 Xi Yu Long Jie, Luomashi, Qing Yang Qu, Cheng Du Shi, Si Chuan Sheng, China, 610014",
+              "rating": 4.9,
+              "review_count": 21,
+              "price_level": "$$",
+              "cuisine": "Chinese restaurant",
+              "reservable": true,
+              "opening_hours": [],
+              "source_refs": [
+                {
+                  "title": "Shudaxia Hot Pot Luomashi Branch",
+                  "url": "https://maps.google.com/?cid=3509367645958431346&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:33:43.855436+00:00"
+                }
+              ],
+              "booking_url": "",
+              "distance_m": 2975,
+              "source_types": [
+                "chinese_restaurant",
+                "restaurant",
+                "food",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Found for 'Shu Da Xia hotpot Chengdu Chengdu'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJ_7OiCzHF7zYRcuKZ00fHszA/photos/AV-0GLeANMavBaa8DDoLbIJ1qqW72KiSfo_bSflvhjR0MxpZhP3vyaBB7Z_P0XBtpC0E1Qo_7W41gPNo9_2sq7zaJOvnt7k9ehkXCmD4mdDlI40ebkDEpu6V4Rj7bNW5cqI2vKAt4-gtg6_kdAi3PEH20bOpygK4osvGpeXzfIshQUwsQrOLEhyyeBFZ4mupVBntW-FRpIhGVWhrXOwtbTorIV0Rx1pSTNXQU3kI9evqbp7T1Ui03ymP9GNiZzhqg6w_sfk7X1W6ciEGtzRueSmO_JQ6BtlKB53APcd3hMpo5KYGdQIKm3bLfnlkJJdFcbbD1MolXRdGW8-orpcjaBFKkFl_tAXyOXGp04uXiD6wrkX1CNFppL_Gi_EsSCLQFM5YBdM29Y9TxhvUJFjOOBQpn-p4r5U/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            },
+            {
+              "id": "alt-611115fc63",
+              "name": "Ma Wang Zi Chuan Restaurant",
+              "geo": {
+                "lat": 30.65141,
+                "lng": 104.08393
+              },
+              "address": "China, Cheng Du Shi, Jin Jiang Qu, CN 四川省 成都市 锦江区 东糠市街 1 1号附5 邮政编码: 610023",
+              "rating": 4.8,
+              "review_count": 137,
+              "price_level": "$$",
+              "cuisine": "Chinese restaurant",
+              "reservable": true,
+              "opening_hours": [],
+              "source_refs": [
+                {
+                  "title": "Ma Wang Zi Chuan Restaurant",
+                  "url": "https://maps.google.com/?cid=15791323567895507616&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:33:38.736081+00:00"
+                }
+              ],
+              "booking_url": "",
+              "distance_m": 3539,
+              "source_types": [
+                "chinese_restaurant",
+                "restaurant",
+                "food",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Found for 'best local restaurants in Chengdu'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJwaBCFELF7zYRoHKqdR4NJts/photos/AV-0GLfmV79QzRaIv8_Ur1-VNRWsHklwJ0Wa0gsFNw4kIvnX7Rv6hU-eylsrY82SJ9HZQ7LlYdWEeF0YyRpc3CjIXxCBsMGF0F68eFE9bQKteu5RF6MBpe_hSanyKvhMK2a8Mse6zzCtIEYTuo3PIzUm9qrMg_79ayCD48enpZzsHDXNUpU1U9iYdx7UDkg1rIw703uGz77spcTKzR17EVOw1D_KOwrIp1zkI6YV25roAzPR7wd6gTAGN8bi_07rexNRWAUo8M03mH9ufSrl3g0YeF62OLYacAEP2guDYHMNoY6XKcVQJLKfogEF85wy7gmUpPcTwCLmNFRu3Kd7cu5kPB4ujeuI8KCqjW9_MPT_lYPL3u8MUmA8lVs8D76odV-xQcI6c3wPzAmgYqlqTEeWJAIfogA/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            }
+          ],
+          "links": [],
+          "image": {
+            "url": "https://places.googleapis.com/v1/places/ChIJW2YiAana7zYRuZc49dZ_lTY/photos/AV-0GLeoD-K-M54L6TUnRhknYH_QAw6hGp7hBMnpVyVnceRmblr4DVHmFcn-1Lw0fizCcyX2kA7gD0oFpm7GFlhEDTH7DjGT9gmZmTGE9UgTC_LwRyd59OeDQ7whZ3Z-d1OQUuajvMjveOxL1WiNEWBHhNxGkfozHhbDda5ycckVpUP2gI4wE6DzySfuczWS6_bWaNU4XceV4_d52SROw5g_FbTY8W5j4P7PTnkf5D8eY0S6hfQ4VoqCuTn55x7BjuW5Me0_pwQaiICGYmRxILvKpDstEZ3R1SoE3HxO80ewEnwj2YRCAMBD-eQQO5AAG9j_CS1oG6f3F7xpN7PrssoqR5fEaaPc7T6VsZ1RaQTzwAxl44cUYKK-kgogPU2K2Hy0sV28okLx5ik0QZeVtybEtbnHzUoH83k/media?maxWidthPx=900&key=REDACTED",
+            "attribution": "Google",
+            "source": "google"
+          },
+          "step_free": null
+        }
+      ],
+      "note": "The Panda Base and People's Park tea could not be added, so the day is open for an early start or a slow morning.",
+      "elevation_gain_m": null,
+      "segment_id": "seg-1",
+      "city": ""
+    },
+    {
+      "date": "2027-01-24",
+      "title": "Easy city day",
+      "weather": {
+        "date": "2027-01-24",
+        "status": "unavailable",
+        "summary": "No forecast yet: the trip is beyond the 16-day forecast window.",
+        "high_c": null,
+        "low_c": null,
+        "precipitation_probability": null,
+        "source": "Open-Meteo",
+        "fetched_at": "2026-11-24T05:33:38.339917+00:00",
+        "note": "A forecast will be fetched closer to the trip."
+      },
+      "items": [
+        {
+          "id": "it-c31f77b478",
+          "type": "attraction",
+          "name": "Chengdu Wu Hou Shrine",
+          "start": "09:30",
+          "end": "11:30",
+          "geo": {
+            "lat": 30.645802,
+            "lng": 104.04942899999999
+          },
+          "address": "China, Si Chuan Sheng, Cheng Du Shi, Wu Hou Qu, Gaosheng Bridge, Wu Hou Ci Da Jie, 231号附2号 邮政编码: 610093",
+          "notes": "Morning visit to Wuhou Shrine, before the 12:30 lunch.",
+          "source_refs": [
+            {
+              "title": "Chengdu Wu Hou Shrine",
+              "url": "https://maps.google.com/?cid=6482829999758035241&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+              "source": "Google Places",
+              "fetched_at": "2026-11-24T05:41:06.830998+00:00"
+            }
+          ],
+          "data_status": "ok",
+          "fetched_at": "2026-11-24T05:41:06.831044+00:00",
+          "price": null,
+          "price_kind": "none",
+          "booking_url": "http://www.wuhouci.net.cn/",
+          "locked": false,
+          "confirmed": false,
+          "tags": [
+            "museum",
+            "tourist_attraction",
+            "point_of_interest",
+            "establishment"
+          ],
+          "opening_hours": [],
+          "hours_status": "unknown",
+          "transfer": null,
+          "names": {},
+          "meal_slot": null,
+          "rating": 4.5,
+          "review_count": 1132,
+          "price_level": null,
+          "cuisine": null,
+          "reservable": null,
+          "source_types": [
+            "museum",
+            "tourist_attraction",
+            "point_of_interest",
+            "establishment"
+          ],
+          "source_summary": "Temple dedicated to a prominent Three Kingdoms–era figure, with relics in a tranquil setting.",
+          "alternatives": [],
+          "links": [],
+          "image": {
+            "url": "https://places.googleapis.com/v1/places/ChIJHSK0oePE7zYRKcnSiomj91k/photos/AV-0GLdksQfpXSLfJF1ZOwPNFLmMa6Er1qz56BH-rR7GSIIYd_jM059El3_1CwLjI5zJngmr1BdW9x9sJfyOtEyBMZqmLRcY9Vzzt8HFNnP3lc6F3WxkIdkGiLvRg1wYqYsyL5Jm9oCp3mlaxrffIbiS8cVjmQA_BnN684b_gPa5N9uVK6wJ1AoiAdKNHlxd6tWFwe1fqiMVgBAiPuQ9G6TVF1dCzWZuUd6jlTG-_x3LQOfmy7GWaLmd7CGDPiQxgY-_eCVOKTeWcp55ge4dTp9cN6GDvMcpBDXakZid4rlhWGd_EVMf4tTF7fvNnUD0NFLhPsj09Bo3l7Q2t-MGlA9HqltLSzbyFZiDxh7ByEiEWh2Rk9p_10YiVRAeIc1itsvoglzutwteQx4g8TrLNeQSg0rMOQ/media?maxWidthPx=900&key=REDACTED",
+            "attribution": "Google",
+            "source": "google"
+          },
+          "step_free": true
+        },
+        {
+          "id": "it-0da2293559",
+          "type": "meal",
+          "name": "Furonghuang Garden Restaurant",
+          "start": "12:30",
+          "end": "13:45",
+          "geo": {
+            "lat": 30.6646975,
+            "lng": 104.00984179999999
+          },
+          "address": "M275+VWG, Guang Hua Cun Jie, Qing Yang Qu, Cheng Du Shi, Si Chuan Sheng, China, 610074",
+          "notes": "A garden-style Sichuan lunch in the west of the city.",
+          "source_refs": [
+            {
+              "title": "Furonghuang Garden Restaurant",
+              "url": "https://maps.google.com/?cid=3856352742527508390&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+              "source": "Google Places",
+              "fetched_at": "2026-11-24T05:33:38.736163+00:00"
+            }
+          ],
+          "data_status": "ok",
+          "fetched_at": "2026-11-24T05:33:38.736167+00:00",
+          "price": null,
+          "price_kind": "none",
+          "booking_url": "",
+          "locked": false,
+          "confirmed": false,
+          "tags": [
+            "chinese_restaurant",
+            "restaurant",
+            "food",
+            "point_of_interest",
+            "establishment"
+          ],
+          "opening_hours": [
+            "Monday: 10:00 AM – 9:00 PM",
+            "Tuesday: 10:00 AM – 9:00 PM",
+            "Wednesday: 10:00 AM – 9:00 PM",
+            "Thursday: 10:00 AM – 9:00 PM",
+            "Friday: 10:00 AM – 9:00 PM",
+            "Saturday: 10:00 AM – 9:00 PM",
+            "Sunday: 10:00 AM – 9:00 PM"
+          ],
+          "hours_status": "stated",
+          "transfer": {
+            "from_item_id": "it-c31f77b478",
+            "minutes": 18.8,
+            "mode": "transit",
+            "distance_km": 4.33,
+            "source": "straight-line estimate",
+            "tool": "haversine",
+            "result_id": "it-c31f77b478->it-0da2293559"
+          },
+          "names": {},
+          "meal_slot": "lunch",
+          "rating": 4.6,
+          "review_count": 19,
+          "price_level": null,
+          "cuisine": "Chinese restaurant",
+          "reservable": true,
+          "source_types": [
+            "chinese_restaurant",
+            "restaurant",
+            "food",
+            "point_of_interest",
+            "establishment"
+          ],
+          "source_summary": "Found for 'best local restaurants in Chengdu'.",
+          "alternatives": [
+            {
+              "id": "alt-1d90da6b4a",
+              "name": "Longsenyuan",
+              "geo": {
+                "lat": 30.6588779,
+                "lng": 104.0453483
+              },
+              "address": "58 Qin Tai Lu, 青羊宫商圈 Qing Yang Qu, Cheng Du Shi, Si Chuan Sheng, China, 610032",
+              "rating": 4.5,
+              "review_count": 31,
+              "price_level": "$$",
+              "cuisine": "Chinese restaurant",
+              "reservable": true,
+              "opening_hours": [
+                "Monday: 10:00 AM – 10:00 PM",
+                "Tuesday: 10:00 AM – 10:00 PM",
+                "Wednesday: 10:00 AM – 10:00 PM",
+                "Thursday: 10:00 AM – 10:00 PM",
+                "Friday: 10:00 AM – 10:00 PM",
+                "Saturday: 10:00 AM – 10:00 PM",
+                "Sunday: 10:00 AM – 10:00 PM"
+              ],
+              "source_refs": [
+                {
+                  "title": "Longsenyuan",
+                  "url": "https://maps.google.com/?cid=7136942796636183147&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:33:38.736145+00:00"
+                }
+              ],
+              "booking_url": "",
+              "distance_m": 3457,
+              "source_types": [
+                "chinese_restaurant",
+                "restaurant",
+                "food",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Found for 'best local restaurants in Chengdu'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJjxnbZtzE7zYRa1rID6mDC2M/photos/AV-0GLe4ShOvpkTJaza2VqAbD4_aojISoHVgMOf3LiNTvTzl61asqTHRqzn_Tm3_8RhJRSJ_S-fReNR4owILk8SHfZFQ7V9dsov2wKoKiJnTpCfLq2av7G0ZtXDNZoftkNEYHmP84YUNqMld52m6LWRYSU8dFyFSZMueq99dzo_mY2hhUAawU4dbt5iS0i3KjUgsRjGKPxk-Rz6oSyh1d0aIdH7QPZ0rYOQt4LU6v5FlNtwY8ZvxmH1rxJP_RNCcSGmJCkw6EuJtk9G0_WGF1_xK3M0E86Y5L-y4O5pXbHmc0Chg7ebgUAn3Cmmj4E_oihZD7yfRDQdS210ocWHFh84Y8eosu8rGIQFpWOVuJLJCaq_g2ISw-c5sR6-_Wq9eNn5O9VdnGlEJGrUlRqP1EdIaAIb6L1k4AanxG4Q1zf4f943wBA/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            },
+            {
+              "id": "alt-3b86b403c0",
+              "name": "Shudaxia Hot Pot Luomashi Branch",
+              "geo": {
+                "lat": 30.667240000000003,
+                "lng": 104.06846
+              },
+              "address": "18 Xi Yu Long Jie, Luomashi, Qing Yang Qu, Cheng Du Shi, Si Chuan Sheng, China, 610014",
+              "rating": 4.9,
+              "review_count": 21,
+              "price_level": "$$",
+              "cuisine": "Chinese restaurant",
+              "reservable": true,
+              "opening_hours": [],
+              "source_refs": [
+                {
+                  "title": "Shudaxia Hot Pot Luomashi Branch",
+                  "url": "https://maps.google.com/?cid=3509367645958431346&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:33:43.855436+00:00"
+                }
+              ],
+              "booking_url": "",
+              "distance_m": 5614,
+              "source_types": [
+                "chinese_restaurant",
+                "restaurant",
+                "food",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Found for 'Shu Da Xia hotpot Chengdu Chengdu'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJ_7OiCzHF7zYRcuKZ00fHszA/photos/AV-0GLeANMavBaa8DDoLbIJ1qqW72KiSfo_bSflvhjR0MxpZhP3vyaBB7Z_P0XBtpC0E1Qo_7W41gPNo9_2sq7zaJOvnt7k9ehkXCmD4mdDlI40ebkDEpu6V4Rj7bNW5cqI2vKAt4-gtg6_kdAi3PEH20bOpygK4osvGpeXzfIshQUwsQrOLEhyyeBFZ4mupVBntW-FRpIhGVWhrXOwtbTorIV0Rx1pSTNXQU3kI9evqbp7T1Ui03ymP9GNiZzhqg6w_sfk7X1W6ciEGtzRueSmO_JQ6BtlKB53APcd3hMpo5KYGdQIKm3bLfnlkJJdFcbbD1MolXRdGW8-orpcjaBFKkFl_tAXyOXGp04uXiD6wrkX1CNFppL_Gi_EsSCLQFM5YBdM29Y9TxhvUJFjOOBQpn-p4r5U/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            },
+            {
+              "id": "alt-e7c86066f1",
+              "name": "Dongzi Kouzhang Lao'er Liangfen",
+              "geo": {
+                "lat": 30.674167999999998,
+                "lng": 104.072552
+              },
+              "address": "39 Wen Shu Yuan Jie, Qing Yang Qu, Cheng Du Shi, Si Chuan Sheng, China, 610084",
+              "rating": 4.5,
+              "review_count": 43,
+              "price_level": "$",
+              "cuisine": "Chinese restaurant",
+              "reservable": null,
+              "opening_hours": [
+                "Monday: 10:00 AM – 10:00 PM",
+                "Tuesday: 10:00 AM – 10:00 PM",
+                "Wednesday: 10:00 AM – 10:00 PM",
+                "Thursday: 10:00 AM – 10:00 PM",
+                "Friday: 10:00 AM – 10:00 PM",
+                "Saturday: 10:00 AM – 10:00 PM",
+                "Sunday: 10:00 AM – 10:00 PM"
+              ],
+              "source_refs": [
+                {
+                  "title": "Dongzi Kouzhang Lao'er Liangfen",
+                  "url": "https://maps.google.com/?cid=13094957439530278683&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:33:38.723935+00:00"
+                }
+              ],
+              "booking_url": "",
+              "distance_m": 6089,
+              "source_types": [
+                "chinese_restaurant",
+                "restaurant",
+                "food",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Found for 'famous food in Chengdu'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJ85DQSsva7zYRG58PRGmiurU/photos/AV-0GLcOv4Ghc3kzPK7hcvd5fh94QvhmZPRcd3PQnn7LTAdRXt5yrrB5epKUI5S8bR9H-BRxoKRfG0O9DUf266MvbLWFuMR3TcyqXCmnBRv4_eYpn-F8b-EsZoVvQbPSU43t15uGBnksuBsPq6_tiXqQHvVme_vOV_RR2rmvYGPieKiSI2KO1XWWJbU8p9gxOYn4H5abkOuanAgug5R9uu04vhNsYGd8f8AIC7sMOwxn0NotnMmMhCJtEewRnbHwH-yLcFu-rjyIUWw_GWolpv8LzUD24XhMLmsvGxzA99VDHYFnlyzSOVNyFKh2_stZJgNeEiTASqPUYGjBY6c2ZOzmqGMm4yLroLHaIdkWuI6KE7xe6ApgWNsL71AWFVam1WPVwdamCdMBHGu3VpNPtpwd-LjlUYb2WzmEvvsZjR2JlnAW7g/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            }
+          ],
+          "links": [],
+          "image": {
+            "url": "https://places.googleapis.com/v1/places/ChIJY_jEKKfE7zYRpp_0MmOEhDU/photos/AV-0GLdmuSYLeF5xXgqUJ_OweLAXxZokF7WpsKL0wNScVHDDzyI0Cp-QNGoBtA63I1QqOk5iXE0nu1Fb2g3S23qgg_KjQNQFaiowTCS-_pHaiHVZn2kXozwiVlnR13JF3HIgbirVNPTZ5CtqAfQTgp8btyI7Ic2on5Nt-43vPcPCSy29E2wflLB1-yp2Vus6aPfS5a9h58OaDVt3DrWtbak86mm8We6hHI2VKeyXMi70JmNKss1fxR4bojII6ifaDCTVtMkvzh5f9qVwh74jOPAJAhI9uL-lyHzBzf5bsTnJvFbyQbnkFtGGaxHPxTrhZDZGgnBmBQJzmymDLtSKIs99ucgHZPmMsQC6aBC5uThGcgAg4luzEzuL1jpVQMjptvFbEUAK2wzKLlyIBum9LaMRPyAoPY4/media?maxWidthPx=900&key=REDACTED",
+            "attribution": "Google",
+            "source": "google"
+          },
+          "step_free": null
+        },
+        {
+          "id": "it-5634afd086",
+          "type": "meal",
+          "name": "Taolin Restaurant",
+          "start": "18:30",
+          "end": "19:45",
+          "geo": {
+            "lat": 30.650109999999998,
+            "lng": 104.077784
+          },
+          "address": "China, Si Chuan Sheng, Cheng Du Shi, Jin Jiang Qu, Dong Sheng Jie, 69号附1 邮政编码: 610023",
+          "notes": "Dinner close to the Chunxi Road area, so it is easy to get back to the hotel.",
+          "source_refs": [
+            {
+              "title": "Taolin Restaurant",
+              "url": "https://maps.google.com/?cid=9808605796430431176&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+              "source": "Google Places",
+              "fetched_at": "2026-11-24T05:33:38.736107+00:00"
+            }
+          ],
+          "data_status": "ok",
+          "fetched_at": "2026-11-24T05:33:38.736111+00:00",
+          "price": null,
+          "price_kind": "none",
+          "booking_url": "",
+          "locked": false,
+          "confirmed": false,
+          "tags": [
+            "restaurant",
+            "food",
+            "point_of_interest",
+            "establishment"
+          ],
+          "opening_hours": [
+            "Monday: 10:00 AM – 10:00 PM",
+            "Tuesday: 10:00 AM – 10:00 PM",
+            "Wednesday: 10:00 AM – 10:00 PM",
+            "Thursday: 10:00 AM – 10:00 PM",
+            "Friday: 10:00 AM – 10:00 PM",
+            "Saturday: 10:00 AM – 10:00 PM",
+            "Sunday: 10:00 AM – 10:00 PM"
+          ],
+          "hours_status": "stated",
+          "transfer": {
+            "from_item_id": "it-0da2293559",
+            "minutes": 29,
+            "mode": "transit",
+            "distance_km": 6.7,
+            "source": "straight-line estimate",
+            "tool": "haversine",
+            "result_id": "it-0da2293559->it-5634afd086"
+          },
+          "names": {},
+          "meal_slot": "dinner",
+          "rating": 4.7,
+          "review_count": 35,
+          "price_level": "$",
+          "cuisine": "Restaurant",
+          "reservable": true,
+          "source_types": [
+            "restaurant",
+            "food",
+            "point_of_interest",
+            "establishment"
+          ],
+          "source_summary": "Found for 'best local restaurants in Chengdu'.",
+          "alternatives": [
+            {
+              "id": "alt-611115fc63",
+              "name": "Ma Wang Zi Chuan Restaurant",
+              "geo": {
+                "lat": 30.65141,
+                "lng": 104.08393
+              },
+              "address": "China, Cheng Du Shi, Jin Jiang Qu, CN 四川省 成都市 锦江区 东糠市街 1 1号附5 邮政编码: 610023",
+              "rating": 4.8,
+              "review_count": 137,
+              "price_level": "$$",
+              "cuisine": "Chinese restaurant",
+              "reservable": true,
+              "opening_hours": [],
+              "source_refs": [
+                {
+                  "title": "Ma Wang Zi Chuan Restaurant",
+                  "url": "https://maps.google.com/?cid=15791323567895507616&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:33:38.736081+00:00"
+                }
+              ],
+              "booking_url": "",
+              "distance_m": 605,
+              "source_types": [
+                "chinese_restaurant",
+                "restaurant",
+                "food",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Found for 'best local restaurants in Chengdu'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJwaBCFELF7zYRoHKqdR4NJts/photos/AV-0GLfmV79QzRaIv8_Ur1-VNRWsHklwJ0Wa0gsFNw4kIvnX7Rv6hU-eylsrY82SJ9HZQ7LlYdWEeF0YyRpc3CjIXxCBsMGF0F68eFE9bQKteu5RF6MBpe_hSanyKvhMK2a8Mse6zzCtIEYTuo3PIzUm9qrMg_79ayCD48enpZzsHDXNUpU1U9iYdx7UDkg1rIw703uGz77spcTKzR17EVOw1D_KOwrIp1zkI6YV25roAzPR7wd6gTAGN8bi_07rexNRWAUo8M03mH9ufSrl3g0YeF62OLYacAEP2guDYHMNoY6XKcVQJLKfogEF85wy7gmUpPcTwCLmNFRu3Kd7cu5kPB4ujeuI8KCqjW9_MPT_lYPL3u8MUmA8lVs8D76odV-xQcI6c3wPzAmgYqlqTEeWJAIfogA/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            },
+            {
+              "id": "alt-3b86b403c0",
+              "name": "Shudaxia Hot Pot Luomashi Branch",
+              "geo": {
+                "lat": 30.667240000000003,
+                "lng": 104.06846
+              },
+              "address": "18 Xi Yu Long Jie, Luomashi, Qing Yang Qu, Cheng Du Shi, Si Chuan Sheng, China, 610014",
+              "rating": 4.9,
+              "review_count": 21,
+              "price_level": "$$",
+              "cuisine": "Chinese restaurant",
+              "reservable": true,
+              "opening_hours": [],
+              "source_refs": [
+                {
+                  "title": "Shudaxia Hot Pot Luomashi Branch",
+                  "url": "https://maps.google.com/?cid=3509367645958431346&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:33:43.855436+00:00"
+                }
+              ],
+              "booking_url": "",
+              "distance_m": 2103,
+              "source_types": [
+                "chinese_restaurant",
+                "restaurant",
+                "food",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Found for 'Shu Da Xia hotpot Chengdu Chengdu'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJ_7OiCzHF7zYRcuKZ00fHszA/photos/AV-0GLeANMavBaa8DDoLbIJ1qqW72KiSfo_bSflvhjR0MxpZhP3vyaBB7Z_P0XBtpC0E1Qo_7W41gPNo9_2sq7zaJOvnt7k9ehkXCmD4mdDlI40ebkDEpu6V4Rj7bNW5cqI2vKAt4-gtg6_kdAi3PEH20bOpygK4osvGpeXzfIshQUwsQrOLEhyyeBFZ4mupVBntW-FRpIhGVWhrXOwtbTorIV0Rx1pSTNXQU3kI9evqbp7T1Ui03ymP9GNiZzhqg6w_sfk7X1W6ciEGtzRueSmO_JQ6BtlKB53APcd3hMpo5KYGdQIKm3bLfnlkJJdFcbbD1MolXRdGW8-orpcjaBFKkFl_tAXyOXGp04uXiD6wrkX1CNFppL_Gi_EsSCLQFM5YBdM29Y9TxhvUJFjOOBQpn-p4r5U/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            },
+            {
+              "id": "alt-e7c86066f1",
+              "name": "Dongzi Kouzhang Lao'er Liangfen",
+              "geo": {
+                "lat": 30.674167999999998,
+                "lng": 104.072552
+              },
+              "address": "39 Wen Shu Yuan Jie, Qing Yang Qu, Cheng Du Shi, Si Chuan Sheng, China, 610084",
+              "rating": 4.5,
+              "review_count": 43,
+              "price_level": "$",
+              "cuisine": "Chinese restaurant",
+              "reservable": null,
+              "opening_hours": [
+                "Monday: 10:00 AM – 10:00 PM",
+                "Tuesday: 10:00 AM – 10:00 PM",
+                "Wednesday: 10:00 AM – 10:00 PM",
+                "Thursday: 10:00 AM – 10:00 PM",
+                "Friday: 10:00 AM – 10:00 PM",
+                "Saturday: 10:00 AM – 10:00 PM",
+                "Sunday: 10:00 AM – 10:00 PM"
+              ],
+              "source_refs": [
+                {
+                  "title": "Dongzi Kouzhang Lao'er Liangfen",
+                  "url": "https://maps.google.com/?cid=13094957439530278683&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:33:38.723935+00:00"
+                }
+              ],
+              "booking_url": "",
+              "distance_m": 2722,
+              "source_types": [
+                "chinese_restaurant",
+                "restaurant",
+                "food",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Found for 'famous food in Chengdu'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJ85DQSsva7zYRG58PRGmiurU/photos/AV-0GLcOv4Ghc3kzPK7hcvd5fh94QvhmZPRcd3PQnn7LTAdRXt5yrrB5epKUI5S8bR9H-BRxoKRfG0O9DUf266MvbLWFuMR3TcyqXCmnBRv4_eYpn-F8b-EsZoVvQbPSU43t15uGBnksuBsPq6_tiXqQHvVme_vOV_RR2rmvYGPieKiSI2KO1XWWJbU8p9gxOYn4H5abkOuanAgug5R9uu04vhNsYGd8f8AIC7sMOwxn0NotnMmMhCJtEewRnbHwH-yLcFu-rjyIUWw_GWolpv8LzUD24XhMLmsvGxzA99VDHYFnlyzSOVNyFKh2_stZJgNeEiTASqPUYGjBY6c2ZOzmqGMm4yLroLHaIdkWuI6KE7xe6ApgWNsL71AWFVam1WPVwdamCdMBHGu3VpNPtpwd-LjlUYb2WzmEvvsZjR2JlnAW7g/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            }
+          ],
+          "links": [],
+          "image": {
+            "url": "https://places.googleapis.com/v1/places/ChIJJb3kumrF7zYRyMMS7gArH4g/photos/AV-0GLfpi-1Z2MTp1HTvfgigJW_PvwKT6q-yvQaWy_G1xe1QtcmR4980_ZnS3FJzztqhDz0x3hIDuCiGBVMnVYSarBRIN2ARHT23D7tQyGYuv1azemqUdcrRTiXf6nAMLjTl5F4Ryy0h4R-P4UKHFxP0gvWYGmzJiQLcbRr_gE65x9WOeXI9-3uwFDPvgVIkLdyiRYxW0aANqi95LnSHsWpG5e3xbiQE5sw-yZmf3Cv-ZTvxuBFdVvs7GsL8a3_taF2F2RshqeuRC4tcAHsUsh39SBtCkEHRvd5DClh__XZyh346gfj_uaK6txXxu0K0dgCd_1dDUwzUld4-xcPNQNwaLXTceiwzTW8z2CCQfFwCe9pUQDLzMaiEvnWiFfiEvLLFbMIhoE8SETX5UcBoBIoOZ1rXkupykWx7E5hLzOD1WqJJ/media?maxWidthPx=900&key=REDACTED",
+            "attribution": "Google",
+            "source": "google"
+          },
+          "step_free": null
+        }
+      ],
+      "note": "Wuhou Shrine and Jinli Ancient Street could not be added. The day is kept open, so you have the energy for a face-changing show if you book one separately.",
+      "elevation_gain_m": null,
+      "segment_id": "seg-1",
+      "city": ""
+    },
+    {
+      "date": "2027-01-25",
+      "title": "Dujiangyan and Qingcheng Shan",
+      "weather": {
+        "date": "2027-01-25",
+        "status": "unavailable",
+        "summary": "No forecast yet: the trip is beyond the 16-day forecast window.",
+        "high_c": null,
+        "low_c": null,
+        "precipitation_probability": null,
+        "source": "Open-Meteo",
+        "fetched_at": "2026-11-24T05:33:38.339926+00:00",
+        "note": "A forecast will be fetched closer to the trip."
+      },
+      "items": [
+        {
+          "id": "it-f340b25d5e",
+          "type": "attraction",
+          "name": "Dujiangyan Irrigation System",
+          "start": "09:30",
+          "end": "11:30",
+          "geo": {
+            "lat": 31.005164899999997,
+            "lng": 103.60753079999999
+          },
+          "address": "2J45+326, Dujiangyan City, Chengdu, Sichuan, China, 611830",
+          "notes": "Walk the dams and bridges of this 2,000-year-old irrigation system.",
+          "source_refs": [
+            {
+              "title": "Dujiangyan Irrigation System",
+              "url": "https://maps.google.com/?cid=4983796136975335869&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+              "source": "Google Places",
+              "fetched_at": "2026-11-24T05:33:44.340248+00:00"
+            }
+          ],
+          "data_status": "ok",
+          "fetched_at": "2026-11-24T05:33:44.340283+00:00",
+          "price": null,
+          "price_kind": "none",
+          "booking_url": "",
+          "locked": false,
+          "confirmed": false,
+          "tags": [
+            "historical_place",
+            "tourist_attraction",
+            "point_of_interest",
+            "establishment"
+          ],
+          "opening_hours": [],
+          "hours_status": "unknown",
+          "transfer": null,
+          "names": {},
+          "meal_slot": null,
+          "rating": 4.6,
+          "review_count": 1642,
+          "price_level": null,
+          "cuisine": null,
+          "reservable": null,
+          "source_types": [
+            "historical_place",
+            "tourist_attraction",
+            "point_of_interest",
+            "establishment"
+          ],
+          "source_summary": "Network of dams & levees for irrigation built circa 250 B.C. & still in use today.",
+          "alternatives": [
+            {
+              "id": "alt-879847fd4a",
+              "name": "Qingcheng Shan",
+              "geo": {
+                "lat": 30.966666699999998,
+                "lng": 103.5166667
+              },
+              "address": "Qingcheng Shan, Dujiangyan City, Chengdu, China, 623001",
+              "rating": 4.5,
+              "review_count": 50,
+              "price_level": null,
+              "cuisine": null,
+              "reservable": null,
+              "opening_hours": [],
+              "source_refs": [
+                {
+                  "title": "Qingcheng Shan",
+                  "url": "https://maps.google.com/?cid=16330642719317156214&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:33:44.540217+00:00"
+                }
+              ],
+              "booking_url": "",
+              "distance_m": 9662,
+              "source_types": [
+                "mountain_peak",
+                "natural_feature",
+                "establishment"
+              ],
+              "source_summary": "Found for 'Qingcheng Mountain Chengdu'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJrZa9Rlyq-jYRduG3ngcZouI/photos/AV-0GLcU6c5474bZavMP5ml-O9ZMHFUnhtgEPqZZbtsdmQQj5hOPb74JqsKm7iXqf8R8fHMu6ztKBZNq5fhJ6PUv60Zy9dzy_nKTGci6URUkb6gbdj5Eh-kQ1uOBVvhqKXMS7rvO_StOgM1sKfGVEb-guQM5c1OqWCGFm77FZ0xKKZ9p-6s9jkRoH8wobbZMMEOQSvmMBtAXVGVvvWp15rV9pAHDoHtCgOYDQaekPRDzA5OHwNV7dOFfRqSaLoVskzgXs2wiUQk1ajcqLpA95_-mEmyFsZebn1yWA0ta-31ZKD4JcyWuvn-w_thRqTBIg8yqEQt2zGXlB0E0ctTIy0InaA_hgYLswI6dCSGDgxXyJgw90SJUzruB8EhjE2pS0D5xoxvNlDQ3wgYtN3_hb4BCrdCvayc/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            },
+            {
+              "id": "alt-622d9e46f6",
+              "name": "Kuan Alley and Zhai Alley",
+              "geo": {
+                "lat": 30.663611099999997,
+                "lng": 104.0525
+              },
+              "address": "China, Si Chuan Sheng, Cheng Du Shi, Qing Yang Qu, 长顺上街127号 邮政编码: 610032",
+              "rating": 4.4,
+              "review_count": 2155,
+              "price_level": null,
+              "cuisine": null,
+              "reservable": null,
+              "opening_hours": [],
+              "source_refs": [
+                {
+                  "title": "Kuan Alley and Zhai Alley",
+                  "url": "https://maps.google.com/?cid=9460711288364552805&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:33:44.100281+00:00"
+                }
+              ],
+              "booking_url": "",
+              "distance_m": 56985,
+              "source_types": [
+                "tourist_attraction",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Cultural hub on an ancient street, with souvenirs, local folk art & dining specialties.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJRxJWE9jE7zYRZVJ_scoyS4M/photos/AV-0GLeKw2BEDK1y44njlNk7toiM6Vcrdj-pSi9P7KRW_L5HtUA8pahQxfSeMpn4WZig2coLvKFTDq1GV4U2e9Q5N7rdj0osvTSD9uJ1maV-3nCCc8aiuRSUOJYA-i9kMX69eKhuN28D_538xW9-sBtNAzGCh2gjFgwPPQdK6cyiUylxAoKAERTOvuJ77UQcYB26DhZdJvNX2WRDGH-hNnE-gVT92uPV59dpu7VzGSl4mIZNjKmKoocZj_bgUwJ2cH2qDLlsH9YmxdmPRon4NblWWeHdo5NGi8VYx3Heg2rnwqbB274SO6VuHt2QQJuFftVpQm8wfael1VAbeVrH8JPP-HXHPObJNkF8lUEcdzu8ZuuEJuEzxbm6FEJ3gh88EGNUUOu2uOFIfO3eUIkPcC-eaAFBlDzLp0w/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            }
+          ],
+          "links": [],
+          "image": {
+            "url": "https://places.googleapis.com/v1/places/ChIJq9QOqsgG8DYRvQFhaS4AKkU/photos/AV-0GLej5IdYRlVxHN1bd8PcPMZWCCrYJpxazKAYlsaUMVXPXFS1L9cCC5HOX3DjNbHB5_07ShRpYxAH--rHEu2dzMep43YEbx6lHILo2W8PEIkid7nocJraIZqwE1PgvwZWIrwNxrF1t3qE0LsIBWHpR_qSuPSiFTU8R7uyxt1wmOfqpmOs_f8__68sj_MHK_MjzmVKNPsylnqUKw63RMfanrOFzcsY3s0GG2R2GmWeNX0B0k8dSVEpgcRBd9zse5kiBn9GK5fpjQcUzJtJpVMSWxvG7ntd-l5Tza0tau464pKLGEMW2ERf9i1zIBt2GWYMqI2XAetVBaqZY1icKEpA78Kaic_i52A77_k9disp-IpTU3YOByuNrFfC9LYNtBa7csVu1juIE88yctyrxKMpn6wHKPk/media?maxWidthPx=900&key=REDACTED",
+            "attribution": "Google",
+            "source": "google"
+          },
+          "step_free": null
+        },
+        {
+          "id": "it-951ec50c9c",
+          "type": "meal",
+          "name": "Shuyanfu",
+          "start": "11:45",
+          "end": "13:00",
+          "geo": {
+            "lat": 30.986569900000003,
+            "lng": 103.6135989
+          },
+          "address": "XJP7+JCH, Kang Fu Lu Xia Jie, Du Jiang Yan Shi, Cheng Du Shi, Si Chuan Sheng, China, 611843",
+          "notes": "Lunch in Dujiangyan before heading up the mountain.",
+          "source_refs": [
+            {
+              "title": "Shuyanfu",
+              "url": "https://maps.google.com/?cid=4085490042269733982&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+              "source": "Google Places",
+              "fetched_at": "2026-11-24T05:33:38.736126+00:00"
+            }
+          ],
+          "data_status": "ok",
+          "fetched_at": "2026-11-24T05:33:38.736130+00:00",
+          "price": null,
+          "price_kind": "none",
+          "booking_url": "",
+          "locked": false,
+          "confirmed": false,
+          "tags": [
+            "restaurant",
+            "food",
+            "point_of_interest",
+            "establishment"
+          ],
+          "opening_hours": [],
+          "hours_status": "unknown",
+          "transfer": {
+            "from_item_id": "it-f340b25d5e",
+            "minutes": 9.3,
+            "mode": "transit",
+            "distance_km": 2.15,
+            "source": "straight-line estimate",
+            "tool": "haversine",
+            "result_id": "it-f340b25d5e->it-951ec50c9c"
+          },
+          "names": {},
+          "meal_slot": "lunch",
+          "rating": 4.8,
+          "review_count": 30,
+          "price_level": "$$$$",
+          "cuisine": "Restaurant",
+          "reservable": true,
+          "source_types": [
+            "restaurant",
+            "food",
+            "point_of_interest",
+            "establishment"
+          ],
+          "source_summary": "Found for 'best local restaurants in Chengdu'.",
+          "alternatives": [
+            {
+              "id": "alt-65ec898bf0",
+              "name": "Furonghuang Garden Restaurant",
+              "geo": {
+                "lat": 30.6646975,
+                "lng": 104.00984179999999
+              },
+              "address": "M275+VWG, Guang Hua Cun Jie, Qing Yang Qu, Cheng Du Shi, Si Chuan Sheng, China, 610074",
+              "rating": 4.6,
+              "review_count": 19,
+              "price_level": null,
+              "cuisine": "Chinese restaurant",
+              "reservable": true,
+              "opening_hours": [
+                "Monday: 10:00 AM – 9:00 PM",
+                "Tuesday: 10:00 AM – 9:00 PM",
+                "Wednesday: 10:00 AM – 9:00 PM",
+                "Thursday: 10:00 AM – 9:00 PM",
+                "Friday: 10:00 AM – 9:00 PM",
+                "Saturday: 10:00 AM – 9:00 PM",
+                "Sunday: 10:00 AM – 9:00 PM"
+              ],
+              "source_refs": [
+                {
+                  "title": "Furonghuang Garden Restaurant",
+                  "url": "https://maps.google.com/?cid=3856352742527508390&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:33:38.736163+00:00"
+                }
+              ],
+              "booking_url": "",
+              "distance_m": 52082,
+              "source_types": [
+                "chinese_restaurant",
+                "restaurant",
+                "food",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Found for 'best local restaurants in Chengdu'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJY_jEKKfE7zYRpp_0MmOEhDU/photos/AV-0GLdmuSYLeF5xXgqUJ_OweLAXxZokF7WpsKL0wNScVHDDzyI0Cp-QNGoBtA63I1QqOk5iXE0nu1Fb2g3S23qgg_KjQNQFaiowTCS-_pHaiHVZn2kXozwiVlnR13JF3HIgbirVNPTZ5CtqAfQTgp8btyI7Ic2on5Nt-43vPcPCSy29E2wflLB1-yp2Vus6aPfS5a9h58OaDVt3DrWtbak86mm8We6hHI2VKeyXMi70JmNKss1fxR4bojII6ifaDCTVtMkvzh5f9qVwh74jOPAJAhI9uL-lyHzBzf5bsTnJvFbyQbnkFtGGaxHPxTrhZDZGgnBmBQJzmymDLtSKIs99ucgHZPmMsQC6aBC5uThGcgAg4luzEzuL1jpVQMjptvFbEUAK2wzKLlyIBum9LaMRPyAoPY4/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            },
+            {
+              "id": "alt-1d90da6b4a",
+              "name": "Longsenyuan",
+              "geo": {
+                "lat": 30.6588779,
+                "lng": 104.0453483
+              },
+              "address": "58 Qin Tai Lu, 青羊宫商圈 Qing Yang Qu, Cheng Du Shi, Si Chuan Sheng, China, 610032",
+              "rating": 4.5,
+              "review_count": 31,
+              "price_level": "$$",
+              "cuisine": "Chinese restaurant",
+              "reservable": true,
+              "opening_hours": [
+                "Monday: 10:00 AM – 10:00 PM",
+                "Tuesday: 10:00 AM – 10:00 PM",
+                "Wednesday: 10:00 AM – 10:00 PM",
+                "Thursday: 10:00 AM – 10:00 PM",
+                "Friday: 10:00 AM – 10:00 PM",
+                "Saturday: 10:00 AM – 10:00 PM",
+                "Sunday: 10:00 AM – 10:00 PM"
+              ],
+              "source_refs": [
+                {
+                  "title": "Longsenyuan",
+                  "url": "https://maps.google.com/?cid=7136942796636183147&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:33:38.736145+00:00"
+                }
+              ],
+              "booking_url": "",
+              "distance_m": 55022,
+              "source_types": [
+                "chinese_restaurant",
+                "restaurant",
+                "food",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Found for 'best local restaurants in Chengdu'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJjxnbZtzE7zYRa1rID6mDC2M/photos/AV-0GLe4ShOvpkTJaza2VqAbD4_aojISoHVgMOf3LiNTvTzl61asqTHRqzn_Tm3_8RhJRSJ_S-fReNR4owILk8SHfZFQ7V9dsov2wKoKiJnTpCfLq2av7G0ZtXDNZoftkNEYHmP84YUNqMld52m6LWRYSU8dFyFSZMueq99dzo_mY2hhUAawU4dbt5iS0i3KjUgsRjGKPxk-Rz6oSyh1d0aIdH7QPZ0rYOQt4LU6v5FlNtwY8ZvxmH1rxJP_RNCcSGmJCkw6EuJtk9G0_WGF1_xK3M0E86Y5L-y4O5pXbHmc0Chg7ebgUAn3Cmmj4E_oihZD7yfRDQdS210ocWHFh84Y8eosu8rGIQFpWOVuJLJCaq_g2ISw-c5sR6-_Wq9eNn5O9VdnGlEJGrUlRqP1EdIaAIb6L1k4AanxG4Q1zf4f943wBA/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            },
+            {
+              "id": "alt-e7c86066f1",
+              "name": "Dongzi Kouzhang Lao'er Liangfen",
+              "geo": {
+                "lat": 30.674167999999998,
+                "lng": 104.072552
+              },
+              "address": "39 Wen Shu Yuan Jie, Qing Yang Qu, Cheng Du Shi, Si Chuan Sheng, China, 610084",
+              "rating": 4.5,
+              "review_count": 43,
+              "price_level": "$",
+              "cuisine": "Chinese restaurant",
+              "reservable": null,
+              "opening_hours": [
+                "Monday: 10:00 AM – 10:00 PM",
+                "Tuesday: 10:00 AM – 10:00 PM",
+                "Wednesday: 10:00 AM – 10:00 PM",
+                "Thursday: 10:00 AM – 10:00 PM",
+                "Friday: 10:00 AM – 10:00 PM",
+                "Saturday: 10:00 AM – 10:00 PM",
+                "Sunday: 10:00 AM – 10:00 PM"
+              ],
+              "source_refs": [
+                {
+                  "title": "Dongzi Kouzhang Lao'er Liangfen",
+                  "url": "https://maps.google.com/?cid=13094957439530278683&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:33:38.723935+00:00"
+                }
+              ],
+              "booking_url": "",
+              "distance_m": 55920,
+              "source_types": [
+                "chinese_restaurant",
+                "restaurant",
+                "food",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Found for 'famous food in Chengdu'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJ85DQSsva7zYRG58PRGmiurU/photos/AV-0GLcOv4Ghc3kzPK7hcvd5fh94QvhmZPRcd3PQnn7LTAdRXt5yrrB5epKUI5S8bR9H-BRxoKRfG0O9DUf266MvbLWFuMR3TcyqXCmnBRv4_eYpn-F8b-EsZoVvQbPSU43t15uGBnksuBsPq6_tiXqQHvVme_vOV_RR2rmvYGPieKiSI2KO1XWWJbU8p9gxOYn4H5abkOuanAgug5R9uu04vhNsYGd8f8AIC7sMOwxn0NotnMmMhCJtEewRnbHwH-yLcFu-rjyIUWw_GWolpv8LzUD24XhMLmsvGxzA99VDHYFnlyzSOVNyFKh2_stZJgNeEiTASqPUYGjBY6c2ZOzmqGMm4yLroLHaIdkWuI6KE7xe6ApgWNsL71AWFVam1WPVwdamCdMBHGu3VpNPtpwd-LjlUYb2WzmEvvsZjR2JlnAW7g/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            }
+          ],
+          "links": [],
+          "image": {
+            "url": "https://places.googleapis.com/v1/places/ChIJ45vI20kB8DYRXhTiLoyTsjg/photos/AV-0GLdiDJeqG9SJhmZ4l8_AwWKbqI8frrSWdv7kRsuzcMfhZilLjAkeD-qRbcANprm8WgyTw4a2xfmfhK1ylP6eCcH7GJe-jf0IaGOIe4Dfcge1HM7IootNP-Xl8yyCv3yvb5LUs9y2tX1UZ96IiR1VkgKZIAPZIiGvDb2ZrDFQzO277CrY-hYcOCxdHRphyUHE09ZvlYWvcEUCf_otPXm9IT8VsWxZ9FieD-3hiQ2yGZyVraenXbHSxH5_enfKqupG2aEqmkRsTAgGlTuHpCwExk5h7PRgMy_TU39LTUdejHwwvA_HS63S40-KjmgcVW0DqzQXBNn4Ruhidzm-fVtF_ko16Nt_RbdXlfNq-bNmK-EUpSM8Qmwp-buTAlV71PUnqenm9LNux9CKcHRQMD8ToBsPzImEfmwt405wWf4BK6UBog/media?maxWidthPx=900&key=REDACTED",
+            "attribution": "Google",
+            "source": "google"
+          },
+          "step_free": null
+        },
+        {
+          "id": "it-edc1ac59fe",
+          "type": "attraction",
+          "name": "Qingcheng Shan",
+          "start": "14:00",
+          "end": "16:30",
+          "geo": {
+            "lat": 30.966666699999998,
+            "lng": 103.5166667
+          },
+          "address": "Qingcheng Shan, Dujiangyan City, Chengdu, China, 623001",
+          "notes": "Visit the mountain if time allows, and keep the walk gentle. Head back by late afternoon so you are in Chengdu for dinner.",
+          "source_refs": [
+            {
+              "title": "Qingcheng Shan",
+              "url": "https://maps.google.com/?cid=16330642719317156214&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+              "source": "Google Places",
+              "fetched_at": "2026-11-24T05:33:44.540217+00:00"
+            }
+          ],
+          "data_status": "ok",
+          "fetched_at": "2026-11-24T05:33:44.540274+00:00",
+          "price": null,
+          "price_kind": "none",
+          "booking_url": "",
+          "locked": false,
+          "confirmed": false,
+          "tags": [
+            "mountain_peak",
+            "natural_feature",
+            "establishment"
+          ],
+          "opening_hours": [],
+          "hours_status": "unknown",
+          "transfer": {
+            "from_item_id": "it-951ec50c9c",
+            "minutes": 41.2,
+            "mode": "transit",
+            "distance_km": 9.5,
+            "source": "straight-line estimate",
+            "tool": "haversine",
+            "result_id": "it-951ec50c9c->it-edc1ac59fe"
+          },
+          "names": {},
+          "meal_slot": null,
+          "rating": 4.5,
+          "review_count": 50,
+          "price_level": null,
+          "cuisine": null,
+          "reservable": null,
+          "source_types": [
+            "mountain_peak",
+            "natural_feature",
+            "establishment"
+          ],
+          "source_summary": "Found for 'Qingcheng Mountain Chengdu'.",
+          "alternatives": [
+            {
+              "id": "alt-b7a5a1fcc3",
+              "name": "Dujiangyan Irrigation System",
+              "geo": {
+                "lat": 31.005164899999997,
+                "lng": 103.60753079999999
+              },
+              "address": "2J45+326, Dujiangyan City, Chengdu, Sichuan, China, 611830",
+              "rating": 4.6,
+              "review_count": 1642,
+              "price_level": null,
+              "cuisine": null,
+              "reservable": null,
+              "opening_hours": [],
+              "source_refs": [
+                {
+                  "title": "Dujiangyan Irrigation System",
+                  "url": "https://maps.google.com/?cid=4983796136975335869&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:33:44.340248+00:00"
+                }
+              ],
+              "booking_url": "",
+              "distance_m": 9662,
+              "source_types": [
+                "historical_place",
+                "tourist_attraction",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Network of dams & levees for irrigation built circa 250 B.C. & still in use today.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJq9QOqsgG8DYRvQFhaS4AKkU/photos/AV-0GLej5IdYRlVxHN1bd8PcPMZWCCrYJpxazKAYlsaUMVXPXFS1L9cCC5HOX3DjNbHB5_07ShRpYxAH--rHEu2dzMep43YEbx6lHILo2W8PEIkid7nocJraIZqwE1PgvwZWIrwNxrF1t3qE0LsIBWHpR_qSuPSiFTU8R7uyxt1wmOfqpmOs_f8__68sj_MHK_MjzmVKNPsylnqUKw63RMfanrOFzcsY3s0GG2R2GmWeNX0B0k8dSVEpgcRBd9zse5kiBn9GK5fpjQcUzJtJpVMSWxvG7ntd-l5Tza0tau464pKLGEMW2ERf9i1zIBt2GWYMqI2XAetVBaqZY1icKEpA78Kaic_i52A77_k9disp-IpTU3YOByuNrFfC9LYNtBa7csVu1juIE88yctyrxKMpn6wHKPk/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            },
+            {
+              "id": "alt-622d9e46f6",
+              "name": "Kuan Alley and Zhai Alley",
+              "geo": {
+                "lat": 30.663611099999997,
+                "lng": 104.0525
+              },
+              "address": "China, Si Chuan Sheng, Cheng Du Shi, Qing Yang Qu, 长顺上街127号 邮政编码: 610032",
+              "rating": 4.4,
+              "review_count": 2155,
+              "price_level": null,
+              "cuisine": null,
+              "reservable": null,
+              "opening_hours": [],
+              "source_refs": [
+                {
+                  "title": "Kuan Alley and Zhai Alley",
+                  "url": "https://maps.google.com/?cid=9460711288364552805&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:33:44.100281+00:00"
+                }
+              ],
+              "booking_url": "",
+              "distance_m": 61270,
+              "source_types": [
+                "tourist_attraction",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Cultural hub on an ancient street, with souvenirs, local folk art & dining specialties.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJRxJWE9jE7zYRZVJ_scoyS4M/photos/AV-0GLeKw2BEDK1y44njlNk7toiM6Vcrdj-pSi9P7KRW_L5HtUA8pahQxfSeMpn4WZig2coLvKFTDq1GV4U2e9Q5N7rdj0osvTSD9uJ1maV-3nCCc8aiuRSUOJYA-i9kMX69eKhuN28D_538xW9-sBtNAzGCh2gjFgwPPQdK6cyiUylxAoKAERTOvuJ77UQcYB26DhZdJvNX2WRDGH-hNnE-gVT92uPV59dpu7VzGSl4mIZNjKmKoocZj_bgUwJ2cH2qDLlsH9YmxdmPRon4NblWWeHdo5NGi8VYx3Heg2rnwqbB274SO6VuHt2QQJuFftVpQm8wfael1VAbeVrH8JPP-HXHPObJNkF8lUEcdzu8ZuuEJuEzxbm6FEJ3gh88EGNUUOu2uOFIfO3eUIkPcC-eaAFBlDzLp0w/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            }
+          ],
+          "links": [],
+          "image": {
+            "url": "https://places.googleapis.com/v1/places/ChIJrZa9Rlyq-jYRduG3ngcZouI/photos/AV-0GLcU6c5474bZavMP5ml-O9ZMHFUnhtgEPqZZbtsdmQQj5hOPb74JqsKm7iXqf8R8fHMu6ztKBZNq5fhJ6PUv60Zy9dzy_nKTGci6URUkb6gbdj5Eh-kQ1uOBVvhqKXMS7rvO_StOgM1sKfGVEb-guQM5c1OqWCGFm77FZ0xKKZ9p-6s9jkRoH8wobbZMMEOQSvmMBtAXVGVvvWp15rV9pAHDoHtCgOYDQaekPRDzA5OHwNV7dOFfRqSaLoVskzgXs2wiUQk1ajcqLpA95_-mEmyFsZebn1yWA0ta-31ZKD4JcyWuvn-w_thRqTBIg8yqEQt2zGXlB0E0ctTIy0InaA_hgYLswI6dCSGDgxXyJgw90SJUzruB8EhjE2pS0D5xoxvNlDQ3wgYtN3_hb4BCrdCvayc/media?maxWidthPx=900&key=REDACTED",
+            "attribution": "Google",
+            "source": "google"
+          },
+          "step_free": null
+        },
+        {
+          "id": "it-7845db461a",
+          "type": "meal",
+          "name": "Ma Wang Zi Chuan Restaurant",
+          "start": "19:30",
+          "end": "20:45",
+          "geo": {
+            "lat": 30.65141,
+            "lng": 104.08393
+          },
+          "address": "China, Cheng Du Shi, Jin Jiang Qu, CN 四川省 成都市 锦江区 东糠市街 1 1号附5 邮政编码: 610023",
+          "notes": "A late dinner near Chunxi Road after returning from Dujiangyan.",
+          "source_refs": [
+            {
+              "title": "Ma Wang Zi Chuan Restaurant",
+              "url": "https://maps.google.com/?cid=15791323567895507616&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+              "source": "Google Places",
+              "fetched_at": "2026-11-24T05:33:38.736081+00:00"
+            }
+          ],
+          "data_status": "ok",
+          "fetched_at": "2026-11-24T05:33:38.736088+00:00",
+          "price": null,
+          "price_kind": "none",
+          "booking_url": "",
+          "locked": false,
+          "confirmed": false,
+          "tags": [
+            "chinese_restaurant",
+            "restaurant",
+            "food",
+            "point_of_interest",
+            "establishment"
+          ],
+          "opening_hours": [],
+          "hours_status": "unknown",
+          "transfer": {
+            "from_item_id": "it-edc1ac59fe",
+            "minutes": 167.8,
+            "mode": "drive",
+            "distance_km": 64.53,
+            "source": "straight-line estimate",
+            "tool": "haversine",
+            "result_id": "it-edc1ac59fe->it-7845db461a"
+          },
+          "names": {},
+          "meal_slot": "dinner",
+          "rating": 4.8,
+          "review_count": 137,
+          "price_level": "$$",
+          "cuisine": "Chinese restaurant",
+          "reservable": true,
+          "source_types": [
+            "chinese_restaurant",
+            "restaurant",
+            "food",
+            "point_of_interest",
+            "establishment"
+          ],
+          "source_summary": "Found for 'best local restaurants in Chengdu'.",
+          "alternatives": [
+            {
+              "id": "alt-9535333422",
+              "name": "Taolin Restaurant",
+              "geo": {
+                "lat": 30.650109999999998,
+                "lng": 104.077784
+              },
+              "address": "China, Si Chuan Sheng, Cheng Du Shi, Jin Jiang Qu, Dong Sheng Jie, 69号附1 邮政编码: 610023",
+              "rating": 4.7,
+              "review_count": 35,
+              "price_level": "$",
+              "cuisine": "Restaurant",
+              "reservable": true,
+              "opening_hours": [
+                "Monday: 10:00 AM – 10:00 PM",
+                "Tuesday: 10:00 AM – 10:00 PM",
+                "Wednesday: 10:00 AM – 10:00 PM",
+                "Thursday: 10:00 AM – 10:00 PM",
+                "Friday: 10:00 AM – 10:00 PM",
+                "Saturday: 10:00 AM – 10:00 PM",
+                "Sunday: 10:00 AM – 10:00 PM"
+              ],
+              "source_refs": [
+                {
+                  "title": "Taolin Restaurant",
+                  "url": "https://maps.google.com/?cid=9808605796430431176&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:33:38.736107+00:00"
+                }
+              ],
+              "booking_url": "",
+              "distance_m": 605,
+              "source_types": [
+                "restaurant",
+                "food",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Found for 'best local restaurants in Chengdu'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJJb3kumrF7zYRyMMS7gArH4g/photos/AV-0GLfpi-1Z2MTp1HTvfgigJW_PvwKT6q-yvQaWy_G1xe1QtcmR4980_ZnS3FJzztqhDz0x3hIDuCiGBVMnVYSarBRIN2ARHT23D7tQyGYuv1azemqUdcrRTiXf6nAMLjTl5F4Ryy0h4R-P4UKHFxP0gvWYGmzJiQLcbRr_gE65x9WOeXI9-3uwFDPvgVIkLdyiRYxW0aANqi95LnSHsWpG5e3xbiQE5sw-yZmf3Cv-ZTvxuBFdVvs7GsL8a3_taF2F2RshqeuRC4tcAHsUsh39SBtCkEHRvd5DClh__XZyh346gfj_uaK6txXxu0K0dgCd_1dDUwzUld4-xcPNQNwaLXTceiwzTW8z2CCQfFwCe9pUQDLzMaiEvnWiFfiEvLLFbMIhoE8SETX5UcBoBIoOZ1rXkupykWx7E5hLzOD1WqJJ/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            },
+            {
+              "id": "alt-3b86b403c0",
+              "name": "Shudaxia Hot Pot Luomashi Branch",
+              "geo": {
+                "lat": 30.667240000000003,
+                "lng": 104.06846
+              },
+              "address": "18 Xi Yu Long Jie, Luomashi, Qing Yang Qu, Cheng Du Shi, Si Chuan Sheng, China, 610014",
+              "rating": 4.9,
+              "review_count": 21,
+              "price_level": "$$",
+              "cuisine": "Chinese restaurant",
+              "reservable": true,
+              "opening_hours": [],
+              "source_refs": [
+                {
+                  "title": "Shudaxia Hot Pot Luomashi Branch",
+                  "url": "https://maps.google.com/?cid=3509367645958431346&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:33:43.855436+00:00"
+                }
+              ],
+              "booking_url": "",
+              "distance_m": 2300,
+              "source_types": [
+                "chinese_restaurant",
+                "restaurant",
+                "food",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Found for 'Shu Da Xia hotpot Chengdu Chengdu'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJ_7OiCzHF7zYRcuKZ00fHszA/photos/AV-0GLeANMavBaa8DDoLbIJ1qqW72KiSfo_bSflvhjR0MxpZhP3vyaBB7Z_P0XBtpC0E1Qo_7W41gPNo9_2sq7zaJOvnt7k9ehkXCmD4mdDlI40ebkDEpu6V4Rj7bNW5cqI2vKAt4-gtg6_kdAi3PEH20bOpygK4osvGpeXzfIshQUwsQrOLEhyyeBFZ4mupVBntW-FRpIhGVWhrXOwtbTorIV0Rx1pSTNXQU3kI9evqbp7T1Ui03ymP9GNiZzhqg6w_sfk7X1W6ciEGtzRueSmO_JQ6BtlKB53APcd3hMpo5KYGdQIKm3bLfnlkJJdFcbbD1MolXRdGW8-orpcjaBFKkFl_tAXyOXGp04uXiD6wrkX1CNFppL_Gi_EsSCLQFM5YBdM29Y9TxhvUJFjOOBQpn-p4r5U/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            },
+            {
+              "id": "alt-e7c86066f1",
+              "name": "Dongzi Kouzhang Lao'er Liangfen",
+              "geo": {
+                "lat": 30.674167999999998,
+                "lng": 104.072552
+              },
+              "address": "39 Wen Shu Yuan Jie, Qing Yang Qu, Cheng Du Shi, Si Chuan Sheng, China, 610084",
+              "rating": 4.5,
+              "review_count": 43,
+              "price_level": "$",
+              "cuisine": "Chinese restaurant",
+              "reservable": null,
+              "opening_hours": [
+                "Monday: 10:00 AM – 10:00 PM",
+                "Tuesday: 10:00 AM – 10:00 PM",
+                "Wednesday: 10:00 AM – 10:00 PM",
+                "Thursday: 10:00 AM – 10:00 PM",
+                "Friday: 10:00 AM – 10:00 PM",
+                "Saturday: 10:00 AM – 10:00 PM",
+                "Sunday: 10:00 AM – 10:00 PM"
+              ],
+              "source_refs": [
+                {
+                  "title": "Dongzi Kouzhang Lao'er Liangfen",
+                  "url": "https://maps.google.com/?cid=13094957439530278683&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:33:38.723935+00:00"
+                }
+              ],
+              "booking_url": "",
+              "distance_m": 2755,
+              "source_types": [
+                "chinese_restaurant",
+                "restaurant",
+                "food",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Found for 'famous food in Chengdu'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJ85DQSsva7zYRG58PRGmiurU/photos/AV-0GLcOv4Ghc3kzPK7hcvd5fh94QvhmZPRcd3PQnn7LTAdRXt5yrrB5epKUI5S8bR9H-BRxoKRfG0O9DUf266MvbLWFuMR3TcyqXCmnBRv4_eYpn-F8b-EsZoVvQbPSU43t15uGBnksuBsPq6_tiXqQHvVme_vOV_RR2rmvYGPieKiSI2KO1XWWJbU8p9gxOYn4H5abkOuanAgug5R9uu04vhNsYGd8f8AIC7sMOwxn0NotnMmMhCJtEewRnbHwH-yLcFu-rjyIUWw_GWolpv8LzUD24XhMLmsvGxzA99VDHYFnlyzSOVNyFKh2_stZJgNeEiTASqPUYGjBY6c2ZOzmqGMm4yLroLHaIdkWuI6KE7xe6ApgWNsL71AWFVam1WPVwdamCdMBHGu3VpNPtpwd-LjlUYb2WzmEvvsZjR2JlnAW7g/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            }
+          ],
+          "links": [],
+          "image": {
+            "url": "https://places.googleapis.com/v1/places/ChIJwaBCFELF7zYRoHKqdR4NJts/photos/AV-0GLfmV79QzRaIv8_Ur1-VNRWsHklwJ0Wa0gsFNw4kIvnX7Rv6hU-eylsrY82SJ9HZQ7LlYdWEeF0YyRpc3CjIXxCBsMGF0F68eFE9bQKteu5RF6MBpe_hSanyKvhMK2a8Mse6zzCtIEYTuo3PIzUm9qrMg_79ayCD48enpZzsHDXNUpU1U9iYdx7UDkg1rIw703uGz77spcTKzR17EVOw1D_KOwrIp1zkI6YV25roAzPR7wd6gTAGN8bi_07rexNRWAUo8M03mH9ufSrl3g0YeF62OLYacAEP2guDYHMNoY6XKcVQJLKfogEF85wy7gmUpPcTwCLmNFRu3Kd7cu5kPB4ujeuI8KCqjW9_MPT_lYPL3u8MUmA8lVs8D76odV-xQcI6c3wPzAmgYqlqTEeWJAIfogA/media?maxWidthPx=900&key=REDACTED",
+            "attribution": "Google",
+            "source": "google"
+          },
+          "step_free": null
+        }
+      ],
+      "note": "Leave by about 08:00 for the roughly one-hour trip to Dujiangyan. Allow the time for the trip back to Chengdu at the end of the day.",
+      "elevation_gain_m": null,
+      "segment_id": "seg-1",
+      "city": ""
+    },
+    {
+      "date": "2027-01-26",
+      "title": "Early lunch and departure",
+      "weather": {
+        "date": "2027-01-26",
+        "status": "unavailable",
+        "summary": "No forecast yet: the trip is beyond the 16-day forecast window.",
+        "high_c": null,
+        "low_c": null,
+        "precipitation_probability": null,
+        "source": "Open-Meteo",
+        "fetched_at": "2026-11-24T05:33:38.339935+00:00",
+        "note": "A forecast will be fetched closer to the trip."
+      },
+      "items": [
+        {
+          "id": "it-3398b3cc34",
+          "type": "attraction",
+          "name": "Chengdu Dufu Thatched Cottage Msm.",
+          "start": "08:30",
+          "end": "10:15",
+          "geo": {
+            "lat": 30.659920000000003,
+            "lng": 104.03004999999999
+          },
+          "address": "37 Qing Hua Lu, Qing Yang Qu, Cheng Du Shi, Si Chuan Sheng, China, 610072",
+          "notes": "Morning visit to Du Fu Thatched Cottage (main entrance), finishing in time to reach Longsenyuan, which is nearby, for the 10:30 early lunch.",
+          "source_refs": [
+            {
+              "title": "Chengdu Dufu Thatched Cottage Msm.",
+              "url": "https://maps.google.com/?cid=10160311463957971019&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+              "source": "Google Places",
+              "fetched_at": "2026-11-24T05:43:25.674211+00:00"
+            }
+          ],
+          "data_status": "ok",
+          "fetched_at": "2026-11-24T05:43:25.674217+00:00",
+          "price": null,
+          "price_kind": "none",
+          "booking_url": "",
+          "locked": false,
+          "confirmed": false,
+          "tags": [
+            "scenic_spot",
+            "point_of_interest",
+            "establishment"
+          ],
+          "opening_hours": [],
+          "hours_status": "unknown",
+          "transfer": null,
+          "names": {},
+          "meal_slot": null,
+          "rating": 4.5,
+          "review_count": 19,
+          "price_level": null,
+          "cuisine": null,
+          "reservable": null,
+          "source_types": [
+            "scenic_spot",
+            "point_of_interest",
+            "establishment"
+          ],
+          "source_summary": "Found for 'Du Fu Thatched Cottage Chengdu'.",
+          "alternatives": [],
+          "links": [],
+          "image": {
+            "url": "https://places.googleapis.com/v1/places/ChIJR7x6ZL_E7zYRS0CL4HGtAI0/photos/AV-0GLcmu5Hf438M1LSuXsELG9s49HHGYlFEW0UC3g8SaRvxcN0tJktMYUyjz4Kwlx94eRWD5hkNG7ykS7yAcFmhBOVIDTGeqUDjgNdzVCT8wdjhFYcIlOdnfeXnDxm41yJnkVXsO-kZLgMaAzQqwtVmwjsQ0tOPDYZQZXglOKii7a1Tw91Skm0ZhLhnJS1t5aBNpUmzCTe63N3jm7SB-54q5I-WQxT8HMa4emv8OkNTikH3IS5t1YwqLfGMCzhG3Xicf4g-WzO7k0f3B5FGD_BVnlH8nPWKuZllT8qRIYfrsfwnfhR8QanZGbI7N9dMUAUz9_odnurb0YnVT5CrOWeFEKtKUitddBj0r7bCzeXKKi5AGbaewhJOGmw3RnvJXe3TV6EdOiNkqDJEFykFQr0NqF7sekBGOJObyzqeP12nQtFuGQ/media?maxWidthPx=900&key=REDACTED",
+            "attribution": "Google",
+            "source": "google"
+          },
+          "step_free": null
+        },
+        {
+          "id": "it-11993fad66",
+          "type": "meal",
+          "name": "Longsenyuan",
+          "start": "10:30",
+          "end": "11:45",
+          "geo": {
+            "lat": 30.6588779,
+            "lng": 104.0453483
+          },
+          "address": "58 Qin Tai Lu, 青羊宫商圈 Qing Yang Qu, Cheng Du Shi, Si Chuan Sheng, China, 610032",
+          "notes": "An early lunch in the Qingyang Gong area on the west side, before you head to the airport.",
+          "source_refs": [
+            {
+              "title": "Longsenyuan",
+              "url": "https://maps.google.com/?cid=7136942796636183147&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+              "source": "Google Places",
+              "fetched_at": "2026-11-24T05:33:38.736145+00:00"
+            }
+          ],
+          "data_status": "ok",
+          "fetched_at": "2026-11-24T05:33:38.736149+00:00",
+          "price": null,
+          "price_kind": "none",
+          "booking_url": "",
+          "locked": false,
+          "confirmed": false,
+          "tags": [
+            "chinese_restaurant",
+            "restaurant",
+            "food",
+            "point_of_interest",
+            "establishment"
+          ],
+          "opening_hours": [
+            "Monday: 10:00 AM – 10:00 PM",
+            "Tuesday: 10:00 AM – 10:00 PM",
+            "Wednesday: 10:00 AM – 10:00 PM",
+            "Thursday: 10:00 AM – 10:00 PM",
+            "Friday: 10:00 AM – 10:00 PM",
+            "Saturday: 10:00 AM – 10:00 PM",
+            "Sunday: 10:00 AM – 10:00 PM"
+          ],
+          "hours_status": "stated",
+          "transfer": {
+            "from_item_id": "it-3398b3cc34",
+            "minutes": 6.4,
+            "mode": "transit",
+            "distance_km": 1.47,
+            "source": "straight-line estimate",
+            "tool": "haversine",
+            "result_id": "it-3398b3cc34->it-11993fad66"
+          },
+          "names": {},
+          "meal_slot": "lunch",
+          "rating": 4.5,
+          "review_count": 31,
+          "price_level": "$$",
+          "cuisine": "Chinese restaurant",
+          "reservable": true,
+          "source_types": [
+            "chinese_restaurant",
+            "restaurant",
+            "food",
+            "point_of_interest",
+            "establishment"
+          ],
+          "source_summary": "Found for 'best local restaurants in Chengdu'.",
+          "alternatives": [
+            {
+              "id": "alt-3b86b403c0",
+              "name": "Shudaxia Hot Pot Luomashi Branch",
+              "geo": {
+                "lat": 30.667240000000003,
+                "lng": 104.06846
+              },
+              "address": "18 Xi Yu Long Jie, Luomashi, Qing Yang Qu, Cheng Du Shi, Si Chuan Sheng, China, 610014",
+              "rating": 4.9,
+              "review_count": 21,
+              "price_level": "$$",
+              "cuisine": "Chinese restaurant",
+              "reservable": true,
+              "opening_hours": [],
+              "source_refs": [
+                {
+                  "title": "Shudaxia Hot Pot Luomashi Branch",
+                  "url": "https://maps.google.com/?cid=3509367645958431346&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:33:43.855436+00:00"
+                }
+              ],
+              "booking_url": "",
+              "distance_m": 2398,
+              "source_types": [
+                "chinese_restaurant",
+                "restaurant",
+                "food",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Found for 'Shu Da Xia hotpot Chengdu Chengdu'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJ_7OiCzHF7zYRcuKZ00fHszA/photos/AV-0GLeANMavBaa8DDoLbIJ1qqW72KiSfo_bSflvhjR0MxpZhP3vyaBB7Z_P0XBtpC0E1Qo_7W41gPNo9_2sq7zaJOvnt7k9ehkXCmD4mdDlI40ebkDEpu6V4Rj7bNW5cqI2vKAt4-gtg6_kdAi3PEH20bOpygK4osvGpeXzfIshQUwsQrOLEhyyeBFZ4mupVBntW-FRpIhGVWhrXOwtbTorIV0Rx1pSTNXQU3kI9evqbp7T1Ui03ymP9GNiZzhqg6w_sfk7X1W6ciEGtzRueSmO_JQ6BtlKB53APcd3hMpo5KYGdQIKm3bLfnlkJJdFcbbD1MolXRdGW8-orpcjaBFKkFl_tAXyOXGp04uXiD6wrkX1CNFppL_Gi_EsSCLQFM5YBdM29Y9TxhvUJFjOOBQpn-p4r5U/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            },
+            {
+              "id": "alt-e7c86066f1",
+              "name": "Dongzi Kouzhang Lao'er Liangfen",
+              "geo": {
+                "lat": 30.674167999999998,
+                "lng": 104.072552
+              },
+              "address": "39 Wen Shu Yuan Jie, Qing Yang Qu, Cheng Du Shi, Si Chuan Sheng, China, 610084",
+              "rating": 4.5,
+              "review_count": 43,
+              "price_level": "$",
+              "cuisine": "Chinese restaurant",
+              "reservable": null,
+              "opening_hours": [
+                "Monday: 10:00 AM – 10:00 PM",
+                "Tuesday: 10:00 AM – 10:00 PM",
+                "Wednesday: 10:00 AM – 10:00 PM",
+                "Thursday: 10:00 AM – 10:00 PM",
+                "Friday: 10:00 AM – 10:00 PM",
+                "Saturday: 10:00 AM – 10:00 PM",
+                "Sunday: 10:00 AM – 10:00 PM"
+              ],
+              "source_refs": [
+                {
+                  "title": "Dongzi Kouzhang Lao'er Liangfen",
+                  "url": "https://maps.google.com/?cid=13094957439530278683&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:33:38.723935+00:00"
+                }
+              ],
+              "booking_url": "",
+              "distance_m": 3108,
+              "source_types": [
+                "chinese_restaurant",
+                "restaurant",
+                "food",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Found for 'famous food in Chengdu'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJ85DQSsva7zYRG58PRGmiurU/photos/AV-0GLcOv4Ghc3kzPK7hcvd5fh94QvhmZPRcd3PQnn7LTAdRXt5yrrB5epKUI5S8bR9H-BRxoKRfG0O9DUf266MvbLWFuMR3TcyqXCmnBRv4_eYpn-F8b-EsZoVvQbPSU43t15uGBnksuBsPq6_tiXqQHvVme_vOV_RR2rmvYGPieKiSI2KO1XWWJbU8p9gxOYn4H5abkOuanAgug5R9uu04vhNsYGd8f8AIC7sMOwxn0NotnMmMhCJtEewRnbHwH-yLcFu-rjyIUWw_GWolpv8LzUD24XhMLmsvGxzA99VDHYFnlyzSOVNyFKh2_stZJgNeEiTASqPUYGjBY6c2ZOzmqGMm4yLroLHaIdkWuI6KE7xe6ApgWNsL71AWFVam1WPVwdamCdMBHGu3VpNPtpwd-LjlUYb2WzmEvvsZjR2JlnAW7g/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            },
+            {
+              "id": "alt-9535333422",
+              "name": "Taolin Restaurant",
+              "geo": {
+                "lat": 30.650109999999998,
+                "lng": 104.077784
+              },
+              "address": "China, Si Chuan Sheng, Cheng Du Shi, Jin Jiang Qu, Dong Sheng Jie, 69号附1 邮政编码: 610023",
+              "rating": 4.7,
+              "review_count": 35,
+              "price_level": "$",
+              "cuisine": "Restaurant",
+              "reservable": true,
+              "opening_hours": [
+                "Monday: 10:00 AM – 10:00 PM",
+                "Tuesday: 10:00 AM – 10:00 PM",
+                "Wednesday: 10:00 AM – 10:00 PM",
+                "Thursday: 10:00 AM – 10:00 PM",
+                "Friday: 10:00 AM – 10:00 PM",
+                "Saturday: 10:00 AM – 10:00 PM",
+                "Sunday: 10:00 AM – 10:00 PM"
+              ],
+              "source_refs": [
+                {
+                  "title": "Taolin Restaurant",
+                  "url": "https://maps.google.com/?cid=9808605796430431176&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+                  "source": "Google Places",
+                  "fetched_at": "2026-11-24T05:33:38.736107+00:00"
+                }
+              ],
+              "booking_url": "",
+              "distance_m": 3252,
+              "source_types": [
+                "restaurant",
+                "food",
+                "point_of_interest",
+                "establishment"
+              ],
+              "source_summary": "Found for 'best local restaurants in Chengdu'.",
+              "links": [],
+              "image": {
+                "url": "https://places.googleapis.com/v1/places/ChIJJb3kumrF7zYRyMMS7gArH4g/photos/AV-0GLfpi-1Z2MTp1HTvfgigJW_PvwKT6q-yvQaWy_G1xe1QtcmR4980_ZnS3FJzztqhDz0x3hIDuCiGBVMnVYSarBRIN2ARHT23D7tQyGYuv1azemqUdcrRTiXf6nAMLjTl5F4Ryy0h4R-P4UKHFxP0gvWYGmzJiQLcbRr_gE65x9WOeXI9-3uwFDPvgVIkLdyiRYxW0aANqi95LnSHsWpG5e3xbiQE5sw-yZmf3Cv-ZTvxuBFdVvs7GsL8a3_taF2F2RshqeuRC4tcAHsUsh39SBtCkEHRvd5DClh__XZyh346gfj_uaK6txXxu0K0dgCd_1dDUwzUld4-xcPNQNwaLXTceiwzTW8z2CCQfFwCe9pUQDLzMaiEvnWiFfiEvLLFbMIhoE8SETX5UcBoBIoOZ1rXkupykWx7E5hLzOD1WqJJ/media?maxWidthPx=900&key=REDACTED",
+                "attribution": "Google",
+                "source": "google"
+              },
+              "rank": null,
+              "score": null,
+              "reasons": []
+            }
+          ],
+          "links": [],
+          "image": {
+            "url": "https://places.googleapis.com/v1/places/ChIJjxnbZtzE7zYRa1rID6mDC2M/photos/AV-0GLe4ShOvpkTJaza2VqAbD4_aojISoHVgMOf3LiNTvTzl61asqTHRqzn_Tm3_8RhJRSJ_S-fReNR4owILk8SHfZFQ7V9dsov2wKoKiJnTpCfLq2av7G0ZtXDNZoftkNEYHmP84YUNqMld52m6LWRYSU8dFyFSZMueq99dzo_mY2hhUAawU4dbt5iS0i3KjUgsRjGKPxk-Rz6oSyh1d0aIdH7QPZ0rYOQt4LU6v5FlNtwY8ZvxmH1rxJP_RNCcSGmJCkw6EuJtk9G0_WGF1_xK3M0E86Y5L-y4O5pXbHmc0Chg7ebgUAn3Cmmj4E_oihZD7yfRDQdS210ocWHFh84Y8eosu8rGIQFpWOVuJLJCaq_g2ISw-c5sR6-_Wq9eNn5O9VdnGlEJGrUlRqP1EdIaAIb6L1k4AanxG4Q1zf4f943wBA/media?maxWidthPx=900&key=REDACTED",
+            "attribution": "Google",
+            "source": "google"
+          },
+          "step_free": null
+        }
+      ],
+      "note": "Du Fu Thatched Cottage could not be added. Check out, have an early lunch, then leave for Tianfu International Airport with plenty of buffer.",
+      "elevation_gain_m": null,
+      "segment_id": "seg-1",
+      "city": ""
+    }
+  ],
+  "hotels": [
+    {
+      "id": "ho-e2674de7cb",
+      "name": "Canopy by Hilton Chengdu City Centre",
+      "area": "",
+      "geo": {
+        "lat": 30.655948599999995,
+        "lng": 104.0632519
+      },
+      "check_in": "2027-01-22",
+      "check_out": "2027-01-26",
+      "price_per_night": null,
+      "price_kind": "none",
+      "rating": 4.4,
+      "review_count": 52,
+      "distance_to_centre_km": null,
+      "source_refs": [
+        {
+          "title": "Canopy by Hilton Chengdu City Centre",
+          "url": "https://maps.google.com/?cid=6760618640444413352&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+          "source": "Google Places",
+          "fetched_at": "2026-11-24T05:33:38.867536+00:00"
+        }
+      ],
+      "data_status": "ok",
+      "booking_url": "https://canopybyhilton.com.cn/zh-cn/hotel/chengdu/canopy-by-hilton-chengdu-city-centre-CTULCPY/index.html",
+      "notes": "Found for 'hotels in Chengdu'.",
+      "confirmed": false,
+      "locked": false,
+      "booked": false,
+      "names": {},
+      "amenities": [
+        "hotel",
+        "lodging",
+        "point_of_interest",
+        "establishment"
+      ],
+      "hotel_class": null,
+      "property_token": "",
+      "nearby": [],
+      "room_types": [],
+      "rooms_checked_for": null,
+      "nearest_stop_km": null,
+      "nearest_stop_name": "",
+      "match": null,
+      "segment_id": null,
+      "links": [],
+      "image": {
+        "url": "https://places.googleapis.com/v1/places/ChIJ3xeJPCPF7zYRqNWSjdWK0l0/photos/AV-0GLc6w5NptOM4QpYaA7uRBeN1jj2oY7zZ18pJ0PCbWvsHfafiILSqrL429ANvtGU0xCdI3FAcCO-4wODUK383Hjt6T-k40oQUJBR-LP_XfUIHKnPI8UbitqFAx129HgRDiEwDItkJvoDErrVSmKMw28BpyfKJ01Qd8N4DabpXWaJ3dTyQUcLKMexWWW7mj40HPVeAXzVrNjUdk4XHDPt8mIGdwMzSL_J6qbrISY_9PNXfdUqdkkElUIrr3PQ1BpT7E7Jixl8iGkpkfxda40Zw-g_qw_2ifvXlPDNU3kjm_vK7x2O4XOYuD2XPJ5_WC0Z-XP3cxaU-TnMNsMdm0T_m2l1DGsG2FPiO9aoRBRZbaoMihs9L7iMdScbE-7nvEQ2BbnoTzLmCTjN1Hsfh5Is3K2UK7rsameCAcoo08WhhF1oRXQ/media?maxWidthPx=900&key=REDACTED",
+        "attribution": "Google",
+        "source": "google"
+      },
+      "rank": 1,
+      "score": 4.4,
+      "reasons": []
+    }
+  ],
+  "hotel_options": [
+    {
+      "id": "ho-5d7e8a5f82",
+      "name": "Grand Parcvue Hotel Residence Chengdu",
+      "area": "",
+      "geo": {
+        "lat": 30.653981999999996,
+        "lng": 104.0659
+      },
+      "check_in": "",
+      "check_out": "",
+      "price_per_night": null,
+      "price_kind": "none",
+      "rating": 4.8,
+      "review_count": 126,
+      "distance_to_centre_km": null,
+      "source_refs": [
+        {
+          "title": "Grand Parcvue Hotel Residence Chengdu",
+          "url": "https://maps.google.com/?cid=4276950780192642854&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+          "source": "Google Places",
+          "fetched_at": "2026-11-24T05:33:38.867380+00:00"
+        }
+      ],
+      "data_status": "ok",
+      "booking_url": "",
+      "notes": "Found for 'hotels in Chengdu'.",
+      "confirmed": false,
+      "locked": false,
+      "booked": false,
+      "names": {},
+      "amenities": [
+        "hotel",
+        "lodging",
+        "point_of_interest",
+        "establishment"
+      ],
+      "hotel_class": null,
+      "property_token": "",
+      "nearby": [],
+      "room_types": [],
+      "rooms_checked_for": null,
+      "nearest_stop_km": null,
+      "nearest_stop_name": "",
+      "match": null,
+      "segment_id": null,
+      "links": [],
+      "image": {
+        "url": "https://places.googleapis.com/v1/places/ChIJ60sxNz3F7zYRJlc2BxPIWjs/photos/AV-0GLdLPLH4Fg2NM1fNmmAy0TuB6Ul8CtwpS9scTKwfc0J4g_LaIaLM9gbuSu3ZWLjRjb8K0uEfkjBAnINpCQ5AdAsamHPB1GKAOD4j6rxUdvdQfbfu60dNgX6gY88leshPdrkiwrqmaAXsahyHUCj0_DtOQZFdOE3-PxitW3mPhwtQF5xTWYH2EnZYAUgGIhbazHdU9igL-Oql4KBqTVFsroKtHJU4IR4Khtbqnvcrdc8AiT2NFwXbIayj9QbWe1Lp63P0kLTggcHqyngGQmWNYIs7fkRwmbA-vGZ7sitngSvITtPhZPjvEk0k-ICMZNwsNTmVjSpeKTSqHX295686qiBOGdhPfzxjU68vkHCfsjWrFq7P6a3_bls7HlgOb5TvT7IYicvTB3Ykz1my9kzKg4FcWcwvM6E8pP3pps_78nIqDQ/media?maxWidthPx=900&key=REDACTED",
+        "attribution": "Google",
+        "source": "google"
+      },
+      "rank": null,
+      "score": null,
+      "reasons": []
+    },
+    {
+      "id": "ho-bc3530d182",
+      "name": "Hyatt Place Chengdu Pebble Walk",
+      "area": "",
+      "geo": {
+        "lat": 30.586332,
+        "lng": 104.03213
+      },
+      "check_in": "",
+      "check_out": "",
+      "price_per_night": null,
+      "price_kind": "none",
+      "rating": 4.9,
+      "review_count": 16,
+      "distance_to_centre_km": null,
+      "source_refs": [
+        {
+          "title": "Hyatt Place Chengdu Pebble Walk",
+          "url": "https://maps.google.com/?cid=2360211839924782261&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+          "source": "Google Places",
+          "fetched_at": "2026-11-24T05:33:38.867463+00:00"
+        }
+      ],
+      "data_status": "ok",
+      "booking_url": "https://www.hyatt.com/en-US/hotel/china/hyatt-place-chengdu-pebble-walk/ctuzc",
+      "notes": "Found for 'hotels in Chengdu'.",
+      "confirmed": false,
+      "locked": false,
+      "booked": false,
+      "names": {},
+      "amenities": [
+        "hotel",
+        "lodging",
+        "point_of_interest",
+        "establishment"
+      ],
+      "hotel_class": null,
+      "property_token": "",
+      "nearby": [],
+      "room_types": [],
+      "rooms_checked_for": null,
+      "nearest_stop_km": null,
+      "nearest_stop_name": "",
+      "match": null,
+      "segment_id": null,
+      "links": [],
+      "image": {
+        "url": "https://places.googleapis.com/v1/places/ChIJqXjlvJ_G7zYRtURj2SkowSA/photos/AV-0GLdLAvaG8U7nytT6KGKkjV10y4BhLEkLngttKNhc4azEdz_gPNmgeNnXoduRq6cXRUbR7fc8ZnMs6yoDL3wM-Yc4FKl7lvARSubSbgQ5asQUok5LTKf_qsZMQJaIz_wvqO-p8-N0MAX11J5p34hYDtDznUCXv8eu5_9WTjU50C_tpBMrQQQsqe_9RqyDdHEeZG6LbNiO_SFq7Nqdq2tNy7aRxttr2hu4RJIw63aRdEOiN9xyaftgIj2VAx43-Zyj2B8WDEqX6gCz1nHAf5XWhnkI6nRuKYYeJeoX5irBtTUN43vTuAT5yX5QtCUf0TCJRzcqJBcYTRfZsY0QmL_ScDXnPG2dIIManQHXXEC-tmV4uemVDj3S2OZFl4F7xV-AhbOU-amv48HsxxqKI84r1rEcVzWuOq4/media?maxWidthPx=900&key=REDACTED",
+        "attribution": "Google",
+        "source": "google"
+      },
+      "rank": null,
+      "score": null,
+      "reasons": []
+    },
+    {
+      "id": "ho-10e12e1f30",
+      "name": "Shangri-La Hotel, Chengdu",
+      "area": "",
+      "geo": {
+        "lat": 30.643185000000003,
+        "lng": 104.08552999999999
+      },
+      "check_in": "",
+      "check_out": "",
+      "price_per_night": null,
+      "price_kind": "none",
+      "rating": 4.5,
+      "review_count": 525,
+      "distance_to_centre_km": null,
+      "source_refs": [
+        {
+          "title": "Shangri-La Hotel, Chengdu",
+          "url": "https://maps.google.com/?cid=13444984149165872840&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+          "source": "Google Places",
+          "fetched_at": "2026-11-24T05:33:38.867501+00:00"
+        }
+      ],
+      "data_status": "ok",
+      "booking_url": "http://www.shangri-la.com/cn/chengdu/shangrila/",
+      "notes": "Sophisticated, high-rise hotel featuring restaurants & a cozy pub, plus an indoor pool & a chic spa.",
+      "confirmed": false,
+      "locked": false,
+      "booked": false,
+      "names": {},
+      "amenities": [
+        "hotel",
+        "lodging",
+        "point_of_interest",
+        "establishment"
+      ],
+      "hotel_class": null,
+      "property_token": "",
+      "nearby": [],
+      "room_types": [],
+      "rooms_checked_for": null,
+      "nearest_stop_km": null,
+      "nearest_stop_name": "",
+      "match": null,
+      "segment_id": null,
+      "links": [],
+      "image": {
+        "url": "https://places.googleapis.com/v1/places/ChIJY0Z7t1OcTDQRyBbKXdktlro/photos/AV-0GLcBJZwhNUsRHcvhn-gsgr39vQx8y8uLr-e9PAZd29bcK_0Ej0nvJvArSY8_uIGHz8p5fSsZ4jv-IpMAX2qwyEd34yOdn8ha_BqaqydjySLkAyVzPxS5dorHA3nC7eAm0AU6pxZh37YSlS0CKH46unknRn-9Dj61c3wsRzzHDfmnb6M7P-KsLjW3LC3bDr5sWPwoHyV0TaCwVEMIGUq7Fk0IYsE8ydZiPIG1QEIJKj3q-L8CMmftADcToAb-7Pai4H5EC09od6uN8j8SqT3d1L8QvjgD-ho-erFUK8-l0T962LmrFhCgq0uh-nVk9nDGH5o26tzXCZdSfMARuW1Bn72OxaK7uvqHkGg9uLd0nd6vJzbnH1VhB9fiRnDlBOn0ouoeC8oO4B6viuXD0_D8qWsthg/media?maxWidthPx=900&key=REDACTED",
+        "attribution": "Google",
+        "source": "google"
+      },
+      "rank": null,
+      "score": null,
+      "reasons": []
+    },
+    {
+      "id": "ho-e2674de7cb",
+      "name": "Canopy by Hilton Chengdu City Centre",
+      "area": "",
+      "geo": {
+        "lat": 30.655948599999995,
+        "lng": 104.0632519
+      },
+      "check_in": "",
+      "check_out": "",
+      "price_per_night": null,
+      "price_kind": "none",
+      "rating": 4.4,
+      "review_count": 52,
+      "distance_to_centre_km": null,
+      "source_refs": [
+        {
+          "title": "Canopy by Hilton Chengdu City Centre",
+          "url": "https://maps.google.com/?cid=6760618640444413352&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+          "source": "Google Places",
+          "fetched_at": "2026-11-24T05:33:38.867536+00:00"
+        }
+      ],
+      "data_status": "ok",
+      "booking_url": "https://canopybyhilton.com.cn/zh-cn/hotel/chengdu/canopy-by-hilton-chengdu-city-centre-CTULCPY/index.html",
+      "notes": "Found for 'hotels in Chengdu'.",
+      "confirmed": false,
+      "locked": false,
+      "booked": false,
+      "names": {},
+      "amenities": [
+        "hotel",
+        "lodging",
+        "point_of_interest",
+        "establishment"
+      ],
+      "hotel_class": null,
+      "property_token": "",
+      "nearby": [],
+      "room_types": [],
+      "rooms_checked_for": null,
+      "nearest_stop_km": null,
+      "nearest_stop_name": "",
+      "match": null,
+      "segment_id": null,
+      "links": [],
+      "image": {
+        "url": "https://places.googleapis.com/v1/places/ChIJ3xeJPCPF7zYRqNWSjdWK0l0/photos/AV-0GLc6w5NptOM4QpYaA7uRBeN1jj2oY7zZ18pJ0PCbWvsHfafiILSqrL429ANvtGU0xCdI3FAcCO-4wODUK383Hjt6T-k40oQUJBR-LP_XfUIHKnPI8UbitqFAx129HgRDiEwDItkJvoDErrVSmKMw28BpyfKJ01Qd8N4DabpXWaJ3dTyQUcLKMexWWW7mj40HPVeAXzVrNjUdk4XHDPt8mIGdwMzSL_J6qbrISY_9PNXfdUqdkkElUIrr3PQ1BpT7E7Jixl8iGkpkfxda40Zw-g_qw_2ifvXlPDNU3kjm_vK7x2O4XOYuD2XPJ5_WC0Z-XP3cxaU-TnMNsMdm0T_m2l1DGsG2FPiO9aoRBRZbaoMihs9L7iMdScbE-7nvEQ2BbnoTzLmCTjN1Hsfh5Is3K2UK7rsameCAcoo08WhhF1oRXQ/media?maxWidthPx=900&key=REDACTED",
+        "attribution": "Google",
+        "source": "google"
+      },
+      "rank": null,
+      "score": null,
+      "reasons": []
+    }
+  ],
+  "tickets": [
+    {
+      "id": "tk-41846bd2aa",
+      "mode": "flight",
+      "leg_id": "leg-out",
+      "estimated": true,
+      "links": [],
+      "rank": null,
+      "score": null,
+      "reasons": [],
+      "name": "Hong Kong to Chengdu",
+      "origin": "Hong Kong",
+      "destination": "Chengdu",
+      "depart_at": "2027-01-22T08:00",
+      "arrive_at": "2027-01-22T12:00",
+      "duration_minutes": null,
+      "return_origin": "",
+      "return_destination": "",
+      "return_depart_at": null,
+      "return_arrive_at": null,
+      "return_duration_minutes": null,
+      "return_airline": "",
+      "return_flight_number": "",
+      "price": {
+        "amount": 4490,
+        "currency": "HKD"
+      },
+      "price_kind": "estimate",
+      "operator": "",
+      "booking_url": "",
+      "notes": "Estimated return fare for 2; no live fare was available, so this is a planning estimate.",
+      "source_refs": [
+        {
+          "title": "Estimate: Hong Kong to Chengdu",
+          "url": "",
+          "source": "Pathfinder estimate",
+          "fetched_at": "2026-11-24T05:33:38.340087+00:00"
+        }
+      ],
+      "data_status": "stale",
+      "confirmed": false,
+      "selected": true
+    }
+  ],
+  "segments": [
+    {
+      "id": "seg-1",
+      "destination": {
+        "name": "Chengdu",
+        "country_code": "",
+        "geo": null,
+        "timezone": "UTC"
+      },
+      "dates": {
+        "start": "2027-01-22",
+        "end": "2027-01-26"
+      }
+    }
+  ],
+  "legs": [
+    {
+      "id": "leg-out",
+      "from_place": "Hong Kong",
+      "to_place": "Chengdu",
+      "depart_date": "2027-01-22",
+      "kind": "outbound",
+      "locked": false,
+      "booked": false,
+      "segment_id": null,
+      "airport": ""
+    },
+    {
+      "id": "leg-back",
+      "from_place": "Chengdu",
+      "to_place": "Hong Kong",
+      "depart_date": "2027-01-26",
+      "kind": "return",
+      "locked": false,
+      "booked": false,
+      "segment_id": null,
+      "airport": ""
+    }
+  ],
+  "cost": {
+    "currency": "HKD",
+    "lines": [
+      {
+        "label": "Travel",
+        "amount": 4490,
+        "kind": "flight",
+        "note": "Return travel for the party."
+      },
+      {
+        "label": "Local transport",
+        "amount": 300,
+        "kind": "local",
+        "note": "Estimate for local travel."
+      }
+    ],
+    "total": 4790,
+    "budget": 12000,
+    "remaining": 7210,
+    "status": "within",
+    "notes": [
+      "Costs use the prices the sources returned; estimates are labelled."
+    ]
+  },
+  "constraints": [
+    {
+      "id": "c1",
+      "text": "keep every named place",
+      "status": "unknown",
+      "evidence": ""
+    },
+    {
+      "id": "c2",
+      "text": "Day 1: Taikoo Li, Chunxi Road, hotpot dinner at Shu Da Xia",
+      "status": "unknown",
+      "evidence": ""
+    },
+    {
+      "id": "c3",
+      "text": "Day 2: Chengdu Research Base of Giant Panda Breeding early morning, Kuanzhai Alleys, tea at People's Park",
+      "status": "pass",
+      "evidence": "Day 2 includes Chengdu Research Base of Giant Panda Breeding."
+    },
+    {
+      "id": "c4",
+      "text": "Day 3: Wuhou Shrine, Jinli Ancient Street",
+      "status": "unknown",
+      "evidence": ""
+    },
+    {
+      "id": "c5",
+      "text": "Day 4: Dujiangyan Irrigation System, Qingcheng Mountain if time allows, return to Chengdu at night",
+      "status": "pass",
+      "evidence": "Day 4 includes Dujiangyan Irrigation System."
+    },
+    {
+      "id": "c6",
+      "text": "Day 5: Du Fu Thatched Cottage in the morning, then depart from Chengdu Tianfu International Airport",
+      "status": "unknown",
+      "evidence": ""
+    },
+    {
+      "id": "c7",
+      "text": "arrive at Chengdu Tianfu International Airport on 22 Jan",
+      "status": "unknown",
+      "evidence": ""
+    }
+  ],
+  "disruptions": [],
+  "reservations": [
+    {
+      "id": "res-hotel",
+      "name": "Canopy by Hilton Chengdu City Centre",
+      "reason": "Book the stay once the dates are confirmed.",
+      "url": "https://canopybyhilton.com.cn/zh-cn/hotel/chengdu/canopy-by-hilton-chengdu-city-centre-CTULCPY/index.html",
+      "needed_by": null,
+      "status": "to_book"
+    }
+  ],
+  "video_notes": [
+    {
+      "title": "Best Things To Do in Chengdu China Travel Guide 2027 4K",
+      "url": "https://www.youtube.com/watch?v=Wj7m6D7p220",
+      "source": "youtube",
+      "snippet": "From incredible Chengdu street food to the best food in Chengdu, this video takes you on a flavorful Chengdu food tour. Try spicy hot pot ...",
+      "video_id": "Wj7m6D7p220",
+      "thumbnail_url": "https://i.ytimg.com/vi/Wj7m6D7p220/hqdefault.jpg",
+      "published_at": null
+    },
+    {
+      "title": "3 Days in Chengdu, China 🇨🇳 The Perfect Travel Itinerary",
+      "url": "https://www.youtube.com/watch?v=IwRhuG3hftc",
+      "source": "youtube",
+      "snippet": "Chengdu Travel Guide: Pandas, Kuanzhai Alley, Sichuan Opera, Wuhou Temple, Chunxi Road and more Vince Travel•16K views",
+      "video_id": "IwRhuG3hftc",
+      "thumbnail_url": "https://i.ytimg.com/vi/IwRhuG3hftc/hqdefault.jpg",
+      "published_at": null
+    },
+    {
+      "title": "CHENGDU 5D4N Travel Guide 成都五天四夜旅行Vlog",
+      "url": "https://www.youtube.com/watch?v=CiQwQ9gcqps",
+      "source": "youtube",
+      "snippet": "China's PANDA CITY is INSANE | CHENGDU 5D4N Travel Guide 成都五天四夜旅行Vlog. @overkillsingapore836 likes122K views5 months ago more.",
+      "video_id": "CiQwQ9gcqps",
+      "thumbnail_url": "https://i.ytimg.com/vi/CiQwQ9gcqps/hqdefault.jpg",
+      "published_at": null
+    }
+  ],
+  "data_quality": {
+    "sources_used": [
+      "Google Places",
+      "Pathfinder estimate"
+    ],
+    "gaps": [
+      {
+        "section": "weather",
+        "kind": "unavailable",
+        "message": "No forecast covered the trip dates.",
+        "retryable": true
+      },
+      {
+        "section": "plan",
+        "kind": "model_gap",
+        "message": "No confirmed listings for Taikoo Li, Chunxi Road, the Panda Base, People's Park, Wuhou Shrine, Jinli, Du Fu Thatched Cottage, a face-changing show or the airport transfer, so those are not scheduled.",
+        "retryable": false
+      },
+      {
+        "section": "plan",
+        "kind": "model_gap",
+        "message": "Flight times and hotel rates were not confirmed, so the arrival and departure timings and the total cost are unverified.",
+        "retryable": false
+      },
+      {
+        "section": "plan",
+        "kind": "user_provided",
+        "message": "Chunxi Road was added at the traveller's request without a confirmed source; check its address, hours and tickets.",
+        "retryable": true
+      }
+    ],
+    "notes": [
+      "weather:5"
+    ],
+    "search_window_months": 24,
+    "generated_at": "2026-11-24T05:35:23.696914+00:00",
+    "freshness": []
+  },
+  "assessment": {
+    "confidence": 0.97,
+    "level": "high",
+    "signals": [
+      {
+        "code": "unsourced_items",
+        "weight": -0.2,
+        "message": "Some stops had no source."
+      },
+      {
+        "code": "data_gaps",
+        "weight": -0.1,
+        "message": "4 data gap(s) remain."
+      }
+    ],
+    "missing": [],
+    "unverified": [
+      "No forecast covered the trip dates.",
+      "No confirmed listings for Taikoo Li, Chunxi Road, the Panda Base, People's Park, Wuhou Shrine, Jinli, Du Fu Thatched Cottage, a face-changing show or the airport transfer, so those are not scheduled.",
+      "Flight times and hotel rates were not confirmed, so the arrival and departure timings and the total cost are unverified.",
+      "Chunxi Road was added at the traveller's request without a confirmed source; check its address, hours and tickets."
+    ],
+    "next_action": "research",
+    "question": "",
+    "research_rounds": 0,
+    "improvements": []
+  },
+  "change_summary": "Add Du Fu Thatched Cottage on the morning of Day 5, 08:30–10:15, before the early lunch.",
+  "created_at": "2026-11-24T05:35:23.696985+00:00",
+  "updated_at": "2026-11-24T05:43:41.305453+00:00"
+}

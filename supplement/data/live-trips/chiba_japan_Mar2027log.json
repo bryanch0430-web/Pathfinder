@@ -1,0 +1,260 @@
+{
+  "downloaded_at": "2026-11-24T07:11:42.866Z",
+  "request_id": "88506ac332064913b9e2fe09686c3563",
+  "user_message": "",
+  "turns": [
+    {
+      "user": "Plan this trip and keep every named place. Party size 2, origin Hong Kong, 6–8 March 2027, 3 days, budget 12000, currency HKD.\n\nDay 1 (Mar 6, Sat) | Arrival in Japan → Naritasan Shinshoji Temple\n\nArrive at Narita Airport, drop off luggage, or check in at your hotel.\nVisit Naritasan Shinshoji Temple, stroll along Omotesando historic street, and eat grilled eel over rice (unadon) at Kawatoyo.\nStay the night in Kaihin-Makuhari.\nDay 2 (Mar 7, Sun) | Full day at Mother Farm\n\nPick up a rental car in Chiba in the morning.\nSpend the day at Mother Farm with the capybaras and alpacas, see the March rapeseed flower (nanohana) fields, and eat inside the park.\nDrive to Kisarazu for the night.\nDay 3 (Mar 8, Mon) | Mount Nokogiri, then fly home\n\nTake the Mount Nokogiri ropeway to the cliffside observatory, the Nihon-ji Great Buddha, and the 1,500 Rakan stone statues.\nDrive back to Chiba City, return the rental car, and fly out of Narita Airport in the evening.",
+      "at": "2026-11-24T07:03:41.263674+00:00",
+      "reply": "A three-day Chiba trip from Makuhari to the Boso Peninsula. It has an unadon lunch at Kawatoyo in Narita, a full day at Mother Farm, and a Mount Nokogiri and Nihon-ji day before the evening flight from Narita. Several places and bookings you named are not yet in the plan: Naritasan, Omotesando, both rental-car stops and a Kisarazu hotel.\n\nDay 1 (2027-03-06): Kawatoyo Narita, Chiba Port Tower, Chiba Port Park Observatory Hill, Kokkara Chiba.\n\nDay 2 (2027-03-07): Mother Farm.\n\nDay 3 (2027-03-08): Mt.Nokogiri Ropeway., Nihon-ji Daibutsu (The Great Buddha of Nihonji), Chulo Chill Restaurant & Bar (チュロ チル レストラン&バー).\n\nStay: APA Hotel & Resort Tokyo Bay Makuhari.\n\nEstimated total: 4670 HKD of 12000.\n\nNot confirmed by a source: No forecast covered the trip dates.; No confirmed flight times, so Day 1 timings and the Day 3 airport transfer are approximate.; No details for Naritasan, Omotesando, the rental-car pickup and return, or a Kisarazu hotel..",
+      "reply_at": "2026-11-24T07:06:01.976403+00:00",
+      "intent": "plan",
+      "path": null,
+      "flow": [],
+      "why": [],
+      "steps": [],
+      "models": []
+    },
+    {
+      "user": "Day 1 (Mar 6, Sat) | Arrival in Japan → Naritasan Shinshoji Temple\n\nArrive at Narita Airport, drop off luggage, or check in at your hotel.\nVisit Naritasan Shinshoji Temple, stroll along Omotesando historic street, and eat grilled eel over rice (unadon) at Kawatoyo.\nStay the night in Kaihin-Makuhari.",
+      "at": "2026-11-24T07:07:22.117449+00:00",
+      "reply": "Add Naritasan Shinshoji Temple and a stroll along Omotesando before your Kawatoyo unadon on Day 1.\n\nFound a source for Naritasan Shinsho-ji.\n\nAdded Naritasan Shinshoji Temple as an unconfirmed stop at 12:30.\n\nAdded Omotesando historic street as an unconfirmed stop at 14:00.",
+      "reply_at": "2026-11-24T07:07:55.002908+00:00",
+      "intent": "modify",
+      "path": null,
+      "flow": [],
+      "why": [],
+      "steps": [],
+      "models": []
+    },
+    {
+      "user": "Day 2 (Mar 7, Sun) | Full day at Mother Farm\n\nPick up a rental car in Chiba in the morning.\nSpend the day at Mother Farm with the capybaras and alpacas, see the March rapeseed flower (nanohana) fields, and eat inside the park.\nDrive to Kisarazu for the night.",
+      "at": "2026-11-24T07:08:25.693833+00:00",
+      "reply": "Add a morning rental car pickup in Chiba before Mother Farm on Day 2.\n\nFound a source for Kisarazu Washington Hotel.\n\nAdded Rental car pickup in Chiba as an unconfirmed stop at 08:00.\n\nLunch inside Mother Farm fits around 12:30 within your 10:00-16:30 visit. The park closes at 16:30, so plan the capybaras, alpacas and nanohana fields before then. The drive to Kisarazu takes about 40 minutes afterwards.",
+      "reply_at": "2026-11-24T07:09:14.894058+00:00",
+      "intent": "modify",
+      "path": null,
+      "flow": [],
+      "why": [],
+      "steps": [],
+      "models": []
+    },
+    {
+      "user": "Day 3 (Mar 8, Mon) | Mount Nokogiri, then fly home\n\nTake the Mount Nokogiri ropeway to the cliffside observatory, the Nihon-ji Great Buddha, and the 1,500 Rakan stone statues.\nDrive back to Chiba City, return the rental car, and fly out of Narita Airport in the evening.",
+      "at": "2026-11-24T07:10:34.344398+00:00",
+      "reply": "Add the 1,500 Rakan stone statues after the Great Buddha, then a rental car return in Chiba City before the Chiba City meal.\n\nFound a source for Nihon-ji Daibutsu (The Great Buddha of Nihonji).\n\nAdded 1,500 Rakan stone statues (Nihon-ji, Mount Nokogiri) as an unconfirmed stop at 13:05.\n\nAdded Rental car return in Chiba City as an unconfirmed stop at 15:10.",
+      "reply_at": "2026-11-24T07:11:28.717878+00:00",
+      "intent": "modify",
+      "path": null,
+      "flow": [],
+      "why": [],
+      "steps": [],
+      "models": []
+    }
+  ],
+  "messages": [
+    {
+      "role": "user",
+      "content": "Plan this trip and keep every named place. Party size 2, origin Hong Kong, 6–8 March 2027, 3 days, budget 12000, currency HKD.\n\nDay 1 (Mar 6, Sat) | Arrival in Japan → Naritasan Shinshoji Temple\n\nArrive at Narita Airport, drop off luggage, or check in at your hotel.\nVisit Naritasan Shinshoji Temple, stroll along Omotesando historic street, and eat grilled eel over rice (unadon) at Kawatoyo.\nStay the night in Kaihin-Makuhari.\nDay 2 (Mar 7, Sun) | Full day at Mother Farm\n\nPick up a rental car in Chiba in the morning.\nSpend the day at Mother Farm with the capybaras and alpacas, see the March rapeseed flower (nanohana) fields, and eat inside the park.\nDrive to Kisarazu for the night.\nDay 3 (Mar 8, Mon) | Mount Nokogiri, then fly home\n\nTake the Mount Nokogiri ropeway to the cliffside observatory, the Nihon-ji Great Buddha, and the 1,500 Rakan stone statues.\nDrive back to Chiba City, return the rental car, and fly out of Narita Airport in the evening.",
+      "at": "2026-11-24T07:03:41.263674+00:00"
+    },
+    {
+      "role": "assistant",
+      "content": "A three-day Chiba trip from Makuhari to the Boso Peninsula. It has an unadon lunch at Kawatoyo in Narita, a full day at Mother Farm, and a Mount Nokogiri and Nihon-ji day before the evening flight from Narita. Several places and bookings you named are not yet in the plan: Naritasan, Omotesando, both rental-car stops and a Kisarazu hotel.\n\nDay 1 (2027-03-06): Kawatoyo Narita, Chiba Port Tower, Chiba Port Park Observatory Hill, Kokkara Chiba.\n\nDay 2 (2027-03-07): Mother Farm.\n\nDay 3 (2027-03-08): Mt.Nokogiri Ropeway., Nihon-ji Daibutsu (The Great Buddha of Nihonji), Chulo Chill Restaurant & Bar (チュロ チル レストラン&バー).\n\nStay: APA Hotel & Resort Tokyo Bay Makuhari.\n\nEstimated total: 4670 HKD of 12000.\n\nNot confirmed by a source: No forecast covered the trip dates.; No confirmed flight times, so Day 1 timings and the Day 3 airport transfer are approximate.; No details for Naritasan, Omotesando, the rental-car pickup and return, or a Kisarazu hotel..",
+      "at": "2026-11-24T07:06:01.976403+00:00"
+    },
+    {
+      "role": "user",
+      "content": "Day 1 (Mar 6, Sat) | Arrival in Japan → Naritasan Shinshoji Temple\n\nArrive at Narita Airport, drop off luggage, or check in at your hotel.\nVisit Naritasan Shinshoji Temple, stroll along Omotesando historic street, and eat grilled eel over rice (unadon) at Kawatoyo.\nStay the night in Kaihin-Makuhari.",
+      "at": "2026-11-24T07:07:22.117449+00:00"
+    },
+    {
+      "role": "assistant",
+      "content": "Add Naritasan Shinshoji Temple and a stroll along Omotesando before your Kawatoyo unadon on Day 1.\n\nFound a source for Naritasan Shinsho-ji.\n\nAdded Naritasan Shinshoji Temple as an unconfirmed stop at 12:30.\n\nAdded Omotesando historic street as an unconfirmed stop at 14:00.",
+      "at": "2026-11-24T07:07:55.002908+00:00"
+    },
+    {
+      "role": "user",
+      "content": "Day 2 (Mar 7, Sun) | Full day at Mother Farm\n\nPick up a rental car in Chiba in the morning.\nSpend the day at Mother Farm with the capybaras and alpacas, see the March rapeseed flower (nanohana) fields, and eat inside the park.\nDrive to Kisarazu for the night.",
+      "at": "2026-11-24T07:08:25.693833+00:00"
+    },
+    {
+      "role": "assistant",
+      "content": "Add a morning rental car pickup in Chiba before Mother Farm on Day 2.\n\nFound a source for Kisarazu Washington Hotel.\n\nAdded Rental car pickup in Chiba as an unconfirmed stop at 08:00.\n\nLunch inside Mother Farm fits around 12:30 within your 10:00-16:30 visit. The park closes at 16:30, so plan the capybaras, alpacas and nanohana fields before then. The drive to Kisarazu takes about 40 minutes afterwards.",
+      "at": "2026-11-24T07:09:14.894058+00:00"
+    },
+    {
+      "role": "user",
+      "content": "Day 3 (Mar 8, Mon) | Mount Nokogiri, then fly home\n\nTake the Mount Nokogiri ropeway to the cliffside observatory, the Nihon-ji Great Buddha, and the 1,500 Rakan stone statues.\nDrive back to Chiba City, return the rental car, and fly out of Narita Airport in the evening.",
+      "at": "2026-11-24T07:10:34.344398+00:00"
+    },
+    {
+      "role": "assistant",
+      "content": "Add the 1,500 Rakan stone statues after the Great Buddha, then a rental car return in Chiba City before the Chiba City meal.\n\nFound a source for Nihon-ji Daibutsu (The Great Buddha of Nihonji).\n\nAdded 1,500 Rakan stone statues (Nihon-ji, Mount Nokogiri) as an unconfirmed stop at 13:05.\n\nAdded Rental car return in Chiba City as an unconfirmed stop at 15:10.",
+      "at": "2026-11-24T07:11:28.717878+00:00"
+    }
+  ],
+  "why": [
+    "Read as modify (86% confident): The traveller gives the Day 3 details (observatory, Rakan statues, rental car return in Chiba City, evening Narita flight) to fill into the existing plan..",
+    "Assumed: Day 3 starts from the Kisarazu hotel and uses the rental car picked up on Day 2",
+    "Assumed: The flight home is the evening departure from Narita on 2027-03-08",
+    "Looked for attraction options for the edit (“1,500 Rakan stone statues (Nihon-ji, Mount Nokogiri)”): 11 sourced.",
+    "The change is a proposal: it is applied only when its tick is accepted."
+  ],
+  "flow": [
+    "turn:start"
+  ],
+  "path": {
+    "intent": "modify",
+    "confidence": 0.86,
+    "reason": "The traveller gives the Day 3 details (observatory, Rakan statues, rental car return in Chiba City, evening Narita flight) to fill into the existing plan.",
+    "chooser": "turn-analyst",
+    "router": "claude-sonnet-5.5"
+  },
+  "route": "",
+  "spans": [],
+  "generations": [
+    {
+      "purpose": "understand",
+      "model": "claude-sonnet-5.5",
+      "prompt_tokens": 6830,
+      "completion_tokens": 1247,
+      "latency_ms": 8384.4,
+      "reasoning": "This is a plan modification adding Day 3 details—the Rakan statues likely refer to Nihon-ji's 1,500 stone statues, the observatory points to Mount Nokogiri's Jigoku Nozoki viewing deck, plus the rental car return and evening Narita flight. I'll carry forward existing slots and note these new places to research.\n\n",
+      "output_preview": "```json\n{\n  \"intent\": \"modify\",\n  \"confidence\": 0.86,\n  \"reason_code\": \"add_day3_stops\",\n  \"reason\": \"The traveller gives the Day 3 details (observatory, Rakan statues, rental car return in Chiba City, evening Narita flight) to fill into the existing plan.\",\n  \"language\": \"en\",\n  \"slots\": {\n    \"destination\": \"Chiba\",\n    \"origin\": \"Hong Kong\",\n    \"start_date\": \"2027-03-06\",\n    \"end_date\": \"2027-03-08\",\n    \"days\": 3,\n    \"party_size\": 2,\n    \"budget\": 12000,\n    \"currency\": \"HKD\",\n    \"hotel_style\": null,\n    \"preferences\": [\n      \"capybaras and alpacas at Mother Farm\",\n      \"March rapeseed (nanohana) flower fields\",\n      \"grilled eel (unadon)\"\n    ],\n    \"hard_constraints\": [\n      \"Keep every named place\",\n      \"Day 1: Naritasan Shinshoji Temple, Omotesando street, lunch or dinner at Kawatoyo, stay in Kaihin-Makuhari\",\n      \"Day 2: pick up a rental car in Chiba in the morning, spend the day at Mother Farm, eat inside the park, stay in Kisarazu\",\n      \"Day 3: Mount Nokogiri ropeway and observatory, Nihon-ji Great Buddha, 1,500 Rakan stone statues, return the rental car in Chiba City, evening flight from Narita\"\n    ],\n    \"pace\": \"balanced\",\n    \"with_children\": false,\n  ",
+      "user_preview": "{\n \"today\": \"2026-11-24\",\n \"now_local\": \"2026-11-24T15:10+08:00\",\n \"timezone\": \"HKT\",\n \"interface_locale\": \"en\",\n \"trip\": {\n  \"destination\": \"Chiba\",\n  \"origin\": \"Hong Kong\",\n  \"start_date\": \"2027-03-06\",\n  \"end_date\": \"2027-03-08\",\n  \"days\": 3,\n  \"party_size\": 2,\n  \"budget\": 12000.0,\n  \"currency\": \"HKD\",\n  \"currency_set\": true,\n  \"hotel_style\": null,\n  \"preferences\": [\n   \"capybaras and alpacas at Mother Farm\",\n   \"March rapeseed (nanohana) flower fields\",\n   \"grilled eel (unadon)\"\n  ],\n  \"hard_constraints\": [\n   \"Keep every named place\",\n   \"Day 1: Naritasan Shinshoji Temple, Omotesando stre"
+    },
+    {
+      "purpose": "edit",
+      "model": "claude-sonnet-5.5",
+      "prompt_tokens": 12202,
+      "completion_tokens": 1530,
+      "latency_ms": 13095.1,
+      "reasoning": "Looking at the day 3 itinerary, I'm checking whether the 1,500 Rakan stone statues are already covered within the Nihon-ji visit window, since they're part of that temple complex, plus I still need to account for the drive back to Chiba City, rental car return, and the evening Narita flight.\n\nI'm sequencing the afternoon: Rakan after Nihon-ji around 13:05-14:05, then driving back to Chiba City by about 15:20, fitting the existing Chulo Chill meal at 15:35, followed by rental car return around 16:45-17:15 and then train travel to Narita, though the exact flight time remains unknown. I'll note that the ropeway/observatory is already covered by the existing Mt. Nokogiri item, so I just need to slot Rakan in separately after Nihon-ji.\n\n",
+      "output_preview": "{\n  \"scope\": \"day\",\n  \"ops\": [\n    {\"op\": \"add\", \"name\": \"Rental car return in Chiba City\", \"day\": 3, \"start\": \"16:45\", \"end\": \"17:15\", \"note\": \"Return the rental car in Chiba City after the late lunch. This is an unconfirmed stop, so the return address and hours still need checking.\"},\n    {\"op\": \"note\", \"text\": \"The ropeway, Nihon-ji Great Buddha, Chiba City lunch and Narita evening flight are already in Day 3. I'm adding the 1,500 Rakan stone statues after the Great Buddha and the rental car return in Chiba City before you head to Narita. Please check your flight time. From Chiba City to Narita Airport takes about 45–60 minutes by train, so keep that in mind for check-in.\"}\n  ],\n  \"summary\": \"Add the 1,500 Rakan stone statues after Nihon-ji, and add the rental car return in Chiba City at 16:45 before the trip to Narita.\",\n  \"detail\": \"The Rakan statues aren't in the candidate list, so I'm looking them up to place them at about 13:05–14:05, after the Great Buddha. Nothing else on Day 3 moves.\",\n  \"needs_research\": true,\n  \"research_name\": \"1,500 Rakan stone statues (Nihon-ji, Mount Nokogiri)\",\n  \"research_kind\": \"attraction\",\n  \"research_queries\": [\n    \"Nihon-ji Mount Nokogiri 1",
+      "user_preview": "{\n \"trip\": {\n  \"destination\": \"Chiba\",\n  \"origin\": \"Hong Kong\",\n  \"start_date\": \"2027-03-06\",\n  \"end_date\": \"2027-03-08\",\n  \"days\": 3,\n  \"party_size\": 2,\n  \"budget\": 12000.0,\n  \"currency\": \"HKD\",\n  \"currency_set\": true,\n  \"hotel_style\": null,\n  \"preferences\": [\n   \"capybaras and alpacas at Mother Farm\",\n   \"March rapeseed (nanohana) flower fields\",\n   \"grilled eel (unadon)\"\n  ],\n  \"hard_constraints\": [\n   \"Keep every named place\",\n   \"Day 1: Naritasan Shinshoji Temple, Omotesando street, lunch or dinner at Kawatoyo, stay in Kaihin-Makuhari\",\n   \"Day 2: pick up a rental car in Chiba in the morn"
+    },
+    {
+      "purpose": "edit",
+      "model": "claude-sonnet-5.5",
+      "prompt_tokens": 136672,
+      "completion_tokens": 2658,
+      "latency_ms": 31040.6,
+      "reasoning": "I'm checking the Day 3 itinerary against the request - the ropeway, Great Buddha, and meal slots are already scheduled, but I notice the 1,500 Rakan stone statues stop is still missing along with the drive back to Chiba City and rental car return.\n\nI'll add the Rakan stop as a user-provided stop right after Great Buddha, around 13:05-14:00, since it's on the Nihon-ji grounds nearby. I also need to add the rental car return in Chiba City as a counterpart to the existing pickup item, but the timing is getting tight since the drive to Chiba City takes roughly an hour, which pushes against the 15:35 meal slot.\n\nI'll try keeping the meal unchanged and moving the car return to after it, around 16:40-17:00, since returning the car before the meal doesn't leave enough buffer given the drive time.\n\nThe 70-minute drive works fine and the meal stays untouched; the Great Buddha visit at 2 hours is also fine. Since Rakan couldn't be confirmed, I'll flag it as unconfirmed and note the flight time is unspecified, since the rule says to ask directly when a lookup returns nothing.\n\nThe temple closing at 16:00 works fine with this schedule, and Rakan's 13:05-14:05 slot fits too. This all checks out, so I can finalize the plan.\n\nThe drive takes about 51 minutes, so I'll budget an hour. That puts Rakan's session at 13:05-14:05, arriving back around 15:05, with car return at 15:10-15:30 and a meal at 15:35 — timing works out fine.\n\nI'll finalize this: the car return window is 15:10-15:30 in Chiba City, and the meal stays at 15:35 as before.\n\n",
+      "output_preview": "```json\n{\n  \"scope\": \"day\",\n  \"ops\": [\n    {\"op\": \"add\", \"name\": \"1,500 Rakan stone statues (Nihon-ji, Mount Nokogiri)\", \"day\": 3, \"start\": \"13:05\", \"end\": \"14:05\", \"note\": \"The Rakan statues line the Nihon-ji walking paths just after the Great Buddha. The temple grounds close around 16:00, so this fits.\"},\n    {\"op\": \"add\", \"name\": \"Rental car return in Chiba City\", \"day\": 3, \"start\": \"15:10\", \"end\": \"15:30\", \"note\": \"About 50-60 min drive from Mount Nokogiri. From Chiba Station, JR trains reach Narita Airport in about 40-50 min.\"},\n    {\"op\": \"note\", \"text\": \"I could not find the 1,500 Rakan stone statues as a separate listing, so I added them as an unconfirmed stop inside Nihon-ji. Nihon-ji's admission covers them, and one ticket covers the whole temple. You didn't give your flight time. Please tell me, and I'll check that the late lunch and the trip to Narita leave enough time. International check-in usually means arriving about 2.5 hours before departure.\"}\n  ],\n  \"summary\": \"Add the 1,500 Rakan stone statues after the Great Buddha, then a rental car return in Chiba City before the Chiba City meal.\",\n  \"detail\": \"Day 3 stays in this order: ropeway and observatory, Great Buddha",
+      "user_preview": "{\n \"trip\": {\n  \"destination\": \"Chiba\",\n  \"origin\": \"Hong Kong\",\n  \"start_date\": \"2027-03-06\",\n  \"end_date\": \"2027-03-08\",\n  \"days\": 3,\n  \"party_size\": 2,\n  \"budget\": 12000.0,\n  \"currency\": \"HKD\",\n  \"currency_set\": true,\n  \"hotel_style\": null,\n  \"preferences\": [\n   \"capybaras and alpacas at Mother Farm\",\n   \"March rapeseed (nanohana) flower fields\",\n   \"grilled eel (unadon)\"\n  ],\n  \"hard_constraints\": [\n   \"Keep every named place\",\n   \"Day 1: Naritasan Shinshoji Temple, Omotesando street, lunch or dinner at Kawatoyo, stay in Kaihin-Makuhari\",\n   \"Day 2: pick up a rental car in Chiba in the morn"
+    }
+  ],
+  "searches": [
+    {
+      "provider": "SerpAPI",
+      "query": "Chiba travel guide youtube",
+      "results": [
+        {
+          "title": "Exploring Chiba Japan for first timers | Travel Guide NOV 2025",
+          "url": "https://www.youtube.com/watch?v=z5Yji_CPKYc",
+          "snippet": "Exploring Chiba Japan for first timers | Travel Guide NOV 2025 ... FUJI DAY TRIP TRAVEL GUIDE | Chureito Pagoda, Honcho Street, Oshino Hakkai & ..."
+        },
+        {
+          "title": "Visit Chiba Japan",
+          "url": "https://www.youtube.com/channel/UCVD9-07TD2Ll2wN9Uad0jBA",
+          "snippet": "Chiba Prefecture, the home of Narita International Airport, is conveniently located next to Tokyo. Explore Chiba and discover its charm on your next trip to ..."
+        },
+        {
+          "title": "Is Chiba Worth Visiting? 🇯🇵 We Spent a Full Day to Find Out",
+          "url": "https://www.youtube.com/watch?v=xnO0zfECCcA",
+          "snippet": "Is Chiba worth visiting? We spent a full day exploring this often-overlooked city just outside Tokyo — riding the famous suspended ..."
+        },
+        {
+          "title": "Things to Do in Chiba",
+          "url": "https://www.youtube.com/playlist?list=PLHbgFVKaYjId1OrSvQ-LVrklvYsC27_6n",
+          "snippet": "Things to Do in Chiba ; Chiba - 1 Day Itinerary (Mt. Nokogiri, Tateyama) | Japan Itinerary suggestion · 2.4K views ; Nihon-ji Temple, Chiba | Japan Travel Guide."
+        },
+        {
+          "title": "Chiba Walks",
+          "url": "https://www.youtube.com/playlist?list=PLQZ2EdF3w6TdpwiPWOBmFXq9efRoEKmuE",
+          "snippet": "Chiba Walks ; Narita Airport Terminal 2 Walking Tour 2026 [4K/HDR/Binaural] · 21K views ; Narita Airport Terminal 1Walking Tour 2026 [4K/HDR/Binaural] · 24K views ..."
+        },
+        {
+          "title": "CHIBA Hidden Adventure Travel Gateway to Japan",
+          "url": "https://www.youtube.com/watch?v=0gTc3i3wIck",
+          "snippet": "Explore Chiba's hidden Japanese adventure through wellness experiences, seaside yoga, forest detox, cycling, hiking, and temple lodging with ..."
+        }
+      ]
+    },
+    {
+      "provider": "SerpAPI YouTube",
+      "query": "Chiba travel guide",
+      "results": [
+        {
+          "title": "Exploring Chiba Japan for first timers | Travel Guide NOV 2025",
+          "url": "https://www.youtube.com/watch?v=z5Yji_CPKYc"
+        },
+        {
+          "title": "Is Chiba Worth Visiting? 🇯🇵 We Spent a Full Day to Find Out",
+          "url": "https://www.youtube.com/watch?v=xnO0zfECCcA"
+        },
+        {
+          "title": "CHIBA Hidden Adventure Travel Gateway to Japan",
+          "url": "https://www.youtube.com/watch?v=0gTc3i3wIck"
+        }
+      ]
+    },
+    {
+      "provider": "youtube",
+      "query": "Chiba travel guide",
+      "results": [
+        {
+          "title": "Exploring Chiba Japan for first timers | Travel Guide NOV 2025",
+          "url": "https://www.youtube.com/watch?v=z5Yji_CPKYc"
+        },
+        {
+          "title": "Is Chiba Worth Visiting? 🇯🇵 We Spent a Full Day to Find Out",
+          "url": "https://www.youtube.com/watch?v=xnO0zfECCcA"
+        },
+        {
+          "title": "CHIBA Hidden Adventure Travel Gateway to Japan",
+          "url": "https://www.youtube.com/watch?v=0gTc3i3wIck"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "weather",
+      "status": "partial",
+      "latency_ms": 0.2,
+      "args": {},
+      "note": "2027-03-06: No forecast yet: the trip is beyond the 16-day forecast window.; 2027-03-07: No forecast yet: the trip is beyond the 16-day forecast window.; 2027-03-08: No forecast yet: the trip is beyond the 16-day forecast window."
+    },
+    {
+      "name": "tickets",
+      "status": "partial",
+      "latency_ms": 0.2,
+      "args": {},
+      "note": "1 travel option(s), partly estimated"
+    },
+    {
+      "name": "hotels",
+      "status": "ok",
+      "latency_ms": 446.1,
+      "args": {},
+      "note": "6 stays"
+    },
+    {
+      "name": "attractions",
+      "status": "ok",
+      "latency_ms": 526,
+      "args": {},
+      "note": "17 sights, 10 places to eat"
+    },
+    {
+      "name": "videos",
+      "status": "ok",
+      "latency_ms": 693.3,
+      "args": {},
+      "note": "3 video note(s)"
+    }
+  ],
+  "live": []
+}
