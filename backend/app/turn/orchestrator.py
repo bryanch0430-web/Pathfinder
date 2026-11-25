@@ -1248,9 +1248,9 @@ def _trip_shape_changed(plan: TripPlan, context: TripContext) -> bool:
         return True
     if context.days and len(plan.days) and context.days != len(plan.days):
         return True
-    if context.destination.strip().lower() != (plan.destination.name or "").strip().lower():
+    if context.destination.strip() and context.destination.strip().lower() != (plan.destination.name or "").strip().lower():
         return True
-    if context.origin.strip().lower() != (plan.origin or "").strip().lower():
+    if context.origin.strip() and context.origin.strip().lower() != (plan.origin or "").strip().lower():
         return True
     if context.stops:
         asked = [(stop.city.strip().lower(), int(stop.nights or 0)) for stop in context.stops if stop.city.strip()]

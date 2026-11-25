@@ -170,7 +170,9 @@ functions against main's 2,326.
 
 ## Quick start
 
-Requirements: Python 3.11+ (3.13.2 tested), Node 20.19+ only if you rebuild the UI.
+Requirements: Python 3.11+ (3.13.2 tested) and Node 20.19+ to build the UI once.
+`frontend/dist` is not committed, so a fresh clone must build it before `/` serves the app
+(without it the API still runs, but `/` returns 404).
 No GPU is used; model inference is remote. The SQLite database lives under `data/`.
 
 ```powershell
@@ -181,6 +183,9 @@ python -m venv backend\.venv
 .\backend\.venv\Scripts\python.exe -m pip install -r backend\requirements.txt -r backend\requirements-dev.txt
 
 copy .env.example .env      # then add a writer key (Poe, OpenAI, xAI, …)
+
+# First run only: build the UI into frontend\dist.
+cd frontend; npm install; npm run build; cd ..
 
 # Entry point: one process serves the API and the built UI.
 .\backend\.venv\Scripts\python.exe -m uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8100
