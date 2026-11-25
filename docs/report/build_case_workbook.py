@@ -285,7 +285,7 @@ def main() -> None:
     tp_rows = []
     tp_counts = {}
     for split in ("train", "validation", "test"):
-        path = PROJECT / ".archify" / "travelplanner" / f"{split}.csv"
+        path = PROJECT / "docs" / "report" / "source-data" / "travelplanner" / f"{split}.csv"
         with path.open(encoding="utf-8", newline="") as fh:
             for index, row in enumerate(csv.DictReader(fh), start=1):
                 tp_rows.append([

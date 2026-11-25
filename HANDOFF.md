@@ -38,7 +38,7 @@ npm run dev
 | API routers | `backend/app/api/*.py` |
 | Evaluation | `backend/app/eval/*`, `backend/eval/fixtures/` |
 | Design notes | `docs/ARCHITECTURE.md`, `docs/REVAMP.md`, `docs/EVALUATION.md`, `docs/VERSION_NOTES.md` |
-| Interactive architecture diagram | `docs/architecture/pathfinder-v5-architecture.html` |
+| Architecture diagram | `docs/architecture/pathfinder-v5-one-turn.png` |
 
 ## Verified so far
 

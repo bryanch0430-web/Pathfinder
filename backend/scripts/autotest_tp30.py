@@ -97,7 +97,7 @@ async def main():
     })
     rows = []
     for split in ("train", "validation", "test"):
-        with (PROJECT / ".archify" / "travelplanner" / f"{split}.csv").open(encoding="utf-8", newline="") as fh:
+        with (PROJECT / "docs" / "report" / "source-data" / "travelplanner" / f"{split}.csv").open(encoding="utf-8", newline="") as fh:
             for index, row in enumerate(csv.DictReader(fh), start=1):
                 if has_local(row["local_constraint"]):
                     continue

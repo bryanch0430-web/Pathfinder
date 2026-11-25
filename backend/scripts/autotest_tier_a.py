@@ -63,7 +63,7 @@ async def main():
     })
     rows = []
     for source_split in ("train", "validation", "test"):
-        with (PROJECT / ".archify" / "travelplanner" / f"{source_split}.csv").open(encoding="utf-8", newline="") as fh:
+        with (PROJECT / "docs" / "report" / "source-data" / "travelplanner" / f"{source_split}.csv").open(encoding="utf-8", newline="") as fh:
             for index, row in enumerate(csv.DictReader(fh), start=1):
                 if int(row["visiting_city_number"]) != 1 or int(row["people_number"]) > 4:
                     continue

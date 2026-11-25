@@ -4,20 +4,15 @@ Pathfinder v5 keeps the existing **interface** and replaces the **core**. This d
 the map: what each layer owns, how one turn flows, where the guarantees live, and
 what to change for the common extensions.
 
-> **Companion maps:** start with the
-> [plain-language system story](architecture/pathfinder-v5-architecture.html), then
-> [how a plan is checked](architecture/pathfinder-v5-architecture-detailed.html),
-> [what data moves](architecture/pathfinder-v5-dataflow.html), and the four turn
-> stories: [plan](architecture/pathfinder-v5-flow-plan.html),
-> [change](architecture/pathfinder-v5-flow-modify.html),
-> [ask](architecture/pathfinder-v5-flow-ask.html),
-> [clarify](architecture/pathfinder-v5-flow-clarify.html). This Markdown file is the
-> short technical map; the diagrams carry the whole narrative.
+> **Diagram:** [One turn, one path](architecture/pathfinder-v5-one-turn.png).
+> It shows the message, analyst, the plan/modify/ask/stop branches and the
+> check/save/stream ending. This Markdown file is the short technical map; the
+> diagram carries the whole narrative.
 
 ## 1. Layers
 
-> **Judge model:** its client method exists, but no v5 runtime path calls it. The
-> offline evaluator is deterministic. The architecture diagram labels it “reserved”.
+> **Judge model:** no v5 runtime path calls it. The offline evaluator is
+> deterministic. The architecture diagram does not draw a judge model.
 
 
 ```

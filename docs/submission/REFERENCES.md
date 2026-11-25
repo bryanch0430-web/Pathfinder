@@ -10,9 +10,11 @@ therefore **not** listed as third-party work.
 | Repository | Licence | How it was used |
 |---|---|---|
 | [watermelon588/Tripverse](https://github.com/watermelon588/Tripverse) | MIT | **Sketchbook presentation reference.** The sketch feature — a hand-drawn overview page plus one page per day, page navigation and SVG export — follows Tripverse's sketchbook idea. The `tv-sketch` class names in `frontend/src/design-system/sketch/` mark that lineage. Tripverse was also examined as a **benchmark comparison**, but its overall design (LangGraph backend, Supabase, its benchmark protocol) was **not** adopted; Pathfinder keeps its own FastAPI/React architecture and its own frozen evaluation suites. |
-| [tt-a1i/archify](https://github.com/tt-a1i/archify) | Apache-2.0 | Generated the architecture diagrams in `docs/architecture/` (`pathfinder-v5-architecture-detailed.html` and the report figures). Archify's licence notice is embedded in the generated HTML. |
-| [Cocoon-AI/architecture-diagram-generator](https://github.com/Cocoon-AI/architecture-diagram-generator) | Apache-2.0 | Upstream of Archify; credited in the embedded Archify notice. No source file of this repository is included separately. |
 | [elementalsouls/Claude-BugHunter](https://github.com/elementalsouls/Claude-BugHunter) | MIT | **Audit methodology reference.** Its bug-hunting checklist informed the security review of this codebase (CORS, admin origin checks, injection fence, import screening, key handling). No Claude-BugHunter code or skill file is copied into the submission. |
+
+The architecture diagram in `docs/architecture/pathfinder-v5-one-turn.png` is
+project material supplied with this submission; no external diagram tool is
+required to read or build it.
 
 No other GitHub repository supplied source code to this submission. In particular,
 the UI is Pathfinder's own carried-over React app; the backend is rebuilt in this

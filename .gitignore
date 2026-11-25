@@ -36,6 +36,3 @@ docs/tasks/
 frontend/storybook-static/
 tmp/
 var/
-
-# Diagram tool working files (finished diagrams live in docs/architecture)
-.archify/

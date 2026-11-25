@@ -89,7 +89,7 @@ def screening(row):
 def main() -> None:
     frames = []
     for source_split in ("train", "validation", "test"):
-        frame = pd.read_csv(PROJECT / ".archify" / "travelplanner" / f"{source_split}.csv")
+        frame = pd.read_csv(PROJECT / "docs" / "report" / "source-data" / "travelplanner" / f"{source_split}.csv")
         frame["source_split"] = source_split
         frame["source_row"] = range(1, len(frame) + 1)
         frames.append(frame)
