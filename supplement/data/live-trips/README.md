@@ -6,7 +6,7 @@ calls, tool calls and decisions (`.turn-log.json`).
 
 | Trip | Dates | Used in the report |
 |---|---|---|
-| `hong-kong-2027-01-15` | 15–17 January 2027 | Section 4 (no forecast; the Lantau day that did not fit), Figure 3, Table 2 |
+| `hong-kong-2027-01-15` | 15–17 January 2027 | Section 4 (no forecast; the Lantau day that did not fit), Figure 3; supplement Table S11 traces the Lantau edit |
 | `chengdu-2027-01-22` | 22–26 January 2027 | Section 4 (no forecast; "please check day"), Figure 3 |
 | `chiba-2027-03-06` | 6–8 March 2027 | Section 4 (no forecast), Figure 3 |
 | `taipei-2027-02-11` | 11–15 February 2027 | Section 4 (places with no source; "please check day"), Figure 3 |

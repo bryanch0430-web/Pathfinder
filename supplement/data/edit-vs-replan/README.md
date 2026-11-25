@@ -19,5 +19,5 @@ stops that were kept with cases that asked a question and changed nothing.
 | `paired_edit_replan-20261124-160045.json` | Both arms per case; the edit arm re-read from the proposal (`../harness/rerun_edit_arm.py`) |
 | `batch_b_paired.db` | The seeded trips and every turn of both arms |
 
-Scores: `../summary.json` → `edit_vs_replan`. Report: Table 3, Sections 2.4 and 5.2; supplement Figure S6.
+Scores: `../summary.json` → `edit_vs_replan`. Report: Table 4, Sections 2.4 and 5.2; supplement Figure S6.
 The first reading of this run is in `../excluded/`.

@@ -21,4 +21,6 @@ check "keep travel times realistic" objected to two straight-line transfer estim
 | `*.db.blocked.json` | Live hosts the sandbox refused (a positive count means the turn stayed on sandbox data) |
 | `batch_a_console.log` | Console of the whole batch |
 
-Scores: `../summary.json` → `plans`. Report: Table 3, Section 5.2; supplement Figure S3.
+Turn times are in each case's `latency_ms`: median 73 s, 45 of 51 within two minutes, slowest 199 s (the two MTR-delay cases, whose repairs took up to seven model calls, and a five-day Tokyo trip). The report's Table 2 traces case `hk01` of the third run (`hk_r3.db`): three model calls, 20,131 tokens and 48.2 s.
+
+Scores: `../summary.json` → `plans`. Report: Tables 2, 3 and 4, Section 5.2; supplement Figure S3.

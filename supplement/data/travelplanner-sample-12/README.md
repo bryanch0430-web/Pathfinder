@@ -13,4 +13,4 @@ shown, without any invented place.
 | `batch_c_travelplanner.db` | Session database of every turn |
 | `batch_c_tp.log` | Console output |
 
-Scores: `../summary.json` → `travelplanner`. Report: Table 3; supplement Section S5.2.
+Scores: `../summary.json` → `travelplanner`. Report: Table 4; supplement Section S5.2.

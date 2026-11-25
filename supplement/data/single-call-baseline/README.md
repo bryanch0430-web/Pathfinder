@@ -15,4 +15,4 @@ Paired on the first run, Pathfinder passed 15 and the single call 14 (McNemar p 
 rate, while the orchestration removes infeasible plans and unsourced stops.
 
 File: `baseline_single_llm-20261124-162649.json`. Scores: `../summary.json` → `baseline`, `baseline_paired`.
-Report: Table 3, Section 5.2; supplement Figure S4.
+Report: Table 4, Section 5.2; supplement Figure S4.

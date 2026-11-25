@@ -6,9 +6,11 @@ Scored results are JSON files; raw turns are Pathfinder session databases (SQLit
 
 ## Where each result comes from
 
-| Report claim (Table 3 row or section) | Folder | Primary file | Headline |
+| Report claim (Table 4 row, or section) | Folder | Primary file | Headline |
 |---|---|---|---|
 | Routing (84) and the 0.8 confidence cutoff | [`docs/eval-artifacts/v5-model-study`](../../docs/eval-artifacts/v5-model-study/) | `routing-merged.json`, `RESULTS.md` | Sonnet 83/84 at temperature 0 and 0.2 (84/84 on a second endpoint); Jev 79/84 (51 without the plan); at 0.8 the analyst acts on 96%, Jev on 66% |
+| Planning-turn trace (Table 2) | [`plan-suites/`](plan-suites/) | `hk_r3.db`, case `hk01` | Three model calls, 20,131 tokens, 48.2 s; both constraints passed with quoted evidence |
+| Latency target (Table 3) | [`plan-suites/`](plan-suites/) | `eval_runs.latency_ms` in `hk_r1–3.db`, `jp_tp_r1–3.db` | Median 73 s; 45 of 51 planning turns within two minutes; slowest 199 s |
 | Plan suites (17 × 3 runs) | [`plan-suites/`](plan-suites/) | `summary.json` → `plans`; `hk_r1–3.db`, `jp_tp_r1–3.db` | Hong Kong 7, 7, 8 of 8; Japan 5, 5, 6 of 6; TravelPlanner-style 3/3 in every run; every stop sourced |
 | Boundary suite (22) | [`boundary-suite/`](boundary-suite/) | `boundary_suite-20261124-164051.json` | 18/22 (representative 2/3, challenging 7/9, failure 9/10) |
 | Injection (72) | [`injection-indirect/`](injection-indirect/) and [`docs/EVALUATION.md`](../../docs/EVALUATION.md) | `indirect_injection-20261124-154119.json` | 48 indirect probes: no leak, no route change, task done 48/48; 24 direct probes contained |
@@ -20,7 +22,7 @@ Scored results are JSON files; raw turns are Pathfinder session databases (SQLit
 | Edit against replan (5) | [`edit-vs-replan/`](edit-vs-replan/) | `paired_edit_replan-20261124-160045.json` | Median 11.3 s against 72.5 s; judged 2/5 against 0/5 |
 | Reasoning effort (GPT-5.5) | [`reasoning-effort/`](reasoning-effort/) | `reasoning_ablation-20261124-160808.json` | none 84/84, low 83/84, medium 83/84 |
 | Temperature, output caps, prices | [`docs/eval-artifacts/v5-model-study`](../../docs/eval-artifacts/v5-model-study/) | `TEMPERATURE-RESULTS.md`, `cap-stress-latest.json`, `pricing-20261123.md` | Supplement Tables S7 and S10 |
-| Failure situations (Section 4), Figure 3, Table 2 | [`live-trips/`](live-trips/) | `*.plan.json`, `*.turn-log.json` | Five future trips planned with live tools |
+| Failure situations (Section 4), Figure 3, Table S11 | [`live-trips/`](live-trips/) | `*.plan.json`, `*.turn-log.json` | Five future trips planned with live tools |
 
 [`summary.json`](summary.json) collects the scores of the submitted-build runs; it is written by
 [`harness/analyze_results.py`](harness/analyze_results.py), which calls no model. Its keys `routing`,

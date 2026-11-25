@@ -14,4 +14,4 @@ a Traditional Chinese request for Taipei, left empty with gaps rather than inven
 | `batch_c_boundary.db` | Session database of every turn |
 | `batch_c_boundary.log` | Console output |
 
-Scores: `../summary.json` → `boundary`. Report: Table 3, Section 5.2; inputs in Appendix D.
+Scores: `../summary.json` → `boundary`. Report: Table 4, Section 5.2; inputs in Appendix D.

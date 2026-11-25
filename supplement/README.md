@@ -274,7 +274,7 @@ Figure S1 breaks down the turn time of planning requests, and Table S7 gives the
 
 ## S6. Task trace and deterministic tests
 
-Table S11 follows one recorded modification turn step by step and names the code behind each step; the report’s Table 2 is a condensed version. A stopping turn is much shorter: for a trip whose end date (18 April 2027) preceded its start date (20 April 2027), the analyst’s single call (4,781 tokens) produced a clarification after 6.4 s, with no tool call and no saved plan. Table S12 lists the deterministic tests of the submitted build. On 23 November the rewritten codebase had 53 test functions in seven files; by the submission it had 281 in 28 files, against 2,326 in the previous version.
+Table S11 follows one recorded modification turn step by step and names the code behind each step; the report’s Table 2 traces a planning turn instead (case hk01 in the third Hong Kong run, `data/plan-suites/hk_r3.db`). A stopping turn is much shorter: for a trip whose end date (18 April 2027) preceded its start date (20 April 2027), the analyst’s single call (4,781 tokens) produced a clarification after 6.4 s, with no tool call and no saved plan. Table S12 lists the deterministic tests of the submitted build. On 23 November the rewritten codebase had 53 test functions in seven files; by the submission it had 281 in 28 files, against 2,326 in the previous version.
 
 **Table S11.** Task trace of a representative modification turn, recorded on 24 November 2026 with live tools. The session had begun with a pasted three-day Hong Kong itinerary for two travellers from Taipei (15–17 January 2027, budget 9,000 HKD); the first plan had left out the Lantau day because the only usable return flight left at 12:10.
 
@@ -333,16 +333,16 @@ from every result in the report to its file, is [`data/README.md`](data/README.m
 
 | Folder | Report result |
 |---|---|
-| [`data/plan-suites/`](data/plan-suites/) | Plan suites in three runs (Table 3; Figure S3) |
-| [`data/boundary-suite/`](data/boundary-suite/) | Boundary suite, 18 of 22 (Table 3) |
-| [`data/injection-indirect/`](data/injection-indirect/) | 48 indirect injection probes (Table 3, with the 24 direct probes in [`docs/EVALUATION.md`](../docs/EVALUATION.md)) |
-| [`data/single-call-baseline/`](data/single-call-baseline/) | Pathfinder against a single model call (Table 3; Figure S4) |
-| [`data/edit-vs-replan/`](data/edit-vs-replan/) | Typed edit against a full replan (Table 3; Figure S6) |
-| [`data/skill-ablation/`](data/skill-ablation/) | Skills against a minimal prompt (Table 3; Figure S5) |
+| [`data/plan-suites/`](data/plan-suites/) | Plan suites in three runs, turn times and the traced planning turn (Tables 2, 3 and 4; Figure S3) |
+| [`data/boundary-suite/`](data/boundary-suite/) | Boundary suite, 18 of 22 (Table 4) |
+| [`data/injection-indirect/`](data/injection-indirect/) | 48 indirect injection probes (Table 4, with the 24 direct probes in [`docs/EVALUATION.md`](../docs/EVALUATION.md)) |
+| [`data/single-call-baseline/`](data/single-call-baseline/) | Pathfinder against a single model call (Table 4; Figure S4) |
+| [`data/edit-vs-replan/`](data/edit-vs-replan/) | Typed edit against a full replan (Table 4; Figure S6) |
+| [`data/skill-ablation/`](data/skill-ablation/) | Skills against a minimal prompt (Table 4; Figure S5) |
 | [`data/reasoning-effort/`](data/reasoning-effort/) | Reasoning effort on the routing prompt (Table S10) |
-| [`data/travelplanner-sample-12/`](data/travelplanner-sample-12/) | 12-query TravelPlanner sample (Table 3) |
+| [`data/travelplanner-sample-12/`](data/travelplanner-sample-12/) | 12-query TravelPlanner sample (Table 4) |
 | [`data/travelplanner-live-30/`](data/travelplanner-live-30/) | 30 live TravelPlanner queries (Section 5.2; Figure S7) |
-| [`data/live-trips/`](data/live-trips/) | Five live trips (Section 4, Figure 3, Table 2) |
+| [`data/live-trips/`](data/live-trips/) | Five live trips (Section 4, Figure 3, Table S11) |
 | [`data/excluded/`](data/excluded/) | Runs kept for transparency that feed no number |
 | [`data/harness/`](data/harness/), [`data/run-logs/`](data/run-logs/) | Scripts and console logs (method notes: [`docs/EVALUATION.md`](../docs/EVALUATION.md)) |
 | [`../docs/eval-artifacts/`](../docs/eval-artifacts/) | Earlier model study: routing arms, components, verifier, temperature, pricing (Figure 2; Section S2) |

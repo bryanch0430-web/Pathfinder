@@ -16,4 +16,4 @@ on the same cases, model (Claude Sonnet 5.5) and harness.
 | `skills_planner_full.db`, `skills_planner_minimal.db` | Planner turns in each condition |
 
 Scripts: `../harness/batch_d.py` and `../harness/repo-scripts/v5_skills_ablation.py`. Scores: `../summary.json` →
-`skills`. Report: Table 3, Sections 2.4 and 5.2; supplement Figure S5.
+`skills`. Report: Table 4, Sections 2.4 and 5.1–5.2; supplement Figure S5.
