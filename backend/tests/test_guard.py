@@ -475,7 +475,7 @@ def test_a_clean_message_with_a_link_is_fetched(tmp_path, scripted):
         session_id = _session(client)
         _turn(client, session_id, f"What does {URL} say about April?")
     assert FakeProviders.fetched == [URL]
-    assert scripted.calls.count("understand") == 2  # read again with what the page stated
+    assert scripted.calls.count("analyst") == 2  # read again with what the page stated
     assert "intake" in scripted.calls
 
 
