@@ -1,4 +1,11 @@
-# Pathfinder v5
+# Group 1 - Pathfinder: Agentic Trip Planner
+
+| Name | Phone | Email |
+| --- | --- | --- |
+| Chan Yuk Ming | 3036655069 | u3665506@connect.hku.hk |
+| Lai Helen | 3035564794 | helen000@connect.hku.hk |
+| Ng Tsan Fung | 3036658669 | u3665866@connect.hku.hk |
+| Wong Man Kit | 2012522878 | h1252287@connect.hku.hk |
 
 A conversational, state-aware trip planner. **The Pathfinder interface, with a
 rebuilt LLM-first core.** The React app in `frontend/` carries the latest workspace
