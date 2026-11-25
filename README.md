@@ -204,21 +204,24 @@ missing; planning turns answer that the model is not configured.
 
 Docker needs no local Python or Node. The `Dockerfile` builds the React UI in a
 Node stage, then runs the API and the built UI from one Python 3.13 container on
-port 8100. The image carries the defaults from `.env.example` (placeholders, no
-real keys); your own settings override them when the container starts.
+port 8100.
+
+**1. Build the image** (from the repository root):
 
 ```bash
 docker build -t pathfinder:v5 .
 ```
 
-**Option A: run with the defaults.** The app starts without any setup; add your
-model key afterwards on the Settings page (bring-your-own-key).
+**2. Run it with one of these options.**
+
+*Option A: default settings (no setup).* Then add your model key on the Settings
+page (bring-your-own-key).
 
 ```bash
 docker run --rm -p 8100:8100 -v pathfinder-data:/app/data pathfinder:v5
 ```
 
-**Option B: run with your own `.env`.** Every value in it overrides the default.
+*Option B: your own `.env`.* Every value in it overrides the default.
 
 ```bash
 cp .env.example .env        # then add a writer key (Windows: copy .env.example .env)
@@ -230,15 +233,20 @@ docker run --rm -p 8100:8100 --env-file .env -v pathfinder-data:/app/data pathfi
 
 A single value can also be set with `-e`, for example `-e LLM_API_KEY=...`.
 
-Open **http://localhost:8100**. The `pathfinder-data` volume keeps the SQLite
-database, traces and caches between runs; drop `-v …` for a throw-away container.
-Add `-e PATHFINDER_SANDBOX=1` for the offline place corpus (same as
-`start.ps1 -Sandbox`).
+**3. Open http://localhost:8100.**
 
-Inside a container, browser requests arrive from the Docker network rather than
-`127.0.0.1`, so `LOCAL_ADMIN` does not grant operator access. Use the
-`ADMIN_TOKEN` from `.env` for the operator pages, and change `ADMIN_TOKEN`
-and `SECRET_KEY` before exposing the container beyond your own machine.
+Notes:
+
+- The default settings come from `.env.example` and are placeholders only, so no
+  real API keys are in the image.
+- The `pathfinder-data` volume keeps the SQLite database, traces and caches
+  between runs; drop `-v …` for a throw-away container.
+- Add `-e PATHFINDER_SANDBOX=1` for the offline place corpus (same as
+  `start.ps1 -Sandbox`).
+- Inside a container, browser requests arrive from the Docker network rather than
+  `127.0.0.1`, so `LOCAL_ADMIN` does not grant operator access. Use the
+  `ADMIN_TOKEN` from `.env` for the operator pages, and change `ADMIN_TOKEN` and
+  `SECRET_KEY` before exposing the container beyond your own machine.
 
 ### Dependency versions
 
