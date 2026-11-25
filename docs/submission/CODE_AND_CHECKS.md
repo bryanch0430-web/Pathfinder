@@ -23,7 +23,7 @@ failure case**, evaluation scripts/results and success/failure traces.
 **Input:** [`ordinary-input.txt`](ordinary-input.txt)
 
 ```text
-Plan a 2-day Taipei trip from Hong Kong for 1 person starting 4 December 2026, budget 12,000 TWD.
+Plan a 2-day Taipei trip from Hong Kong for 1 person starting 24 December 2026, budget 12,000 TWD.
 ```
 
 **Expected:** a normal plan turn — understand, gather evidence, compose, validate,
