@@ -11,7 +11,7 @@ version table below records the earlier milestones. The Models tab configures a
 model, temperature, reasoning effort and reply cap for each part; the turn router
 can be the LLM router or Jev (System 1); handoff goes to a real human-in-the-loop
 desk queue with independent switches. See
-[docs/VERSION_NOTES.md](docs/VERSION_NOTES.md) — it also imports the `main` v1.x
+[docs/VERSION_NOTES.md](https://github.com/bryanch0430-web/Pathfinder/blob/main/docs/VERSION_NOTES.md) — it also imports the `main` v1.x
 release notes and maps each one to what v5 kept, changed, or deliberately dropped.
 
 **Constraint verifier:** by default it uses `deepseek-flash` at
@@ -34,16 +34,16 @@ from `frontend/dist` and the `/api` routes from the same process.
 |---|---|
 | Clear entry point and run command | `backend/app/main.py`, [Quick start](#quick-start), `start.ps1` / `start.cmd`, direct `uvicorn` command below |
 | Setup, run and evaluation commands | [Quick start](#quick-start), [Evaluation](#evaluation) |
-| Dependency versions | [Dependency versions](#dependency-versions) and [docs/submission/REFERENCES.md](docs/submission/REFERENCES.md) |
+| Dependency versions | [Dependency versions](#dependency-versions) and [docs/submission/REFERENCES.md](https://github.com/bryanch0430-web/Pathfinder/blob/main/docs/submission/REFERENCES.md) |
 | Model settings | [Model settings](#model-settings); defaults in `backend/app/config.py`, `backend/app/core/llm.py`; overrides in `.env.example` |
 | Data and service requirements, paid access, hardware | [Data, services and hardware](#data-services-and-hardware) |
-| Sample inputs: ordinary, changed, failure | [docs/submission/CODE_AND_CHECKS.md](docs/submission/CODE_AND_CHECKS.md) (one of each), inputs in `docs/submission/*.txt` |
-| Evaluation scripts and results | [Evaluation](#evaluation), `backend/scripts/run_eval.py`, [docs/EVALUATION.md](docs/EVALUATION.md), [docs/eval-artifacts/v5-model-study/RESULTS.md](docs/eval-artifacts/v5-model-study/RESULTS.md) |
+| Sample inputs: ordinary, changed, failure | [docs/submission/CODE_AND_CHECKS.md](https://github.com/bryanch0430-web/Pathfinder/blob/main/docs/submission/CODE_AND_CHECKS.md) (one of each), inputs in `docs/submission/*.txt` |
+| Evaluation scripts and results | [Evaluation](#evaluation), `backend/scripts/run_eval.py`, [docs/EVALUATION.md](https://github.com/bryanch0430-web/Pathfinder/blob/main/docs/EVALUATION.md), [docs/eval-artifacts/v5-model-study/RESULTS.md](https://github.com/bryanch0430-web/Pathfinder/blob/main/docs/eval-artifacts/v5-model-study/RESULTS.md) |
 | Prompts and configuration | `backend/app/skills/*.md`, `backend/app/core/prompts.py`, `backend/app/config.py`, `.env.example` |
-| Success/failure traces | [docs/submission/TRACES.md](docs/submission/TRACES.md), `docs/submission/traces/success-taipei-turn-log.json`, `docs/eval-artifacts/v5-model-study/TRACE_INDEX.md` |
+| Success/failure traces | [docs/submission/TRACES.md](https://github.com/bryanch0430-web/Pathfinder/blob/main/docs/submission/TRACES.md), `docs/submission/traces/success-taipei-turn-log.json`, `docs/eval-artifacts/v5-model-study/TRACE_INDEX.md` |
 | Credentials, mocks and transparency | [Access, transparency and AI assistance](#access-transparency-and-ai-assistance); [Mocked and demo-only functions](#mocked-and-demo-only-functions); `.env.example`; `.env` is ignored |
 | Known limits (language, multi-city, long days) | [Known limits](#known-limits) |
-| AI assistance declaration and prompt record | [docs/submission/AI_ASSISTANCE.md](docs/submission/AI_ASSISTANCE.md) |
+| AI assistance declaration and prompt record | [docs/submission/AI_ASSISTANCE.md](https://github.com/bryanch0430-web/Pathfinder/blob/main/docs/submission/AI_ASSISTANCE.md) |
 
 ## Version notes
 
@@ -72,7 +72,7 @@ small set of stale test gaps); it is archived and is not rebuilt by v5.
 | **v5.0.0** | 2026-11-23 11:47 | `fabeb36`…`e72cfff` | LLM-first core behind the unchanged React UI: typed analyst/router, evidence workers, sourced-only planner, deterministic validation, bounded repair, versioned plans, per-part models, optional Jev and a real HITL queue |
 
 The detailed patch notes, including every commit and the part-model study, are in
-[docs/VERSION_NOTES.md](docs/VERSION_NOTES.md). `v5.0.0` is the first v5 release;
+[docs/VERSION_NOTES.md](https://github.com/bryanch0430-web/Pathfinder/blob/main/docs/VERSION_NOTES.md). `v5.0.0` is the first v5 release;
 `v5.1.0` introduced the complex-request line; `v5.1.1` was the last milestone
 before the submission patch **v5.2.11**.
 
@@ -86,7 +86,7 @@ tool workers, an **evaluator–optimizer** repair loop, **skills** and **memory*
 does **not** use a vector database/RAG for saved trips. The full mapping from course
 terms (context builder, runtime/harness, observation, skill, memory types, HITL,
 evaluation) to v5 code and UI is in
-[docs/AGENT_TERMINOLOGY.md](docs/AGENT_TERMINOLOGY.md).
+[docs/AGENT_TERMINOLOGY.md](https://github.com/bryanch0430-web/Pathfinder/blob/main/docs/AGENT_TERMINOLOGY.md).
 
 
 ```
@@ -105,16 +105,16 @@ traveller message
 
 ## Architecture at a glance
 
-![One turn, one path: the v5 turn pipeline](docs/architecture/pathfinder-v5-one-turn.png)
+![One turn, one path: the v5 turn pipeline](https://github.com/bryanch0430-web/Pathfinder/blob/main/docs/architecture/pathfinder-v5-one-turn.png?raw=true)
 
 The diagram follows one turn: a message enters, the analyst reads it, the turn
 branches into **plan**, **modify**, **ask** or **stop**, and the result is
 checked before it is saved or streamed. Code and model boundaries are marked;
 the turn budget and one-turn-at-a-time seat are part of the same picture.
 
-The technical map is [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); the diagram
+The technical map is [docs/ARCHITECTURE.md](https://github.com/bryanch0430-web/Pathfinder/blob/main/docs/ARCHITECTURE.md); the diagram
 source image is
-[docs/architecture/pathfinder-v5-one-turn.png](docs/architecture/pathfinder-v5-one-turn.png).
+[docs/architecture/pathfinder-v5-one-turn.png](https://github.com/bryanch0430-web/Pathfinder/blob/main/docs/architecture/pathfinder-v5-one-turn.png).
 
 ## Why a revamp
 
@@ -252,7 +252,7 @@ Notes:
 
 Tested versions for this submission (declared ranges are in
 `backend/pyproject.toml` and `frontend/package.json`; the full table with upstream
-links is in [docs/submission/REFERENCES.md](docs/submission/REFERENCES.md)):
+links is in [docs/submission/REFERENCES.md](https://github.com/bryanch0430-web/Pathfinder/blob/main/docs/submission/REFERENCES.md)):
 
 | Layer | Tested |
 |---|---|
@@ -385,7 +385,7 @@ the plan.
 
 ## Currency
 
-Chat currency statements are validated ISO codes, update the trip through a `context` event, and drive searchable FX widgets. See [docs/CURRENCY.md](docs/CURRENCY.md).
+Chat currency statements are validated ISO codes, update the trip through a `context` event, and drive searchable FX widgets. See [docs/CURRENCY.md](https://github.com/bryanch0430-web/Pathfinder/blob/main/docs/CURRENCY.md).
 
 ## Image import (demo only)
 
@@ -394,7 +394,7 @@ day-by-day itinerary image is parsed into `ImportedItinerary`, and each named st
 is sourced before the existing builder validates it. Accuracy depends on image
 quality and the configured vision/model provider; there is no accuracy guarantee,
 and a failed parse falls back to ordinary planning or asks for a clearer image.
-See [docs/IMAGE_IMPORT.md](docs/IMAGE_IMPORT.md).
+See [docs/IMAGE_IMPORT.md](https://github.com/bryanch0430-web/Pathfinder/blob/main/docs/IMAGE_IMPORT.md).
 
 ## Evaluation
 
@@ -404,7 +404,7 @@ See [docs/IMAGE_IMPORT.md](docs/IMAGE_IMPORT.md).
 > model quality. The Run button is disabled so a demo cannot start a long,
 > credit-spending live suite; use the CLI with `EVAL_LIMIT` for experiments.
 
-Part-model evidence (v5, 23 Nov 2026): [TEST_PLAN](docs/eval-artifacts/v5-model-study/TEST_PLAN.md) · [RESULTS](docs/eval-artifacts/v5-model-study/RESULTS.md) · [decision record](docs/eval-artifacts/v5-model-study/PART_MODEL_DECISIONS.md) · [report evidence](docs/eval-artifacts/v5-model-study/REPORT_EVIDENCE.md) · workbook `v5_model_study.xlsx` / `.xls`.
+Part-model evidence (v5, 23 Nov 2026): [TEST_PLAN](https://github.com/bryanch0430-web/Pathfinder/blob/main/docs/eval-artifacts/v5-model-study/TEST_PLAN.md) · [RESULTS](https://github.com/bryanch0430-web/Pathfinder/blob/main/docs/eval-artifacts/v5-model-study/RESULTS.md) · [decision record](https://github.com/bryanch0430-web/Pathfinder/blob/main/docs/eval-artifacts/v5-model-study/PART_MODEL_DECISIONS.md) · [report evidence](https://github.com/bryanch0430-web/Pathfinder/blob/main/docs/eval-artifacts/v5-model-study/REPORT_EVIDENCE.md) · workbook `v5_model_study.xlsx` / `.xls`.
 
 The proposal datasets (the same frozen cases as `main`) run through the real pipeline
 with sandbox evidence. Install the test dependencies once (see
@@ -421,9 +421,9 @@ $env:EVAL_LIMIT = "10"   # small, affordable slice; omit for the full suite
 
 `EVAL_CASES` selects individual case ids (for example `EVAL_CASES=i01,i02`);
 `EVAL_CONCURRENCY` controls parallelism. The three sample inputs and their
-expected outcomes are in [docs/submission/README.md](docs/submission/README.md);
+expected outcomes are in [docs/submission/README.md](https://github.com/bryanch0430-web/Pathfinder/blob/main/docs/submission/README.md);
 success and failure trace evidence is in
-[docs/submission/TRACES.md](docs/submission/TRACES.md).
+[docs/submission/TRACES.md](https://github.com/bryanch0430-web/Pathfinder/blob/main/docs/submission/TRACES.md).
 
 Headline results so far (22 Nov 2026, `claude-sonnet-5.5`, sandbox evidence):
 
@@ -435,7 +435,7 @@ Headline results so far (22 Nov 2026, `claude-sonnet-5.5`, sandbox evidence):
 The `main` numbers are the ones recorded on that branch: the rules layer 64/84
 (76.2 %), the live Jev router 78/84 (92.9 %), injection 83/84 (98.8 %), Hong Kong
 8/8, Japan 6/6 and TravelPlanner 3/3. The full table, including the cases v5 does
-not yet match, is in [docs/EVALUATION.md](docs/EVALUATION.md).
+not yet match, is in [docs/EVALUATION.md](https://github.com/bryanch0430-web/Pathfinder/blob/main/docs/EVALUATION.md).
 
 The same suites are in the UI's **Evaluation** tab (operator views), with a run
 report export. The tab is a read-only demonstration: its **Run** button is
@@ -446,8 +446,8 @@ the writer, router and the verifier that audits constraints, and the panel label
 the column “Check score”. No judge model exists, so a check score cannot depend
 on one. Bulk reference sets were executed offline before submission and are shown
 for reference only.
-The architecture is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); what changed
-against `main` is in [docs/REVAMP.md](docs/REVAMP.md).
+The architecture is in [docs/ARCHITECTURE.md](https://github.com/bryanch0430-web/Pathfinder/blob/main/docs/ARCHITECTURE.md); what changed
+against `main` is in [docs/REVAMP.md](https://github.com/bryanch0430-web/Pathfinder/blob/main/docs/REVAMP.md).
 
 ## Project layout
 
@@ -494,7 +494,7 @@ flight-window boundaries and the SSE framing. A live smoke turn is
 Pathfinder's own earlier versions (v1.x and the v5 prototypes) are project history,
 not third-party work, and are deliberately excluded from this list. The full record,
 including licences and dependency versions, is
-[docs/submission/REFERENCES.md](docs/submission/REFERENCES.md).
+[docs/submission/REFERENCES.md](https://github.com/bryanch0430-web/Pathfinder/blob/main/docs/submission/REFERENCES.md).
 
 | Repository | Licence | What we used |
 |---|---|---|
@@ -517,7 +517,7 @@ including licences and dependency versions, is
   `{"status":"ok","version":"5.2.11",...}` and `/docs` exposes the API schema.
 - **AI assistance:** the tools, models, what they helped with and the retained
   project prompts are declared in
-  [docs/submission/AI_ASSISTANCE.md](docs/submission/AI_ASSISTANCE.md). The author
+  [docs/submission/AI_ASSISTANCE.md](https://github.com/bryanch0430-web/Pathfinder/blob/main/docs/submission/AI_ASSISTANCE.md). The author
   reviewed and verified all submitted work and remains responsible for it.
 
 ## Mocked and demo-only functions
