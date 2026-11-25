@@ -166,7 +166,8 @@ two missing from v5 are the SPA catch-all (replaced by a static mount) and the a
 trace-span reader. The frontend differs in 17 of its 118 main-branch source files,
 plus one new Models settings file (574 lines added, 610 removed), mostly the settings
 surface and its copy. The test gap is the honest cost of the rewrite: 52 test
-functions against main's 2,326.
+functions at the rewrite against main's 2,326 (now 281 test functions in 28 files,
+372 collected tests).
 
 ## Quick start
 

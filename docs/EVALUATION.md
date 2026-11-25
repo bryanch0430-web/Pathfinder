@@ -105,7 +105,7 @@ to two compose attempts.
 cd backend
 $env:PYTHONPATH = "."
 .\.venv\Scripts\python.exe -m pytest -q
-# 52 test functions in 7 files
+# 281 test functions in 28 files (372 collected tests)
 ```
 
 What they cover: calendar arithmetic (including the no-midnight-wrap rule), the wire
