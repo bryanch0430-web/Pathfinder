@@ -841,7 +841,7 @@ table(
 body(
     doc,
     "Reused material: the React interface is carried from the earlier Pathfinder line; the backend uses "
-    "FastAPI, Pydantic, httpx, SQLite, React/Vite and Archify. Evidence comes from Google Places, Open-Meteo, "
+    "FastAPI, Pydantic, httpx, SQLite and React/Vite. Evidence comes from Google Places, Open-Meteo, "
     "SerpAPI, Wikimedia and the curated place corpus. Jev is TypeSafe's decision model. TravelPlanner is the "
     "open benchmark referenced in the proposal. Anthropic's building-agents article and the agent literature "
     "informed the architecture vocabulary; neither is a source of code. The diagrams and this "
@@ -899,7 +899,7 @@ refs = [
     "[12] SerpAPI. Google Search API. https://serpapi.com/",
     "[13] Wikimedia Foundation. MediaWiki API. https://www.mediawiki.org/wiki/API:Main_page",
     "[14] Pathfinder repository, branch pathfinder_v5, commit 9801670 (23 November 2026). https://github.com/bryanch0430-web/Pathfinder/tree/pathfinder_v5",
-    "[15] Archify. Diagram renderer and authoring skill, 2026. https://github.com/tt-a1i/archify",
+    "[15] Pathfinder v5 one-turn architecture diagram, included in this submission (docs/architecture/pathfinder-v5-one-turn.png).",
     "[16] S. Amershi, D. Weld, M. Vorvoreanu, A. Fourney, B. Nushi, P. Collisson, J. Suh, S. Iqbal, M. Bennett, K. Inkpen, J. Teevan, R. Kikin-Gil, and E. Horvitz. Guidelines for human-AI interaction. CHI, 2019. doi:10.1145/3290605.3300233.",
     "[17] P. Helland. Idempotence is not a medical condition. ACM Queue, 10(4):38–49, 2012. doi:10.1145/2181796.2187820.",
     "[18] R. Pope, S. Douglas, A. Chowdhery, J. Devlin, J. Bradbury, A. Levskaya, J. Heek, K. Xiao, S. Agrawal, and J. Dean. Efficiently scaling transformer inference. arXiv:2211.05102, 2022.",
@@ -921,7 +921,7 @@ for ref in refs:
 # Appendix
 doc.add_page_break()
 heading(doc, "Appendix A  Figures, test protocol and raw results", 1)
-figure(doc, "fig-architecture.png", width=5.3, cap="Figure A1. The delivered turn path. The model is called at the Understand, Evidence and Composer boundaries; the orchestrator owns routing, budget, validation, persistence and handoff.")
+figure(doc, "fig-architecture.png", width=5.3, cap="Figure A1. One turn, one path: the message enters the orchestrator, the analyst reads it, and the turn branches into plan, modify, ask or stop before the reply is checked, saved and streamed. Model calls, code, tools and saved state are marked.")
 figure(doc, "fig-dataflow.png", width=5.0, cap="Figure A2. Data flow. Personal details are masked before model calls; source records carry provenance and freshness; only validated plan versions reach the UI.")
 figure(doc, "fig-results.png", width=5.2, cap="Figure A3. Latest observed results. Routing uses four ChatAnywhere arms plus Jev with plan context; component panels use the latest tested cases. Sets differ in size and are not one end-to-end score.")
 figure(doc, "fig-verifier.png", width=5.2, cap="Figure A4. Verifier outcome on 17 unique cases. Both residual errors are false passes on transfer arithmetic (10 min and 29 min against a 30 min constraint), not false alarms.")

@@ -105,21 +105,16 @@ traveller message
 
 ## Architecture at a glance
 
-An interactive diagram (dark/light, motion, export) is generated from this codebase
-with [Archify](https://github.com/tt-a1i/archify):
+![One turn, one path: the v5 turn pipeline](docs/architecture/pathfinder-v5-one-turn.png)
 
-[docs/architecture/pathfinder-v5-architecture.html](docs/architecture/pathfinder-v5-architecture.html)
+The diagram follows one turn: a message enters, the analyst reads it, the turn
+branches into **plan**, **modify**, **ask** or **stop**, and the result is
+checked before it is saved or streamed. Code and model boundaries are marked;
+the turn budget and one-turn-at-a-time seat are part of the same picture.
 
-It tells the whole journey in plain language: you ask, Pathfinder reads the request,
-gathers real evidence, builds and checks a plan, and asks a person only when it should.
-Cards cover the short story, the guarantees, and when a human steps in.
-
-The other maps are deliberately separate, so each can tell one complete story
-([how to read them](docs/architecture/README.md)):
-
-- [Under the hood: how a plan is checked](docs/architecture/pathfinder-v5-architecture-detailed.html) — sources, draft, rules, constraint audit, repair, gaps and versioning.
-- [What data moves through Pathfinder](docs/architecture/pathfinder-v5-dataflow.html) — words, privacy masking, source records, plan versions, memory and replies.
-- [Plan turn](docs/architecture/pathfinder-v5-flow-plan.html) · [Change turn](docs/architecture/pathfinder-v5-flow-modify.html) · [Ask turn](docs/architecture/pathfinder-v5-flow-ask.html) · [Clarify turn](docs/architecture/pathfinder-v5-flow-clarify.html)
+The technical map is [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); the diagram
+source image is
+[docs/architecture/pathfinder-v5-one-turn.png](docs/architecture/pathfinder-v5-one-turn.png).
 
 ## Why a revamp
 
@@ -485,8 +480,6 @@ including licences and dependency versions, is
 | Repository | Licence | What we used |
 |---|---|---|
 | [watermelon588/Tripverse](https://github.com/watermelon588/Tripverse) | MIT | The **sketchbook presentation idea** (hand-drawn overview page, one page per day, page navigation and SVG export) informed `frontend/src/design-system/sketch/`. Tripverse was also examined as a **benchmark comparison**, but its overall design (LangGraph backend, Supabase, its benchmark protocol) was not adopted; the Pathfinder architecture and evaluation suites remain our own. |
-| [tt-a1i/archify](https://github.com/tt-a1i/archify) | Apache-2.0 | Generated the architecture diagrams and report figures under `docs/architecture/`; the generated HTML carries Archify's notice. |
-| [Cocoon-AI/architecture-diagram-generator](https://github.com/Cocoon-AI/architecture-diagram-generator) | Apache-2.0 | Upstream of Archify, credited in the embedded notice; no separate source is included. |
 | [elementalsouls/Claude-BugHunter](https://github.com/elementalsouls/Claude-BugHunter) | MIT | Its bug-hunting checklist informed the security review (CORS, admin origin checks, injection fence, import screening, key handling). No code or skill file from it is copied into the submission. |
 
 ## Access, transparency and AI assistance
