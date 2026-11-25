@@ -105,7 +105,7 @@ traveller message
 
 ## Architecture at a glance
 
-![One turn, one path: the v5 turn pipeline](https://github.com/bryanch0430-web/Pathfinder/blob/main/docs/architecture/pathfinder-v5-one-turn.png?raw=true)
+![One turn, one path: the v5 turn pipeline](images/pathfinder-v5-one-turn.png)
 
 The diagram follows one turn: a message enters, the analyst reads it, the turn
 branches into **plan**, **modify**, **ask** or **stop**, and the result is
@@ -114,7 +114,12 @@ the turn budget and one-turn-at-a-time seat are part of the same picture.
 
 The technical map is [docs/ARCHITECTURE.md](https://github.com/bryanch0430-web/Pathfinder/blob/main/docs/ARCHITECTURE.md); the diagram
 source image is
-[docs/architecture/pathfinder-v5-one-turn.png](https://github.com/bryanch0430-web/Pathfinder/blob/main/docs/architecture/pathfinder-v5-one-turn.png).
+[images/pathfinder-v5-one-turn.png](images/pathfinder-v5-one-turn.png).
+
+**Data flow:** where your words, the source records and the saved plan go, and what is
+deliberately kept out.
+
+![Data flow: input, turn context, evidence, plan and checks, saved plan](images/fig-dataflow.png)
 
 ## Why a revamp
 
@@ -405,6 +410,14 @@ See [docs/IMAGE_IMPORT.md](https://github.com/bryanch0430-web/Pathfinder/blob/ma
 > credit-spending live suite; use the CLI with `EVAL_LIMIT` for experiments.
 
 Part-model evidence (v5, 23 Nov 2026): [TEST_PLAN](https://github.com/bryanch0430-web/Pathfinder/blob/main/docs/eval-artifacts/v5-model-study/TEST_PLAN.md) · [RESULTS](https://github.com/bryanch0430-web/Pathfinder/blob/main/docs/eval-artifacts/v5-model-study/RESULTS.md) · [decision record](https://github.com/bryanch0430-web/Pathfinder/blob/main/docs/eval-artifacts/v5-model-study/PART_MODEL_DECISIONS.md) · [report evidence](https://github.com/bryanch0430-web/Pathfinder/blob/main/docs/eval-artifacts/v5-model-study/REPORT_EVIDENCE.md) · workbook `v5_model_study.xlsx` / `.xls`.
+
+**Results at a glance** (from the v5 model study):
+
+![Routing accuracy by model and component-suite pass rates](images/fig-results.png)
+
+![Constraint verifier: correct vs false pass by model and temperature](images/fig-verifier.png)
+
+![TravelPlanner screening and 20-case pilot](images/fig-tp-pilot.png)
 
 The proposal datasets (the same frozen cases as `main`) run through the real pipeline
 with sandbox evidence. Install the test dependencies once (see
