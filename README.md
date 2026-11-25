@@ -116,6 +116,11 @@ The technical map is [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); the diagram
 source image is
 [docs/architecture/pathfinder-v5-one-turn.png](docs/architecture/pathfinder-v5-one-turn.png).
 
+**Data flow:** where your words, the source records and the saved plan go, and what is
+deliberately kept out.
+
+![Data flow: input, turn context, evidence, plan and checks, saved plan](docs/report/assets/fig-dataflow.png)
+
 ## Why a revamp
 
 The `main` branch (v1.18.0) works, and its `backend/app` is 56,831 Python lines:
@@ -161,7 +166,8 @@ two missing from v5 are the SPA catch-all (replaced by a static mount) and the a
 trace-span reader. The frontend differs in 17 of its 118 main-branch source files,
 plus one new Models settings file (574 lines added, 610 removed), mostly the settings
 surface and its copy. The test gap is the honest cost of the rewrite: 52 test
-functions against main's 2,326.
+functions at the rewrite against main's 2,326 (now 281 test functions in 28 files,
+372 collected tests).
 
 ## Quick start
 
@@ -410,6 +416,14 @@ See [docs/IMAGE_IMPORT.md](docs/IMAGE_IMPORT.md).
 > credit-spending live suite; use the CLI with `EVAL_LIMIT` for experiments.
 
 Part-model evidence (v5, 23 Nov 2026): [TEST_PLAN](docs/eval-artifacts/v5-model-study/TEST_PLAN.md) · [RESULTS](docs/eval-artifacts/v5-model-study/RESULTS.md) · [decision record](docs/eval-artifacts/v5-model-study/PART_MODEL_DECISIONS.md) · [report evidence](docs/eval-artifacts/v5-model-study/REPORT_EVIDENCE.md) · workbook `v5_model_study.xlsx` / `.xls`.
+
+**Results at a glance** (from the v5 model study):
+
+![Routing accuracy by model and component-suite pass rates](docs/report/assets/fig-results.png)
+
+![Constraint verifier: correct vs false pass by model and temperature](docs/report/assets/fig-verifier.png)
+
+![TravelPlanner screening and 20-case pilot](docs/report/assets/fig-tp-pilot.png)
 
 The proposal datasets (the same frozen cases as `main`) run through the real pipeline
 with sandbox evidence. Install the test dependencies once (see

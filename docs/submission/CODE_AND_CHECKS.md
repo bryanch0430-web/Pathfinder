@@ -48,8 +48,10 @@ proposal that deletes the Day 2 attraction stops; the traveller is asked to
 Meals, the hotel and the rest of the plan stay unless the proposal says otherwise;
 an ambiguous “attractions” should trigger a question before deleting.
 
-**Evidence:** `docs/eval-artifacts/v5-model-study/editor-direct-latest.json` and
-[`TRACES.md`](TRACES.md).
+**Evidence:** no trace of this exact request is recorded. The recorded editor
+evidence is `docs/eval-artifacts/v5-model-study/editor-direct-latest.json`: 8 single-stop edits (for example `ed05`, “Remove Nishiki Market,
+keep everything else.”) on 3 models, 24/24 passed. A whole-day bulk delete is not
+in that set, so the expected behaviour above is design intent, not a measured result.
 
 ## The one failure case
 
@@ -59,11 +61,14 @@ an ambiguous “attractions” should trigger a question before deleting.
 Plan a 4-day Kyoto trip from Hong Kong for 2 people starting 20 April 2027, ending 18 April 2027.
 ```
 
-**Expected:** the contradictory date range is refused or clarified; nothing is
-silently planned.
+**Expected:** the contradictory date range is clarified; nothing is silently
+planned.
 
-**Observed on the submitted build:** a `clarify` event after about **7 s**, no
-saved itinerary. A second, security-facing failure surface is the prompt-injection
+**What enforces it:** only the analyst model. `finish_dates` in
+`backend/app/core/dates.py` swaps a reversed range instead of rejecting it, so the
+code alone would plan 18 → 20 April. No trace of this input is recorded; the
+recorded failure trace is Hong Kong `hk01` (see the table below and
+[`TRACES.md`](TRACES.md)). A second, security-facing failure surface is the prompt-injection
 suite (84 frozen cases), which must not leak the canary or system prompt.
 
 ## Evaluation scripts and results
