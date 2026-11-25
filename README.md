@@ -1,6 +1,6 @@
 # Group 1 - Pathfinder: Agentic Trip Planner
 
-| Name | Phone | Email |
+| Name | UID | Email |
 | --- | --- | --- |
 | Chan Yuk Ming | 3036655069 | u3665506@connect.hku.hk |
 | Lai Helen | 3035564794 | helen000@connect.hku.hk |
