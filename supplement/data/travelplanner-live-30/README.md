@@ -9,12 +9,12 @@ This folder is the 24 November 2026 run of 30 public TravelPlanner test queries 
 | `tp30-report.md` | The checking report. Headline numbers and the 30-row table. |
 | `tp30-results.json` | Raw per-case checks, tool status, constraint pass/fail/unknown, and plan totals. |
 | `run_tp30.py` | The runner and the scorer. |
-| `runs/TP-*.db` | One saved session per case. |
-| `data/test.csv` | The public test split (1,000 rows) the sample was drawn from. `train.csv` and `validation.csv` are the other splits. |
+| `runs/TP-*.db` | One saved session per case (place-photo keys replaced with `REDACTED_GOOGLE_API_KEY`). |
+| (not included) | The benchmark splits `test.csv`, `train.csv` and `validation.csv` are the public [osunlp/TravelPlanner](https://huggingface.co/datasets/osunlp/TravelPlanner) dataset (CC BY 4.0). |
 
 ## What was run
 
-- Code: Pathfinder `main` at `017e3bf`.
+- Code: Pathfinder `main` at `017e3bf` (24 November 2026). This is an earlier build than the submitted tag `submission-v5.2.11`: the application code changed after it, so treat this run as a diagnostic of that build.
 - Writer: Claude Sonnet 5.5 through Poe. Verifier: DeepSeek Flash. Sandbox off, so places, hotels, flights, weather, and videos were live.
 - Clock given to the router: 1 March 2022, so a March 2022 trip is not treated as the past. Live flight and weather providers still have no March 2022 data, so those two workers come back partial and the flight fare is a labelled estimate.
 - Sample: Hugging Face `osunlp/TravelPlanner`, test split, seed `20261124`. Ten easy, ten medium, ten hard. Inside each level: 4 one-city, 3 two-city, 3 three-city.

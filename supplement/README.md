@@ -328,19 +328,25 @@ Table S11 follows one recorded modification turn step by step and names the code
 
 ## S8. Data index
 
-All paths are relative to this folder. SQLite files are Pathfinder session databases (tables `sessions`,
-`messages`, `plans`, `kv` and so on) and open with any SQLite browser.
+The raw data are in [`data/`](data/), one folder per evaluation suite, each with a short README. The full index,
+from every result in the report to its file, is [`data/README.md`](data/README.md).
 
-| Folder | Contents | Supports in the report |
-|---|---|---|
-| [`data/submitted-build-runs/`](data/submitted-build-runs/) | `summary.json` (every suite on the submitted build); per-suite results: `boundary_suite-*.json`, `indirect_injection-*.json`, `baseline_single_llm-*.json`, `paired_edit_replan-*.json`, `skills_ablation-*.json`, `reasoning_ablation-*.json`, `travelplanner_sample-*.json`; session databases of the three Hong Kong runs (`hk_r1–3.db`), the three Japan and TravelPlanner-style runs (`jp_tp_r1–3.db`), routing, injection, boundary and skill-ablation batches; console logs; `commit.txt` | Table 3 (plan suites in three runs, boundary suite, injection, single call, edit against replan, skill ablation, reasoning effort); Sections 4 and 5 |
-| [`data/live-trips/`](data/live-trips/) | The five future trips planned with live tools (Hong Kong, Chengdu, Chiba, Taipei in February, Taipei in December): exported plans and turn logs | Section 4 failure situations, Figure 3, Table 2 (the traced Hong Kong edit) |
-| [`data/travelplanner-live-30/`](data/travelplanner-live-30/) | Runner and scorer `run_tp30.py`, `tp30-report.md`, per-case `tp30-results.json`, one session database per query (`runs/TP-*.db`) | TravelPlanner live run (Section 5.2, Figure S7) |
-| [`data/modify-vs-replan/`](data/modify-vs-replan/) | Runtime edit-against-plan measurements of 25 November with CSVs and figures | Supporting evidence for the edit path |
-| [`data/harness/`](data/harness/) | Evaluation harness used for the submitted-build runs (`batch_b.py`, `batch_c.py`, `batch_d.py`, `offline.py`, `analyze_results.py`, `run_all.ps1`) | How the runs were produced |
-| [`data/method/EVALUATION.md`](data/method/EVALUATION.md) | Evaluation method notes | Section 5.1 |
-| [`../docs/eval-artifacts/`](../docs/eval-artifacts/) | Earlier model study: routing arms, components, verifier, temperature, pricing, routing confidence | Figure 2; Table 3 routing and components; Section S2 |
-| [`figures/`](figures/) | Every figure of the report and of this supplement (`figures/team/` holds the group's own result charts) | — |
+| Folder | Report result |
+|---|---|
+| [`data/plan-suites/`](data/plan-suites/) | Plan suites in three runs (Table 3; Figure S3) |
+| [`data/boundary-suite/`](data/boundary-suite/) | Boundary suite, 18 of 22 (Table 3) |
+| [`data/injection-indirect/`](data/injection-indirect/) | 48 indirect injection probes (Table 3, with the 24 direct probes in [`docs/EVALUATION.md`](../docs/EVALUATION.md)) |
+| [`data/single-call-baseline/`](data/single-call-baseline/) | Pathfinder against a single model call (Table 3; Figure S4) |
+| [`data/edit-vs-replan/`](data/edit-vs-replan/) | Typed edit against a full replan (Table 3; Figure S6) |
+| [`data/skill-ablation/`](data/skill-ablation/) | Skills against a minimal prompt (Table 3; Figure S5) |
+| [`data/reasoning-effort/`](data/reasoning-effort/) | Reasoning effort on the routing prompt (Table S10) |
+| [`data/travelplanner-sample-12/`](data/travelplanner-sample-12/) | 12-query TravelPlanner sample (Table 3) |
+| [`data/travelplanner-live-30/`](data/travelplanner-live-30/) | 30 live TravelPlanner queries (Section 5.2; Figure S7) |
+| [`data/live-trips/`](data/live-trips/) | Five live trips (Section 4, Figure 3, Table 2) |
+| [`data/excluded/`](data/excluded/) | Runs kept for transparency that feed no number |
+| [`data/harness/`](data/harness/), [`data/run-logs/`](data/run-logs/) | Scripts and console logs (method notes: [`docs/EVALUATION.md`](../docs/EVALUATION.md)) |
+| [`../docs/eval-artifacts/`](../docs/eval-artifacts/) | Earlier model study: routing arms, components, verifier, temperature, pricing (Figure 2; Section S2) |
+| [`figures/`](figures/) | Every figure of the report and of this supplement |
 
 **Redaction.** A Google Maps API key embedded in place-photo links inside the live-trip exports and the TravelPlanner
 session databases was replaced with `REDACTED_GOOGLE_API_KEY` before upload; nothing else was changed. The test inputs
@@ -358,7 +364,8 @@ $env:PYTHONPATH = "."; $env:PATHFINDER_SANDBOX = "1"; $env:DATABASE_PATH = "data
 .\.venv\Scripts\python.exe scripts\run_eval.py routing injection hongkong japan travelplanner efficiency edit
 ```
 
-The harness scripts in `data/harness/` reproduce the batches of the submitted-build runs; `run_all.ps1` lists the order.
+The harness scripts in `data/harness/` reproduce the batches of the submitted-build runs; `run_all.ps1` lists the order,
+and `data/harness/README.md` explains the paths to change.
 
 ## References
 

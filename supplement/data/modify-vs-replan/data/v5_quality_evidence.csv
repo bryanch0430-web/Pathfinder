@@ -1,6 +1,0 @@
-measure,numerator,denominator,valid_for_quality,source
-applied edit: requested targets removed,3,3,yes,v5-runtime-applied-session-2026-11-25.json
-applied edit: untouched items preserved,3,3,yes,v5-runtime-applied-session-2026-11-25.json
-editor-direct Sonnet: correct edits,8,8,yes,v5-model-study/editor-direct-latest.json
-edit suite: stops preserved,5,5,no,v5-model-study/edit_vs_replan-sonnet-20261123-085453.json; proposal not applied
-paired edit vs replan quality,,,not measured,no v5 replan arm
