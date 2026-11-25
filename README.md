@@ -205,6 +205,35 @@ The same process serves the API and the built UI (`frontend/dist`). Useful flags
 Without a writer key the app still starts and the Settings page explains what is
 missing; planning turns answer that the model is not configured.
 
+### Run with Docker
+
+Docker needs no local Python or Node. The `Dockerfile` builds the React UI in a
+Node stage, then runs the API and the built UI from one Python 3.13 container on
+port 8100. API keys are not copied into the image; they are read from `.env`
+when the container starts.
+
+```bash
+cp .env.example .env        # then add a writer key (Windows: copy .env.example .env)
+```
+
+```bash
+docker build -t pathfinder:v5 .
+```
+
+```bash
+docker run --rm -p 8100:8100 --env-file .env -v pathfinder-data:/app/data pathfinder:v5
+```
+
+Open **http://localhost:8100**. The `pathfinder-data` volume keeps the SQLite
+database, traces and caches between runs; drop `-v …` for a throw-away container.
+Add `-e PATHFINDER_SANDBOX=1` for the offline place corpus (same as
+`start.ps1 -Sandbox`).
+
+Inside a container, browser requests arrive from the Docker network rather than
+`127.0.0.1`, so `LOCAL_ADMIN` does not grant operator access. Use the
+`ADMIN_TOKEN` from `.env` for the operator pages, and change `ADMIN_TOKEN`
+and `SECRET_KEY` before exposing the container beyond your own machine.
+
 ### Dependency versions
 
 Tested versions for this submission (declared ranges are in

@@ -39,3 +39,6 @@ var/
 
 # Diagram tool working files (finished diagrams live in docs/architecture)
 .archify/
+
+# pip download leftovers
+backend/pip-unpack-*/
