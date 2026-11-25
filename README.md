@@ -547,6 +547,35 @@ capabilities:
 | **Bulk test lists** | Reference only. The large TravelPlanner/regional sets were executed offline earlier; they are not started from the page and are not the official benchmark score. |
 | **Accounts and billing** | Local mock-ups. No real sign-up, payment, email or subscription is created. |
 | **Sandbox evidence** | Curated 12-city corpus replacing paid providers; marked `data_status: stale`. Model calls still use the configured provider. |
+| **Human handoff and the Desk** | Proof of concept, not a core feature. Escalation and the contact-centre-style Desk are implemented and tested, but no staffed support operation or public deployment runs behind them. |
+
+### Human handoff and the Desk
+
+Automatic escalation and the contact-centre-style **Desk** are a proof of concept,
+included for completeness rather than as a core capability of the submitted system.
+
+A chat is escalated to a person in three cases:
+
+1. **The traveller asks for one.** A phrase switch covers the operator's configured
+   phrases and the analyst's own `wants_human` reading, so "off" really means no
+   live-agent request.
+2. **The chat is stuck.** The same edit failing three times (`stuck_after`) moves the
+   chat to the queue instead of repeating the refusal.
+3. **Frustration passes the threshold.** When the switch is on, the analyst's
+   frustration score at or above `frustration_at` (default 0.75) escalates the turn.
+
+Escalation marks the session held, streams a reply that says a person will take over,
+and writes a durable message. The Desk then offers a queue, hold and release, an
+operator note the traveller can see, running and editing turns against the
+traveller's own chat, plan editing and layout changes, a brief, revision history and
+undo.
+
+What is mocked or absent: no staffed desk, no operator training, no 24/7 coverage and
+no public deployment, so response time and coverage are unproven. The sentiment badge
+in the Desk list is a fixed placeholder (score `0.0`, label "calm"), not a live
+sentiment model; only the analyst's frustration score feeds the escalation decision.
+The correct claim is therefore that the handoff is implemented and testable, not that
+a production support operation exists.
 
 ## Known limits
 
@@ -568,6 +597,7 @@ capabilities:
   supported at a basic level, but the turn budget (`TURN_DEADLINE_SECONDS`, default
   300 s), pre-plan budget and per-answer token cap can end them in a timeout,
   partial plan or fallback. Prefer single-city trips with a normal day length.
-- **Image import and the evaluation/error-analysis views are demo-only** (see
+- **Image import, the evaluation/error-analysis views, and the human handoff with
+  its Desk are demo-only** (see
   [Mocked and demo-only functions](#mocked-and-demo-only-functions)). They are not
-  production OCR, QA or benchmark infrastructure.
+  production OCR, QA, benchmark or staffed-support infrastructure.
