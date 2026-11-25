@@ -204,20 +204,31 @@ missing; planning turns answer that the model is not configured.
 
 Docker needs no local Python or Node. The `Dockerfile` builds the React UI in a
 Node stage, then runs the API and the built UI from one Python 3.13 container on
-port 8100. API keys are not copied into the image; they are read from `.env`
-when the container starts.
+port 8100. The image carries the defaults from `.env.example` (placeholders, no
+real keys); your own settings override them when the container starts.
+
+```bash
+docker build -t pathfinder:v5 .
+```
+
+**Option A: run with the defaults.** The app starts without any setup; add your
+model key afterwards on the Settings page (bring-your-own-key).
+
+```bash
+docker run --rm -p 8100:8100 -v pathfinder-data:/app/data pathfinder:v5
+```
+
+**Option B: run with your own `.env`.** Every value in it overrides the default.
 
 ```bash
 cp .env.example .env        # then add a writer key (Windows: copy .env.example .env)
 ```
 
 ```bash
-docker build -t pathfinder:v5 .
-```
-
-```bash
 docker run --rm -p 8100:8100 --env-file .env -v pathfinder-data:/app/data pathfinder:v5
 ```
+
+A single value can also be set with `-e`, for example `-e LLM_API_KEY=...`.
 
 Open **http://localhost:8100**. The `pathfinder-data` volume keeps the SQLite
 database, traces and caches between runs; drop `-v …` for a throw-away container.

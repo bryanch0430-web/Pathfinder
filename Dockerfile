@@ -1,9 +1,10 @@
 # Pathfinder v5 — one container serves the API and the built React UI.
 #
 #   docker build -t pathfinder:v5 .
-#   docker run --rm -p 8100:8100 --env-file .env -v pathfinder-data:/app/data pathfinder:v5
+#   docker run --rm -p 8100:8100 -v pathfinder-data:/app/data pathfinder:v5                  # defaults
+#   docker run --rm -p 8100:8100 --env-file .env -v pathfinder-data:/app/data pathfinder:v5  # your own .env
 #
-# Keys are never baked into the image: pass them at run time with --env-file.
+# Real keys are never baked into the image: pass them at run time, or add them in Settings.
 
 # ---- stage 1: build the UI --------------------------------------------------
 FROM node:22-slim AS ui
@@ -25,6 +26,11 @@ RUN pip install --no-cache-dir -r backend/requirements.txt
 
 COPY backend/ backend/
 COPY --from=ui /app/frontend/dist frontend/dist
+
+# Default settings: the example file (placeholders only, no real keys). Anything
+# passed with --env-file or -e overrides it, because environment variables take
+# precedence over the .env file.
+COPY .env.example .env
 
 # SQLite database, traces and caches live in /app/data (mount a volume to keep them).
 RUN useradd --create-home pathfinder \
