@@ -1,0 +1,127 @@
+{
+  "dataset": "japan",
+  "passed": 6,
+  "case_count": 6,
+  "latency_ms": 692110.6,
+  "metrics": [
+    {
+      "key": "cases_passed",
+      "label": "Cases passed",
+      "value": 6,
+      "unit": "cases",
+      "baseline": 6,
+      "delta": 0,
+      "direction": "flat"
+    },
+    {
+      "key": "grounding",
+      "label": "Grounded plans",
+      "value": 100.0,
+      "unit": "%",
+      "baseline": 100,
+      "delta": 0.0,
+      "direction": "flat"
+    },
+    {
+      "key": "constraints_met",
+      "label": "Constraints met",
+      "value": 100.0,
+      "unit": "%",
+      "baseline": 100,
+      "delta": 0.0,
+      "direction": "flat"
+    }
+  ],
+  "cases": [
+    {
+      "case_id": "jp01",
+      "passed": true,
+      "failure_class": "",
+      "scores": {
+        "tokens": 31934,
+        "llm_calls": 4,
+        "constraints_met": 2,
+        "constraints_total": 2,
+        "grounding": 1.0
+      },
+      "output_summary": "Four relaxed-to-balanced days in Kyoto that start with an easy Gion evening on arrival. They cover Fushimi Inari, the eastern temples, Arashiyama and the Golden and Silver Pavilions, then finish with a short morning at Nijo Castle and Nishiki Market before you leave. Stops are grouped by district to keep transit short, and the total comes to roughly ¥153,000, well inside the ¥400,000 budget.\n\nDay ",
+      "latency_ms": 93588.2,
+      "trace_id": "60d73b26b1c84432aa62915fd53333a0"
+    },
+    {
+      "case_id": "jp02",
+      "passed": true,
+      "failure_class": "",
+      "scores": {
+        "tokens": 43369,
+        "llm_calls": 4,
+        "constraints_met": 1,
+        "constraints_total": 1,
+        "grounding": 1.0
+      },
+      "output_summary": "Five days in Tokyo that pair classic sights (Senso-ji, Tokyo Tower, Skytree, Meiji Jingu) with a teamLab and Ghibli day and a slower Shinjuku and Aoyama day. The plan assumes you land on the evening of the 3rd, so day one is a light night-view loop. You stay in central Ginza, and the total comes in well under the ¥600,000 budget.\n\nDay 1 (2027-05-03): Tokyo Tower, Afuri Ebisu, Shibuya Crossing.\n\nDa",
+      "latency_ms": 158921.1,
+      "trace_id": "8d79524116da47b1a6c8896b1dc45eaf"
+    },
+    {
+      "case_id": "jp03",
+      "passed": true,
+      "failure_class": "",
+      "scores": {
+        "tokens": 43417,
+        "llm_calls": 6,
+        "constraints_met": 2,
+        "constraints_total": 2,
+        "grounding": 1.0
+      },
+      "output_summary": "A three-day Osaka trip that arrives in the afternoon for Shinsekai and the neon of Dotonbori, spends the middle day on the castle, the aquarium and a sunset view over Umeda, and ends with a gentle shrine-and-market morning before departure. Every meal is at a vegan kitchen to keep the trip vegetarian, and the total stays well inside the 250,000 JPY budget.\n\nDay 1 (2027-06-12): Tsutenkaku, Green Ea",
+      "latency_ms": 135518.8,
+      "trace_id": "9fdb35bb6baf4488a032563d84c167e9"
+    },
+    {
+      "case_id": "jp04",
+      "passed": true,
+      "failure_class": "",
+      "scores": {
+        "tokens": 44417,
+        "llm_calls": 6,
+        "constraints_met": 3,
+        "constraints_total": 3,
+        "grounding": 1.0
+      },
+      "output_summary": "A two-day Tokyo trip with the Ghibli Museum, Senso-ji and a few classic Tokyo sights. Day 1 is an afternoon-and-evening loop from Asakusa to Shibuya, and Day 2 is a relaxed morning at the Ghibli Museum followed by lunch and a shrine walk. The total comes to roughly ¥118,000 against the ¥200,000 budget.\n\nDay 1 (2027-09-18): Senso-ji, Tokyo Skytree, Afuri Ebisu, Shibuya Crossing.\n\nDay 2 (2027-09-19)",
+      "latency_ms": 113737.1,
+      "trace_id": "99ce19bfaac343e3819a7c7250ab836b"
+    },
+    {
+      "case_id": "jp05",
+      "passed": true,
+      "failure_class": "",
+      "scores": {
+        "tokens": 38984,
+        "llm_calls": 6,
+        "constraints_met": 3,
+        "constraints_total": 3,
+        "grounding": 1.0
+      },
+      "output_summary": "A compact two-day Osaka trip built around Osaka Castle on arrival day, followed by the neon of Dotonbori after dark. Day 2 is a lighter morning of a shrine and the retro Shinsekai district, leaving room for the journey home. Every meal is at a fully vegetarian kitchen, and the plan stays well under budget.\n\nDay 1 (2027-11-20): Osaka Castle, Kuromon Market, Dotonbori, Green Earth.\n\nDay 2 (2027-11-2",
+      "latency_ms": 106142.2,
+      "trace_id": "56765417369f47f8aebae40c45951614"
+    },
+    {
+      "case_id": "jp06",
+      "passed": true,
+      "failure_class": "",
+      "scores": {
+        "tokens": 30375,
+        "llm_calls": 4,
+        "constraints_met": 2,
+        "constraints_total": 2,
+        "grounding": 1.0
+      },
+      "output_summary": "Three days in Kyoto: a light arrival afternoon in central Kyoto, a full day in the eastern temple and geisha districts built around Kiyomizu-dera, and an early start at Arashiyama and Fushimi Inari before you head home. A station-area hotel keeps the trip well inside the ¥300,000 budget for four.\n\nDay 1 (2027-10-02): Nijo Castle, Nishiki Market, Nishiki Warai.\n\nDay 2 (2027-10-03): Kiyomizu-dera, S",
+      "latency_ms": 84183.7,
+      "trace_id": "ee741485697d4eca8b85497bf4569a92"
+    }
+  ]
+}

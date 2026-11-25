@@ -1,0 +1,48 @@
+{
+  "generated_at": "2026-11-23T11:04:20.260431+00:00",
+  "base_url": "https://api.chatanywhere.org/v1",
+  "provider": "ChatAnywhere (test-only)",
+  "model_count": 4,
+  "models": [
+    {
+      "model": "glm-5.3",
+      "ok": false,
+      "intent": "",
+      "confidence": null,
+      "latency_ms": 69630.5,
+      "tokens": 8460,
+      "error": "the model's understand answer was unusable: options.start_date.0: Input should be a valid string; options.start_date.1: Input should be a valid string; options.start_date.2: Input should be a valid string | raw: {\n  \"intent\": \"plan\",\n  \"confidence\": 0.92,\n  \"reason_code\": \"plan_with_month_only_needs"
+    },
+    {
+      "model": "kimi-k3",
+      "ok": true,
+      "intent": "plan",
+      "confidence": 0.96,
+      "latency_ms": 4790.7,
+      "tokens": 2715,
+      "error": ""
+    },
+    {
+      "model": "claude-opus-5",
+      "ok": true,
+      "intent": "plan",
+      "confidence": 0.95,
+      "latency_ms": 8797.3,
+      "tokens": 4765,
+      "error": ""
+    },
+    {
+      "model": "gemini-3.8-flash",
+      "ok": true,
+      "intent": "plan",
+      "confidence": 1.0,
+      "latency_ms": 231605.4,
+      "tokens": 4224,
+      "error": ""
+    }
+  ],
+  "jev": {
+    "env_key_present": false,
+    "note": "Jev is optional and is not called by this smoke probe; use JEV_API_KEY when running the router comparison."
+  }
+}

@@ -1,0 +1,1380 @@
+{
+  "jev+sonnet@0.8": {
+    "base": "sonnet-0.0",
+    "jev": "jev",
+    "cutoff": 0.8,
+    "correct": 83,
+    "n": 84,
+    "accuracy": 0.9881,
+    "wilson95": [
+      0.9356,
+      0.9979
+    ],
+    "jev_coverage": 0.655,
+    "llm_fallbacks": 29,
+    "mean_latency_ms": 3329.2,
+    "rows": [
+      {
+        "id": "r01",
+        "expected": "plan",
+        "predicted": "plan",
+        "correct": true,
+        "route": "llm",
+        "latency_ms": 9751.1
+      },
+      {
+        "id": "r02",
+        "expected": "plan",
+        "predicted": "plan",
+        "correct": true,
+        "route": "llm",
+        "latency_ms": 7162.0
+      },
+      {
+        "id": "r03",
+        "expected": "plan",
+        "predicted": "plan",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 582.3
+      },
+      {
+        "id": "r04",
+        "expected": "ask",
+        "predicted": "ask",
+        "correct": true,
+        "route": "llm",
+        "latency_ms": 6372.5
+      },
+      {
+        "id": "r05",
+        "expected": "ask",
+        "predicted": "ask",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 709.2
+      },
+      {
+        "id": "r06",
+        "expected": "ask",
+        "predicted": "ask",
+        "correct": true,
+        "route": "llm",
+        "latency_ms": 6658.0
+      },
+      {
+        "id": "r07",
+        "expected": "modify",
+        "predicted": "modify",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 576.5
+      },
+      {
+        "id": "r08",
+        "expected": "modify",
+        "predicted": "modify",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 443.3
+      },
+      {
+        "id": "r09",
+        "expected": "modify",
+        "predicted": "modify",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 701.3
+      },
+      {
+        "id": "r10",
+        "expected": "modify",
+        "predicted": "modify",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 702.5
+      },
+      {
+        "id": "r11",
+        "expected": "unclear",
+        "predicted": "unclear",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 574.0
+      },
+      {
+        "id": "r12",
+        "expected": "unclear",
+        "predicted": "unclear",
+        "correct": true,
+        "route": "llm",
+        "latency_ms": 6694.1
+      },
+      {
+        "id": "r13",
+        "expected": "unclear",
+        "predicted": "plan",
+        "correct": false,
+        "route": "llm",
+        "latency_ms": 10619.2
+      },
+      {
+        "id": "r14",
+        "expected": "plan",
+        "predicted": "plan",
+        "correct": true,
+        "route": "llm",
+        "latency_ms": 9144.6
+      },
+      {
+        "id": "r15",
+        "expected": "modify",
+        "predicted": "modify",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 443.0
+      },
+      {
+        "id": "r16",
+        "expected": "ask",
+        "predicted": "ask",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 446.6
+      },
+      {
+        "id": "r17",
+        "expected": "ask",
+        "predicted": "ask",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 899.7
+      },
+      {
+        "id": "r18",
+        "expected": "modify",
+        "predicted": "modify",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 765.4
+      },
+      {
+        "id": "r19",
+        "expected": "unclear",
+        "predicted": "unclear",
+        "correct": true,
+        "route": "llm",
+        "latency_ms": 14327.0
+      },
+      {
+        "id": "r20",
+        "expected": "unclear",
+        "predicted": "unclear",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 476.1
+      },
+      {
+        "id": "r21",
+        "expected": "plan",
+        "predicted": "plan",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 897.6
+      },
+      {
+        "id": "r22",
+        "expected": "plan",
+        "predicted": "plan",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 740.3
+      },
+      {
+        "id": "r23",
+        "expected": "plan",
+        "predicted": "plan",
+        "correct": true,
+        "route": "llm",
+        "latency_ms": 8405.4
+      },
+      {
+        "id": "r24",
+        "expected": "plan",
+        "predicted": "plan",
+        "correct": true,
+        "route": "llm",
+        "latency_ms": 11571.900000000001
+      },
+      {
+        "id": "r25",
+        "expected": "plan",
+        "predicted": "plan",
+        "correct": true,
+        "route": "llm",
+        "latency_ms": 9577.9
+      },
+      {
+        "id": "r26",
+        "expected": "plan",
+        "predicted": "plan",
+        "correct": true,
+        "route": "llm",
+        "latency_ms": 9038.1
+      },
+      {
+        "id": "r27",
+        "expected": "plan",
+        "predicted": "plan",
+        "correct": true,
+        "route": "llm",
+        "latency_ms": 9376.6
+      },
+      {
+        "id": "r28",
+        "expected": "plan",
+        "predicted": "plan",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 451.3
+      },
+      {
+        "id": "r29",
+        "expected": "plan",
+        "predicted": "plan",
+        "correct": true,
+        "route": "llm",
+        "latency_ms": 7150.400000000001
+      },
+      {
+        "id": "r30",
+        "expected": "plan",
+        "predicted": "plan",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 737.5
+      },
+      {
+        "id": "r31",
+        "expected": "plan",
+        "predicted": "plan",
+        "correct": true,
+        "route": "llm",
+        "latency_ms": 8676.599999999999
+      },
+      {
+        "id": "r32",
+        "expected": "plan",
+        "predicted": "plan",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 462.1
+      },
+      {
+        "id": "r33",
+        "expected": "plan",
+        "predicted": "plan",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 744.5
+      },
+      {
+        "id": "r34",
+        "expected": "plan",
+        "predicted": "plan",
+        "correct": true,
+        "route": "llm",
+        "latency_ms": 9055.7
+      },
+      {
+        "id": "r35",
+        "expected": "plan",
+        "predicted": "plan",
+        "correct": true,
+        "route": "llm",
+        "latency_ms": 6091.099999999999
+      },
+      {
+        "id": "r36",
+        "expected": "plan",
+        "predicted": "plan",
+        "correct": true,
+        "route": "llm",
+        "latency_ms": 8233.6
+      },
+      {
+        "id": "r37",
+        "expected": "modify",
+        "predicted": "modify",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 819.6
+      },
+      {
+        "id": "r38",
+        "expected": "modify",
+        "predicted": "modify",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 974.2
+      },
+      {
+        "id": "r39",
+        "expected": "modify",
+        "predicted": "modify",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 676.1
+      },
+      {
+        "id": "r40",
+        "expected": "modify",
+        "predicted": "modify",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 622.5
+      },
+      {
+        "id": "r41",
+        "expected": "modify",
+        "predicted": "modify",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 905.4
+      },
+      {
+        "id": "r42",
+        "expected": "modify",
+        "predicted": "modify",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 608.4
+      },
+      {
+        "id": "r43",
+        "expected": "modify",
+        "predicted": "modify",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 611.3
+      },
+      {
+        "id": "r44",
+        "expected": "modify",
+        "predicted": "modify",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 471.4
+      },
+      {
+        "id": "r45",
+        "expected": "modify",
+        "predicted": "modify",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 732.8
+      },
+      {
+        "id": "r46",
+        "expected": "modify",
+        "predicted": "modify",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 752.4
+      },
+      {
+        "id": "r47",
+        "expected": "modify",
+        "predicted": "modify",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 618.9
+      },
+      {
+        "id": "r48",
+        "expected": "modify",
+        "predicted": "modify",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 476.9
+      },
+      {
+        "id": "r49",
+        "expected": "modify",
+        "predicted": "modify",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 943.1
+      },
+      {
+        "id": "r50",
+        "expected": "modify",
+        "predicted": "modify",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 642.1
+      },
+      {
+        "id": "r51",
+        "expected": "ask",
+        "predicted": "ask",
+        "correct": true,
+        "route": "llm",
+        "latency_ms": 6187.0
+      },
+      {
+        "id": "r52",
+        "expected": "ask",
+        "predicted": "ask",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 465.8
+      },
+      {
+        "id": "r53",
+        "expected": "ask",
+        "predicted": "ask",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 904.0
+      },
+      {
+        "id": "r54",
+        "expected": "ask",
+        "predicted": "ask",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 761.0
+      },
+      {
+        "id": "r55",
+        "expected": "ask",
+        "predicted": "ask",
+        "correct": true,
+        "route": "llm",
+        "latency_ms": 8110.2
+      },
+      {
+        "id": "r56",
+        "expected": "ask",
+        "predicted": "ask",
+        "correct": true,
+        "route": "llm",
+        "latency_ms": 6641.5
+      },
+      {
+        "id": "r57",
+        "expected": "ask",
+        "predicted": "ask",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 868.1
+      },
+      {
+        "id": "r58",
+        "expected": "ask",
+        "predicted": "ask",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 593.0
+      },
+      {
+        "id": "r59",
+        "expected": "ask",
+        "predicted": "ask",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 593.1
+      },
+      {
+        "id": "r60",
+        "expected": "ask",
+        "predicted": "ask",
+        "correct": true,
+        "route": "llm",
+        "latency_ms": 6452.099999999999
+      },
+      {
+        "id": "r61",
+        "expected": "ask",
+        "predicted": "ask",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 910.7
+      },
+      {
+        "id": "r62",
+        "expected": "ask",
+        "predicted": "ask",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 1051.9
+      },
+      {
+        "id": "r63",
+        "expected": "ask",
+        "predicted": "ask",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 774.6
+      },
+      {
+        "id": "r64",
+        "expected": "ask",
+        "predicted": "ask",
+        "correct": true,
+        "route": "llm",
+        "latency_ms": 5864.900000000001
+      },
+      {
+        "id": "r65",
+        "expected": "ask",
+        "predicted": "ask",
+        "correct": true,
+        "route": "llm",
+        "latency_ms": 6742.6
+      },
+      {
+        "id": "r66",
+        "expected": "unclear",
+        "predicted": "unclear",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 626.7
+      },
+      {
+        "id": "r67",
+        "expected": "unclear",
+        "predicted": "unclear",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 785.5
+      },
+      {
+        "id": "r68",
+        "expected": "unclear",
+        "predicted": "unclear",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 490.9
+      },
+      {
+        "id": "r69",
+        "expected": "unclear",
+        "predicted": "unclear",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 751.4
+      },
+      {
+        "id": "r70",
+        "expected": "unclear",
+        "predicted": "unclear",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 747.8
+      },
+      {
+        "id": "r71",
+        "expected": "unclear",
+        "predicted": "unclear",
+        "correct": true,
+        "route": "llm",
+        "latency_ms": 14996.0
+      },
+      {
+        "id": "r72",
+        "expected": "unclear",
+        "predicted": "unclear",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 730.5
+      },
+      {
+        "id": "r73",
+        "expected": "unclear",
+        "predicted": "unclear",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 866.8
+      },
+      {
+        "id": "r74",
+        "expected": "unclear",
+        "predicted": "unclear",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 593.5
+      },
+      {
+        "id": "r75",
+        "expected": "unclear",
+        "predicted": "unclear",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 598.3
+      },
+      {
+        "id": "r76",
+        "expected": "unclear",
+        "predicted": "unclear",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 450.3
+      },
+      {
+        "id": "r77",
+        "expected": "unclear",
+        "predicted": "unclear",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 890.1
+      },
+      {
+        "id": "r78",
+        "expected": "unclear",
+        "predicted": "unclear",
+        "correct": true,
+        "route": "llm",
+        "latency_ms": 5558.099999999999
+      },
+      {
+        "id": "r79",
+        "expected": "unclear",
+        "predicted": "unclear",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 456.2
+      },
+      {
+        "id": "r80",
+        "expected": "unclear",
+        "predicted": "unclear",
+        "correct": true,
+        "route": "llm",
+        "latency_ms": 6712.900000000001
+      },
+      {
+        "id": "r81",
+        "expected": "plan",
+        "predicted": "plan",
+        "correct": true,
+        "route": "llm",
+        "latency_ms": 8908.9
+      },
+      {
+        "id": "r82",
+        "expected": "modify",
+        "predicted": "modify",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 591.8
+      },
+      {
+        "id": "r83",
+        "expected": "ask",
+        "predicted": "ask",
+        "correct": true,
+        "route": "llm",
+        "latency_ms": 8535.5
+      },
+      {
+        "id": "r84",
+        "expected": "unclear",
+        "predicted": "unclear",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 324.7
+      }
+    ]
+  },
+  "jev+flash@0.8": {
+    "base": "flash-lite-0.0",
+    "jev": "jev",
+    "cutoff": 0.8,
+    "correct": 84,
+    "n": 84,
+    "accuracy": 1.0,
+    "wilson95": [
+      0.9563,
+      1.0
+    ],
+    "jev_coverage": 0.655,
+    "llm_fallbacks": 29,
+    "mean_latency_ms": 1998.3,
+    "rows": [
+      {
+        "id": "r01",
+        "expected": "plan",
+        "predicted": "plan",
+        "correct": true,
+        "route": "llm",
+        "latency_ms": 5601.0
+      },
+      {
+        "id": "r02",
+        "expected": "plan",
+        "predicted": "plan",
+        "correct": true,
+        "route": "llm",
+        "latency_ms": 5271.3
+      },
+      {
+        "id": "r03",
+        "expected": "plan",
+        "predicted": "plan",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 582.3
+      },
+      {
+        "id": "r04",
+        "expected": "ask",
+        "predicted": "ask",
+        "correct": true,
+        "route": "llm",
+        "latency_ms": 4561.0
+      },
+      {
+        "id": "r05",
+        "expected": "ask",
+        "predicted": "ask",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 709.2
+      },
+      {
+        "id": "r06",
+        "expected": "ask",
+        "predicted": "ask",
+        "correct": true,
+        "route": "llm",
+        "latency_ms": 2613.0
+      },
+      {
+        "id": "r07",
+        "expected": "modify",
+        "predicted": "modify",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 576.5
+      },
+      {
+        "id": "r08",
+        "expected": "modify",
+        "predicted": "modify",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 443.3
+      },
+      {
+        "id": "r09",
+        "expected": "modify",
+        "predicted": "modify",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 701.3
+      },
+      {
+        "id": "r10",
+        "expected": "modify",
+        "predicted": "modify",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 702.5
+      },
+      {
+        "id": "r11",
+        "expected": "unclear",
+        "predicted": "unclear",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 574.0
+      },
+      {
+        "id": "r12",
+        "expected": "unclear",
+        "predicted": "unclear",
+        "correct": true,
+        "route": "llm",
+        "latency_ms": 4670.8
+      },
+      {
+        "id": "r13",
+        "expected": "unclear",
+        "predicted": "unclear",
+        "correct": true,
+        "route": "llm",
+        "latency_ms": 5163.0
+      },
+      {
+        "id": "r14",
+        "expected": "plan",
+        "predicted": "plan",
+        "correct": true,
+        "route": "llm",
+        "latency_ms": 5299.099999999999
+      },
+      {
+        "id": "r15",
+        "expected": "modify",
+        "predicted": "modify",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 443.0
+      },
+      {
+        "id": "r16",
+        "expected": "ask",
+        "predicted": "ask",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 446.6
+      },
+      {
+        "id": "r17",
+        "expected": "ask",
+        "predicted": "ask",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 899.7
+      },
+      {
+        "id": "r18",
+        "expected": "modify",
+        "predicted": "modify",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 765.4
+      },
+      {
+        "id": "r19",
+        "expected": "unclear",
+        "predicted": "unclear",
+        "correct": true,
+        "route": "llm",
+        "latency_ms": 4991.5
+      },
+      {
+        "id": "r20",
+        "expected": "unclear",
+        "predicted": "unclear",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 476.1
+      },
+      {
+        "id": "r21",
+        "expected": "plan",
+        "predicted": "plan",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 897.6
+      },
+      {
+        "id": "r22",
+        "expected": "plan",
+        "predicted": "plan",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 740.3
+      },
+      {
+        "id": "r23",
+        "expected": "plan",
+        "predicted": "plan",
+        "correct": true,
+        "route": "llm",
+        "latency_ms": 4618.299999999999
+      },
+      {
+        "id": "r24",
+        "expected": "plan",
+        "predicted": "plan",
+        "correct": true,
+        "route": "llm",
+        "latency_ms": 4452.5
+      },
+      {
+        "id": "r25",
+        "expected": "plan",
+        "predicted": "plan",
+        "correct": true,
+        "route": "llm",
+        "latency_ms": 4944.7
+      },
+      {
+        "id": "r26",
+        "expected": "plan",
+        "predicted": "plan",
+        "correct": true,
+        "route": "llm",
+        "latency_ms": 2885.3
+      },
+      {
+        "id": "r27",
+        "expected": "plan",
+        "predicted": "plan",
+        "correct": true,
+        "route": "llm",
+        "latency_ms": 4783.7
+      },
+      {
+        "id": "r28",
+        "expected": "plan",
+        "predicted": "plan",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 451.3
+      },
+      {
+        "id": "r29",
+        "expected": "plan",
+        "predicted": "plan",
+        "correct": true,
+        "route": "llm",
+        "latency_ms": 5006.400000000001
+      },
+      {
+        "id": "r30",
+        "expected": "plan",
+        "predicted": "plan",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 737.5
+      },
+      {
+        "id": "r31",
+        "expected": "plan",
+        "predicted": "plan",
+        "correct": true,
+        "route": "llm",
+        "latency_ms": 4673.7
+      },
+      {
+        "id": "r32",
+        "expected": "plan",
+        "predicted": "plan",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 462.1
+      },
+      {
+        "id": "r33",
+        "expected": "plan",
+        "predicted": "plan",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 744.5
+      },
+      {
+        "id": "r34",
+        "expected": "plan",
+        "predicted": "plan",
+        "correct": true,
+        "route": "llm",
+        "latency_ms": 3386.6
+      },
+      {
+        "id": "r35",
+        "expected": "plan",
+        "predicted": "plan",
+        "correct": true,
+        "route": "llm",
+        "latency_ms": 4834.9
+      },
+      {
+        "id": "r36",
+        "expected": "plan",
+        "predicted": "plan",
+        "correct": true,
+        "route": "llm",
+        "latency_ms": 2798.0
+      },
+      {
+        "id": "r37",
+        "expected": "modify",
+        "predicted": "modify",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 819.6
+      },
+      {
+        "id": "r38",
+        "expected": "modify",
+        "predicted": "modify",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 974.2
+      },
+      {
+        "id": "r39",
+        "expected": "modify",
+        "predicted": "modify",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 676.1
+      },
+      {
+        "id": "r40",
+        "expected": "modify",
+        "predicted": "modify",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 622.5
+      },
+      {
+        "id": "r41",
+        "expected": "modify",
+        "predicted": "modify",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 905.4
+      },
+      {
+        "id": "r42",
+        "expected": "modify",
+        "predicted": "modify",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 608.4
+      },
+      {
+        "id": "r43",
+        "expected": "modify",
+        "predicted": "modify",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 611.3
+      },
+      {
+        "id": "r44",
+        "expected": "modify",
+        "predicted": "modify",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 471.4
+      },
+      {
+        "id": "r45",
+        "expected": "modify",
+        "predicted": "modify",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 732.8
+      },
+      {
+        "id": "r46",
+        "expected": "modify",
+        "predicted": "modify",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 752.4
+      },
+      {
+        "id": "r47",
+        "expected": "modify",
+        "predicted": "modify",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 618.9
+      },
+      {
+        "id": "r48",
+        "expected": "modify",
+        "predicted": "modify",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 476.9
+      },
+      {
+        "id": "r49",
+        "expected": "modify",
+        "predicted": "modify",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 943.1
+      },
+      {
+        "id": "r50",
+        "expected": "modify",
+        "predicted": "modify",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 642.1
+      },
+      {
+        "id": "r51",
+        "expected": "ask",
+        "predicted": "ask",
+        "correct": true,
+        "route": "llm",
+        "latency_ms": 4728.5
+      },
+      {
+        "id": "r52",
+        "expected": "ask",
+        "predicted": "ask",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 465.8
+      },
+      {
+        "id": "r53",
+        "expected": "ask",
+        "predicted": "ask",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 904.0
+      },
+      {
+        "id": "r54",
+        "expected": "ask",
+        "predicted": "ask",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 761.0
+      },
+      {
+        "id": "r55",
+        "expected": "ask",
+        "predicted": "ask",
+        "correct": true,
+        "route": "llm",
+        "latency_ms": 4553.8
+      },
+      {
+        "id": "r56",
+        "expected": "ask",
+        "predicted": "ask",
+        "correct": true,
+        "route": "llm",
+        "latency_ms": 4337.1
+      },
+      {
+        "id": "r57",
+        "expected": "ask",
+        "predicted": "ask",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 868.1
+      },
+      {
+        "id": "r58",
+        "expected": "ask",
+        "predicted": "ask",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 593.0
+      },
+      {
+        "id": "r59",
+        "expected": "ask",
+        "predicted": "ask",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 593.1
+      },
+      {
+        "id": "r60",
+        "expected": "ask",
+        "predicted": "ask",
+        "correct": true,
+        "route": "llm",
+        "latency_ms": 4509.4
+      },
+      {
+        "id": "r61",
+        "expected": "ask",
+        "predicted": "ask",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 910.7
+      },
+      {
+        "id": "r62",
+        "expected": "ask",
+        "predicted": "ask",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 1051.9
+      },
+      {
+        "id": "r63",
+        "expected": "ask",
+        "predicted": "ask",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 774.6
+      },
+      {
+        "id": "r64",
+        "expected": "ask",
+        "predicted": "ask",
+        "correct": true,
+        "route": "llm",
+        "latency_ms": 4690.3
+      },
+      {
+        "id": "r65",
+        "expected": "ask",
+        "predicted": "ask",
+        "correct": true,
+        "route": "llm",
+        "latency_ms": 5120.6
+      },
+      {
+        "id": "r66",
+        "expected": "unclear",
+        "predicted": "unclear",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 626.7
+      },
+      {
+        "id": "r67",
+        "expected": "unclear",
+        "predicted": "unclear",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 785.5
+      },
+      {
+        "id": "r68",
+        "expected": "unclear",
+        "predicted": "unclear",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 490.9
+      },
+      {
+        "id": "r69",
+        "expected": "unclear",
+        "predicted": "unclear",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 751.4
+      },
+      {
+        "id": "r70",
+        "expected": "unclear",
+        "predicted": "unclear",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 747.8
+      },
+      {
+        "id": "r71",
+        "expected": "unclear",
+        "predicted": "unclear",
+        "correct": true,
+        "route": "llm",
+        "latency_ms": 4792.0
+      },
+      {
+        "id": "r72",
+        "expected": "unclear",
+        "predicted": "unclear",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 730.5
+      },
+      {
+        "id": "r73",
+        "expected": "unclear",
+        "predicted": "unclear",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 866.8
+      },
+      {
+        "id": "r74",
+        "expected": "unclear",
+        "predicted": "unclear",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 593.5
+      },
+      {
+        "id": "r75",
+        "expected": "unclear",
+        "predicted": "unclear",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 598.3
+      },
+      {
+        "id": "r76",
+        "expected": "unclear",
+        "predicted": "unclear",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 450.3
+      },
+      {
+        "id": "r77",
+        "expected": "unclear",
+        "predicted": "unclear",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 890.1
+      },
+      {
+        "id": "r78",
+        "expected": "unclear",
+        "predicted": "unclear",
+        "correct": true,
+        "route": "llm",
+        "latency_ms": 5019.2
+      },
+      {
+        "id": "r79",
+        "expected": "unclear",
+        "predicted": "unclear",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 456.2
+      },
+      {
+        "id": "r80",
+        "expected": "unclear",
+        "predicted": "unclear",
+        "correct": true,
+        "route": "llm",
+        "latency_ms": 4667.3
+      },
+      {
+        "id": "r81",
+        "expected": "plan",
+        "predicted": "plan",
+        "correct": true,
+        "route": "llm",
+        "latency_ms": 3403.1
+      },
+      {
+        "id": "r82",
+        "expected": "modify",
+        "predicted": "modify",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 591.8
+      },
+      {
+        "id": "r83",
+        "expected": "ask",
+        "predicted": "ask",
+        "correct": true,
+        "route": "llm",
+        "latency_ms": 4443.4
+      },
+      {
+        "id": "r84",
+        "expected": "unclear",
+        "predicted": "unclear",
+        "correct": true,
+        "route": "jev",
+        "latency_ms": 324.7
+      }
+    ]
+  }
+}

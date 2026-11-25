@@ -1,0 +1,67 @@
+{
+  "dataset": "travelplanner",
+  "passed": 1,
+  "case_count": 3,
+  "latency_ms": 106357.1,
+  "metrics": [
+    {
+      "key": "cases_passed",
+      "label": "Cases passed",
+      "value": 1,
+      "unit": "cases",
+      "baseline": 3,
+      "delta": -2,
+      "direction": "down"
+    },
+    {
+      "key": "constraints_met",
+      "label": "Constraints met",
+      "value": 100.0,
+      "unit": "%",
+      "baseline": 100,
+      "delta": 0.0,
+      "direction": "flat"
+    }
+  ],
+  "cases": [
+    {
+      "case_id": "tp01",
+      "passed": true,
+      "failure_class": "",
+      "scores": {
+        "tokens": 32382,
+        "llm_calls": 4,
+        "constraints_met": 2,
+        "constraints_total": 2,
+        "grounding": 1.0
+      },
+      "output_summary": "Three days in New York over Christmas week. You get a sunset view and the lights on arrival, a full morning at the Met on Christmas Eve, and a relaxed last day on the High Line and at MoMA. Stops are grouped by neighbourhood, and the day-by-day plan comes in well under your budget.\n\nDay 1 (2026-12-23): Top of the Rock, Times Square, Joe's Pizza.\n\nDay 2 (2026-12-24): The Metropolitan Museum of Art,",
+      "latency_ms": 105485.3,
+      "trace_id": "fb4d7451ac714a828b47d2c6f72b377c"
+    },
+    {
+      "case_id": "tp02",
+      "passed": false,
+      "failure_class": "no_plan",
+      "scores": {
+        "tokens": 0,
+        "llm_calls": 0
+      },
+      "output_summary": "I need one detail before I can plan.",
+      "latency_ms": 441.4,
+      "trace_id": "5e97dff4a5314626b22b396c63d2ff20"
+    },
+    {
+      "case_id": "tp03",
+      "passed": false,
+      "failure_class": "no_plan",
+      "scores": {
+        "tokens": 0,
+        "llm_calls": 0
+      },
+      "output_summary": "I need one detail before I can plan.",
+      "latency_ms": 421.0,
+      "trace_id": "173ef93a2dad4041a770442a173a9c4b"
+    }
+  ]
+}

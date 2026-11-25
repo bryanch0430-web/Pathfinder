@@ -1,0 +1,138 @@
+{
+  "dataset": "japan",
+  "tag": "v5-japan-flash",
+  "passed": 6,
+  "case_count": 6,
+  "latency_ms": 73180.8,
+  "metrics": [
+    {
+      "key": "cases_passed",
+      "label": "Cases passed",
+      "value": 6,
+      "unit": "cases",
+      "baseline": 6,
+      "delta": 0,
+      "direction": "flat"
+    },
+    {
+      "key": "grounding",
+      "label": "Grounded plans",
+      "value": 100.0,
+      "unit": "%",
+      "baseline": 100,
+      "delta": 0.0,
+      "direction": "flat"
+    },
+    {
+      "key": "constraints_met",
+      "label": "Constraints met",
+      "value": 100.0,
+      "unit": "%",
+      "baseline": 100,
+      "delta": 0.0,
+      "direction": "flat"
+    }
+  ],
+  "model_snapshot": {
+    "writer": "claude-sonnet-5.5",
+    "writer_endpoint": "https://api.poe.com/v1",
+    "sandbox": true,
+    "router_threshold": 0.8,
+    "max_repairs": 1
+  },
+  "cases": [
+    {
+      "case_id": "jp01",
+      "passed": true,
+      "failure_class": "",
+      "scores": {
+        "tokens": 16009,
+        "llm_calls": 3,
+        "constraints_met": 2,
+        "constraints_total": 2,
+        "grounding": 1.0
+      },
+      "output_summary": "This balanced 4-day trip to Kyoto combines iconic historical temples, atmospheric districts like Gion, and scenic nature spots. You'll stay at the central Kyoto Tower Hotel and enjoy authentic local dining experiences across the city.\n\nDay 1 (2027-04-10): Kiyomizu-dera, Honke Owariya, Gion, Yasaka Shrine.\n\nDay 2 (2027-04-11): Kinkaku-ji, Kyoto Imperial Palace, Ippudo Kyoto, Nijo Castle.\n\nDay 3 (20",
+      "latency_ms": 20591.4,
+      "trace_id": "acec278dd43047d8a2f12e1ba65cb78b"
+    },
+    {
+      "case_id": "jp02",
+      "passed": true,
+      "failure_class": "",
+      "scores": {
+        "tokens": 25047,
+        "llm_calls": 4,
+        "constraints_met": 1,
+        "constraints_total": 1,
+        "grounding": 1.0
+      },
+      "output_summary": "Enjoy a balanced 5-day cultural and modern exploration of Tokyo, featuring iconic temples, vibrant shopping districts, immersive art museums, and culinary highlights. The trip is tailored for a party of 3, staying centrally with comfortable daily pacing.\n\nDay 1 (2027-05-03): Senso-ji, Tsukiji Outer Market, Sushi Dai, Tokyo Skytree.\n\nDay 2 (2027-05-04): Meiji Jingu, Tonkatsu Maisen Aoyama, Shibuya ",
+      "latency_ms": 27429.7,
+      "trace_id": "f95cb03a221c43ca84ccd07dd35a95f9"
+    },
+    {
+      "case_id": "jp03",
+      "passed": true,
+      "failure_class": "",
+      "scores": {
+        "tokens": 14555,
+        "llm_calls": 3,
+        "constraints_met": 2,
+        "constraints_total": 2,
+        "grounding": 1.0
+      },
+      "output_summary": "This 3-day balanced leisure itinerary in Osaka features iconic city sights, rich cultural heritage, and dedicated vegetarian dining options to meet your hard constraint. You will stay centrally at Cross Hotel Osaka and enjoy a well-paced mix of sightseeing and culinary stops.\n\nDay 1 (2027-06-12): Osaka Castle, Green Earth, Kuromon Market, Dotonbori.\n\nDay 2 (2027-06-13): Sumiyoshi Taisha, Osaka Aqu",
+      "latency_ms": 21549.7,
+      "trace_id": "d25cded7b93346bbb72ce64056103a62"
+    },
+    {
+      "case_id": "jp04",
+      "passed": true,
+      "failure_class": "",
+      "scores": {
+        "tokens": 14820,
+        "llm_calls": 3,
+        "constraints_met": 3,
+        "constraints_total": 3,
+        "grounding": 1.0
+      },
+      "output_summary": "This balanced 2-day Tokyo itinerary features your required visits to Senso-ji and the Ghibli Museum, complemented by scenic gardens, digital art, and fantastic local dining.\n\nDay 1 (2027-09-18): Senso-ji, Tonkatsu Maisen Aoyama, teamLab Planets, Afuri Ebisu.\n\nDay 2 (2027-09-19): Ghibli Museum, Ain Soph Journey, Shinjuku Gyoen, Ichiran Shibuya.\n\nStay: Mitsui Garden Hotel Ginza Premier.\n\nEstimated t",
+      "latency_ms": 19395.4,
+      "trace_id": "ba9bb986fec24c36a0d5cedcd3fd5a60"
+    },
+    {
+      "case_id": "jp05",
+      "passed": true,
+      "failure_class": "",
+      "scores": {
+        "tokens": 22959,
+        "llm_calls": 5,
+        "constraints_met": 3,
+        "constraints_total": 3,
+        "grounding": 1.0
+      },
+      "output_summary": "This two-day balanced itinerary explores Osaka's iconic historical landmarks and vibrant shopping and food districts, featuring dedicated vegetarian dining at Green Earth and a comfortable stay at Cross Hotel Osaka.\n\nDay 1 (2027-11-20): Osaka Castle, Green Earth, Dotonbori, Green Earth.\n\nDay 2 (2027-11-21): Tsutenkaku, Green Earth, Umeda Sky Building.\n\nStay: Cross Hotel Osaka.\n\nEstimated total: 74",
+      "latency_ms": 31023.0,
+      "trace_id": "033db8b82a5c441486a794b4ce3fae26"
+    },
+    {
+      "case_id": "jp06",
+      "passed": true,
+      "failure_class": "",
+      "scores": {
+        "tokens": 14902,
+        "llm_calls": 3,
+        "constraints_met": 2,
+        "constraints_total": 2,
+        "grounding": 1.0
+      },
+      "output_summary": "This balanced 3-day itinerary through Kyoto blends iconic shrines, historic temples, and vibrant local markets. You will stay at the central Hotel Granvia Kyoto with convenient transit access, enjoying structured daily sightseeing and classic culinary stops across the city.\n\nDay 1 (2027-10-02): Honke Owariya, Kiyomizu-dera, Gion, Gion Tanto.\n\nDay 2 (2027-10-03): Kinkaku-ji, Nishiki Market, Nishiki",
+      "latency_ms": 20946.5,
+      "trace_id": "47cea82aff044d488c6b28d0b94eb376"
+    }
+  ],
+  "arm": "flash",
+  "model": "gemini-3.5-flash-lite",
+  "purpose": "plan"
+}

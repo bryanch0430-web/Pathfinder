@@ -1,0 +1,24 @@
+{
+  "generated_at": "2026-11-23T11:32:24.354634+00:00",
+  "base_url": "https://api.chatanywhere.org/v1",
+  "provider": "ChatAnywhere (test-only)",
+  "model_count": 1,
+  "mode": "probe",
+  "models": [
+    {
+      "model": "gemini-3.5-flash-lite",
+      "ok": true,
+      "intent": "plan",
+      "confidence": 1.0,
+      "latency_ms": 4967.2,
+      "tokens": 277,
+      "error": ""
+    }
+  ],
+  "jev": {
+    "env_key_present": true,
+    "note": "Jev is optional; set JEV_API_KEY and pass --jev to call it.",
+    "ok": false,
+    "error": "1 validation error for ChatMessage\nid\n  Field required [type=missing, input_value={'role': 'user', 'content... people in April 2027.'}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.14/v/missing"
+  }
+}
