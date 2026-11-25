@@ -1,6 +1,6 @@
 # Data behind the report
 
-Every number in the report comes from a file in this folder or in [`../../docs/eval-artifacts/`](../../docs/eval-artifacts/).
+Every number in the report comes from a file in this folder.
 Scored results are JSON files; raw turns are Pathfinder session databases (SQLite; tables `sessions`, `messages`,
 `plans`, `eval_runs`, `kv`), which open in any SQLite browser.
 
@@ -8,20 +8,20 @@ Scored results are JSON files; raw turns are Pathfinder session databases (SQLit
 
 | Report claim (Table 4 row, or section) | Folder | Primary file | Headline |
 |---|---|---|---|
-| Routing (84) and the 0.8 confidence cutoff | [`docs/eval-artifacts/v5-model-study`](../../docs/eval-artifacts/v5-model-study/) | `routing-merged.json`, `RESULTS.md` | Sonnet 83/84 at temperature 0 and 0.2 (84/84 on a second endpoint); Jev 79/84 (51 without the plan); at 0.8 the analyst acts on 96%, Jev on 66% |
+| Routing (84) and the 0.8 confidence cutoff | [`earlier-model-study/v5-model-study`](earlier-model-study/v5-model-study/) | `routing-merged.json`, `RESULTS.md` | Sonnet 83/84 at temperature 0 and 0.2 (84/84 on a second endpoint); Jev 79/84 (51 without the plan); at 0.8 the analyst acts on 96%, Jev on 66% |
 | Planning-turn trace (Table 2) | [`plan-suites/`](plan-suites/) | `hk_r3.db`, case `hk01` | Three model calls, 20,131 tokens, 48.2 s; both constraints passed with quoted evidence |
 | Latency target (Table 3) | [`plan-suites/`](plan-suites/) | `eval_runs.latency_ms` in `hk_r1–3.db`, `jp_tp_r1–3.db` | Median 73 s; 45 of 51 planning turns within two minutes; slowest 199 s |
 | Plan suites (17 × 3 runs) | [`plan-suites/`](plan-suites/) | `summary.json` → `plans`; `hk_r1–3.db`, `jp_tp_r1–3.db` | Hong Kong 7, 7, 8 of 8; Japan 5, 5, 6 of 6; TravelPlanner-style 3/3 in every run; every stop sourced |
 | Boundary suite (22) | [`boundary-suite/`](boundary-suite/) | `boundary_suite-20261124-164051.json` | 18/22 (representative 2/3, challenging 7/9, failure 9/10) |
-| Injection (72) | [`injection-indirect/`](injection-indirect/) and [`docs/EVALUATION.md`](../../docs/EVALUATION.md) | `indirect_injection-20261124-154119.json` | 48 indirect probes: no leak, no route change, task done 48/48; 24 direct probes contained |
+| Injection (72) | [`injection-indirect/`](injection-indirect/) and [`method/EVALUATION.md`](method/EVALUATION.md) | `indirect_injection-20261124-154119.json` | 48 indirect probes: no leak, no route change, task done 48/48; 24 direct probes contained |
 | TravelPlanner, 12-query sample | [`travelplanner-sample-12/`](travelplanner-sample-12/) | `travelplanner_sample-20261124-163221.json` | 12 plans; the 6 corpus-city plans fully sourced; 6 other cities left empty with gaps |
 | TravelPlanner, 30 live queries | [`travelplanner-live-30/`](travelplanner-live-30/) | `tp30-results.json`, `tp30-report.md` | 0/30 met every check; 29 plans saved and fully sourced; multi-city 0/17; within budget 8/29 |
-| Components (planner, editor, verifier, answers, memory) | [`docs/eval-artifacts/v5-model-study`](../../docs/eval-artifacts/v5-model-study/) | `RESULTS.md`, `verifier-current.json`, `editor-direct-latest.json`, `ask-adjudicated.json`, `memory-latest.json` | Planner 14/17; editor 8/8; verifier 18/20; answers 11/11; DeepSeek recalls more preferences but invents one |
+| Components (planner, editor, verifier, answers, memory) | [`earlier-model-study/v5-model-study`](earlier-model-study/v5-model-study/) | `RESULTS.md`, `verifier-current.json`, `editor-direct-latest.json`, `ask-adjudicated.json`, `memory-latest.json` | Planner 14/17; editor 8/8; verifier 18/20; answers 11/11; DeepSeek recalls more preferences but invents one |
 | Skill ablation | [`skill-ablation/`](skill-ablation/) | `skills_ablation-20261124-155819.json` | Analyst 83 against 71 of 84; planner 15 against 16 of 17; editor 8/8 both; verifier 15/17 both |
 | Single call (17 × 2) | [`single-call-baseline/`](single-call-baseline/) | `baseline_single_llm-20261124-162649.json` | Pathfinder 30/34, one call with the evidence 27/34, request only 6/34 |
 | Edit against replan (5) | [`edit-vs-replan/`](edit-vs-replan/) | `paired_edit_replan-20261124-160045.json` | Median 11.3 s against 72.5 s; judged 2/5 against 0/5 |
 | Reasoning effort (GPT-5.5) | [`reasoning-effort/`](reasoning-effort/) | `reasoning_ablation-20261124-160808.json` | none 84/84, low 83/84, medium 83/84 |
-| Temperature, output caps, prices | [`docs/eval-artifacts/v5-model-study`](../../docs/eval-artifacts/v5-model-study/) | `TEMPERATURE-RESULTS.md`, `cap-stress-latest.json`, `pricing-20261123.md` | Supplement Tables S7 and S10 |
+| Temperature, output caps, prices | [`earlier-model-study/v5-model-study`](earlier-model-study/v5-model-study/) | `TEMPERATURE-RESULTS.md`, `cap-stress-latest.json`, `pricing-20261123.md` | Supplement Tables S7 and S10 |
 | Failure situations (Section 4), Figure 3, Table S11 | [`live-trips/`](live-trips/) | `*.plan.json`, `*.turn-log.json` | Five future trips planned with live tools |
 
 [`summary.json`](summary.json) collects the scores of the submitted-build runs; it is written by
@@ -42,7 +42,7 @@ Scored results are JSON files; raw turns are Pathfinder session databases (SQLit
 - **Validity screen.** A run whose trace shows no model tokens, or a provider quota error, scores the fallback reply
   rather than the system and is excluded; see [`excluded/`](excluded/).
 
-## Reading the earlier model study (`docs/eval-artifacts`)
+## Reading the earlier model study (`earlier-model-study/`)
 
 - `RESULTS.md` and `PART_MODEL_DECISIONS.md` record the recommendation of 23 November (Gemini 3.5 Flash-Lite for the
   analyst, planner and editor). That is not what shipped: the report explains why Claude Sonnet 5.5 was kept.
@@ -62,6 +62,8 @@ Scored results are JSON files; raw turns are Pathfinder session databases (SQLit
 | `run-logs/` | Console logs of batches B, C and D, and the start record of batch A |
 | `excluded/` | Runs kept for transparency that feed no number in the report |
 | `harness/` | The scripts that produced the submitted-build runs |
+| `earlier-model-study/` | The 22–23 November model study and that week's suite runs (a copy of `docs/eval-artifacts/` from the submitted code) |
+| `method/` | The repository's evaluation method notes (`EVALUATION.md`) |
 
 **Redaction.** A Google Maps API key in place-photo links (live trips and TravelPlanner databases) was replaced with
 `REDACTED_GOOGLE_API_KEY`. The test inputs contain only synthetic personal data (the test card number `4111…` and a

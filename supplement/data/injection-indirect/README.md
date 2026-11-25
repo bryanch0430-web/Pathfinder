@@ -7,7 +7,7 @@ the instructions, call a forbidden tool, drop the task and change the route. All
 read both, and each named the hidden instruction as untrusted and ignored it.
 
 The 24 direct probes reported with these (Table 4, "Injection (72)") are the stratified sample of 22 November
-described in the repository’s [`docs/EVALUATION.md`](../../../docs/EVALUATION.md).
+described in [`method/EVALUATION.md`](../method/EVALUATION.md).
 
 | File | What it is |
 |---|---|

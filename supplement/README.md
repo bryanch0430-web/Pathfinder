@@ -5,12 +5,12 @@ This branch (`submission_data`) holds the data, traces, scripts and extended res
 on its own and keeps four short appendices; everything that did not fit is here.
 
 - **Submitted code:** tag [`submission-v5.2.11`](https://github.com/bryanch0430-web/Pathfinder/tree/submission-v5.2.11)
-  on the [`submission`](https://github.com/bryanch0430-web/Pathfinder/tree/submission) branch. This branch is
-  `submission` plus this `supplement/` folder; nothing outside `supplement/` was changed.
+  on the [`submission`](https://github.com/bryanch0430-web/Pathfinder/tree/submission) branch. This branch holds
+  only this `supplement/` folder.
 - **Runs on the submitted build** were recorded on commit `8f1e0d5` (24 November 2026). Its application code
   (`backend/app`) is identical to the submitted tag; the later commits changed only documentation and diagrams.
-- **Earlier model study** (22–23 November: routing, components, verifier, temperature and pricing) is already on this
-  branch under [`docs/eval-artifacts/`](../docs/eval-artifacts/).
+- **Earlier model study** (22–23 November: routing, components, verifier, temperature and pricing) is in
+  [`data/earlier-model-study/`](data/earlier-model-study/), a copy of `docs/eval-artifacts/` from the submitted code.
 
 ## Contents
 
@@ -335,7 +335,7 @@ from every result in the report to its file, is [`data/README.md`](data/README.m
 |---|---|
 | [`data/plan-suites/`](data/plan-suites/) | Plan suites in three runs, turn times and the traced planning turn (Tables 2, 3 and 4; Figure S3) |
 | [`data/boundary-suite/`](data/boundary-suite/) | Boundary suite, 18 of 22 (Table 4) |
-| [`data/injection-indirect/`](data/injection-indirect/) | 48 indirect injection probes (Table 4, with the 24 direct probes in [`docs/EVALUATION.md`](../docs/EVALUATION.md)) |
+| [`data/injection-indirect/`](data/injection-indirect/) | 48 indirect injection probes (Table 4, with the 24 direct probes in [`data/method/EVALUATION.md`](data/method/EVALUATION.md)) |
 | [`data/single-call-baseline/`](data/single-call-baseline/) | Pathfinder against a single model call (Table 4; Figure S4) |
 | [`data/edit-vs-replan/`](data/edit-vs-replan/) | Typed edit against a full replan (Table 4; Figure S6) |
 | [`data/skill-ablation/`](data/skill-ablation/) | Skills against a minimal prompt (Table 4; Figure S5) |
@@ -344,8 +344,8 @@ from every result in the report to its file, is [`data/README.md`](data/README.m
 | [`data/travelplanner-live-30/`](data/travelplanner-live-30/) | 30 live TravelPlanner queries (Section 5.2; Figure S7) |
 | [`data/live-trips/`](data/live-trips/) | Five live trips (Section 4, Figure 3, Table S11) |
 | [`data/excluded/`](data/excluded/) | Runs kept for transparency that feed no number |
-| [`data/harness/`](data/harness/), [`data/run-logs/`](data/run-logs/) | Scripts and console logs (method notes: [`docs/EVALUATION.md`](../docs/EVALUATION.md)) |
-| [`../docs/eval-artifacts/`](../docs/eval-artifacts/) | Earlier model study: routing arms, components, verifier, temperature, pricing (Figure 2; Section S2) |
+| [`data/harness/`](data/harness/), [`data/run-logs/`](data/run-logs/), [`data/method/`](data/method/) | Scripts, console logs and the evaluation method notes |
+| [`data/earlier-model-study/`](data/earlier-model-study/) | Earlier model study: routing arms, components, verifier, temperature, pricing (Figure 2; Section S2) |
 | [`figures/`](figures/) | Every figure of the report and of this supplement |
 
 **Redaction.** A Google Maps API key embedded in place-photo links inside the live-trip exports and the TravelPlanner
